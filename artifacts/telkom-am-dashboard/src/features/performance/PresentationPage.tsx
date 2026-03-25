@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
+import { useQuery } from "@tanstack/react-query";
 import { formatRupiah, formatPercent, getStatusColor, getAchPct, cn } from "@/shared/lib/utils";
 import {
   Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
@@ -16,6 +17,19 @@ const SLIDES = [
 ];
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
+const BASE_PATH = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
+const FUNNEL_PHASES = ["F0","F1","F2","F3","F4","F5"];
+const FUNNEL_PHASE_LABELS: Record<string,string> = { F0:"Lead",F1:"Prospect",F2:"Quote",F3:"Negosiasi",F4:"Closing",F5:"Won/Closed" };
+const FUNNEL_PHASE_COLORS: Record<string,string> = { F0:"#93c5fd",F1:"#3b82f6",F2:"#818cf8",F3:"#6366f1",F4:"#8b5cf6",F5:"#10b981" };
+
+function fmtNilaiCompact(n: number): string {
+  if (!n) return "–";
+  if (n >= 1e12) return `${(n/1e12).toFixed(1)}T`;
+  if (n >= 1e9) return `${(n/1e9).toFixed(1)}M`;
+  if (n >= 1e6) return `${Math.round(n/1e6)} jt`;
+  return `Rp${n.toLocaleString("id-ID")}`;
+}
 const MONTHS_LABEL = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
 const MONTHS_FULL  = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
 const TIPE_RANK = ["Ach MTD","Real Revenue","YTD"];
@@ -238,6 +252,131 @@ function SelectDropdown({ label, value, onChange, options, className, disabled }
         </div>,
         document.body
       )}
+    </div>
+  );
+}
+
+// ─── Funnel Slide ───────────────────────────────────────────────────────────────
+function FunnelSlide() {
+  const { data: snapshots = [] } = useQuery<any[]>({
+    queryKey: ["funnel-snapshots-pres"],
+    queryFn: async () => {
+      const r = await fetch(`${BASE_PATH}/api/funnel/snapshots`, { credentials: "include" });
+      return r.json();
+    },
+    staleTime: 60_000,
+  });
+
+  const latestId = snapshots[0]?.id;
+
+  const { data, isLoading } = useQuery<any>({
+    queryKey: ["funnel-data-pres", latestId],
+    queryFn: async () => {
+      const r = await fetch(`${BASE_PATH}/api/funnel?import_id=${latestId}`, { credentials: "include" });
+      return r.json();
+    },
+    enabled: !!latestId,
+    staleTime: 30_000,
+  });
+
+  if (isLoading || !data) {
+    return (
+      <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">
+        Memuat data funnel...
+      </div>
+    );
+  }
+
+  const phaseMap: Record<string, { count: number; nilai: number }> = {};
+  for (const p of FUNNEL_PHASES) phaseMap[p] = { count: 0, nilai: 0 };
+  for (const s of (data.byStatus || [])) {
+    if (phaseMap[s.status]) { phaseMap[s.status].count = s.count; phaseMap[s.status].nilai = s.totalNilai; }
+  }
+  const maxCount = Math.max(...FUNNEL_PHASES.map(p => phaseMap[p].count), 1);
+
+  const topAms = [...(data.byAm || [])].sort((a: any, b: any) => b.totalNilai - a.totalNilai).slice(0, 8);
+
+  const snap = snapshots[0];
+  const snapLabel = snap ? (() => {
+    const [y, m] = snap.period.split("-");
+    const ml = ["","Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agt","Sep","Okt","Nov","Des"];
+    return `${ml[parseInt(m)]} ${y}`;
+  })() : "–";
+
+  return (
+    <div className="p-4 space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-base font-bold text-foreground">AM Sales Funnel</h2>
+          <p className="text-xs text-muted-foreground">Snapshot: {snapLabel} · {data.totalLop?.toLocaleString("id-ID")} LOP aktif · {data.amCount} AM</p>
+        </div>
+        <div className="text-right">
+          <div className="text-lg font-bold font-mono text-blue-600">{fmtNilaiCompact(data.totalNilai)}</div>
+          <div className="text-[10px] text-muted-foreground">Total nilai pipeline</div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+        {/* Fase bar chart */}
+        <div className="lg:col-span-2 bg-card border border-border rounded-xl p-4 shadow-sm">
+          <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3">LOP per Fase</div>
+          <div className="space-y-2">
+            {FUNNEL_PHASES.map(phase => {
+              const d = phaseMap[phase];
+              const pct = (d.count / maxCount) * 100;
+              return (
+                <div key={phase} className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold font-mono w-6 text-right text-muted-foreground">{phase}</span>
+                  <div className="flex-1 bg-secondary rounded-sm h-5 overflow-hidden relative">
+                    <div className="h-full rounded-sm transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: FUNNEL_PHASE_COLORS[phase] }} />
+                    {d.count > 0 && (
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-semibold font-mono leading-none"
+                        style={{ color: pct > 30 ? "white" : "#374151" }}>
+                        {d.count}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[10px] font-mono text-muted-foreground w-14 text-right shrink-0">
+                    {fmtNilaiCompact(d.nilai)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* AM leaderboard */}
+        <div className="lg:col-span-3 bg-card border border-border rounded-xl shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b border-border">
+            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Top AM by Nilai Pipeline</div>
+          </div>
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-secondary/50">
+                <th className="text-left px-4 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wide">AM</th>
+                <th className="text-center px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Divisi</th>
+                <th className="text-center px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wide">LOP</th>
+                <th className="text-right px-4 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Nilai</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {topAms.map((am: any, i: number) => (
+                <tr key={am.nik || i} className="hover:bg-secondary/30 transition-colors">
+                  <td className="px-4 py-2 font-medium text-foreground text-[11px]">{am.namaAm || am.nik}</td>
+                  <td className="px-3 py-2 text-center">
+                    <span className={cn("text-[9px] px-1.5 py-0.5 rounded font-medium", am.divisi === "DPS" ? "bg-blue-50 text-blue-700" : "bg-violet-50 text-violet-700")}>
+                      {am.divisi || "–"}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 text-center font-mono text-muted-foreground">{am.totalLop}</td>
+                  <td className="px-4 py-2 text-right font-bold font-mono text-foreground">{fmtNilaiCompact(am.totalNilai)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }
@@ -610,22 +749,8 @@ export default function EmbedPerforma() {
       {/* ─── Main Scrollable Content ─────────────────────── */}
       <div className="flex-1 overflow-y-auto">
 
-      {/* ─── Slide: Sales Funnel (placeholder) ───────────── */}
-      {currentSlide === 1 && (
-        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center p-8">
-          <Filter className="w-16 h-16 text-muted-foreground/30" />
-          <h2 className="text-xl font-bold text-foreground">AM Sales Funnel</h2>
-          <p className="text-sm text-muted-foreground max-w-xs">Visualisasi sales funnel sedang dalam pengembangan. Gunakan ← → atau sidebar untuk berpindah slide.</p>
-          <div className="flex gap-2 mt-4">
-            <button onClick={() => setCurrentSlide(0)} className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border border-border hover:bg-secondary transition-colors">
-              <ChevronLeft className="w-3.5 h-3.5" /> Performa
-            </button>
-            <button onClick={() => setCurrentSlide(2)} className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border border-border hover:bg-secondary transition-colors">
-              Sales Activity <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-      )}
+      {/* ─── Slide: Sales Funnel ──────────────────────────── */}
+      {currentSlide === 1 && <FunnelSlide />}
 
       {/* ─── Slide: Sales Activity (placeholder) ─────────── */}
       {currentSlide === 2 && (

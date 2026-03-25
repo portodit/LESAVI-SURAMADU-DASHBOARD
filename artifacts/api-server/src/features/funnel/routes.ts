@@ -1,27 +1,45 @@
 import { Router, type IRouter } from "express";
-import { db, salesFunnelTable, salesFunnelTargetTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { db, salesFunnelTable, salesFunnelTargetTable, dataImportsTable } from "@workspace/db";
+import { eq, desc } from "drizzle-orm";
 import { requireAuth } from "../../shared/auth";
 
 const router: IRouter = Router();
 
+router.get("/funnel/snapshots", requireAuth, async (req, res): Promise<void> => {
+  const imports = await db
+    .select()
+    .from(dataImportsTable)
+    .where(eq(dataImportsTable.type, "funnel"))
+    .orderBy(desc(dataImportsTable.createdAt));
+
+  res.json(imports.map(imp => ({
+    id: imp.id,
+    period: imp.period,
+    rowsImported: imp.rowsImported,
+    createdAt: imp.createdAt?.toISOString(),
+  })));
+});
+
 router.get("/funnel", requireAuth, async (req, res): Promise<void> => {
-  const { year, month, divisi, status, nama_am } = req.query;
+  const { import_id, divisi, status, nama_am, kategori_kontrak } = req.query;
 
-  let lops = await db.select().from(salesFunnelTable);
+  let allLops = await db.select().from(salesFunnelTable);
 
-  if (divisi) lops = lops.filter(l => l.divisi === String(divisi));
-  if (status) lops = lops.filter(l => l.statusF === String(status));
-  if (nama_am) lops = lops.filter(l => l.namaAm?.toLowerCase().includes(String(nama_am).toLowerCase()));
-  if (year && month) {
-    lops = lops.filter(l => l.reportDate?.startsWith(`${year}-${String(month).padStart(2, "0")}`));
+  if (import_id) {
+    allLops = allLops.filter(l => l.importId === Number(import_id));
   }
+  if (divisi) allLops = allLops.filter(l => l.divisi === String(divisi));
+  if (status) allLops = allLops.filter(l => l.statusF === String(status));
+  if (nama_am) allLops = allLops.filter(l => l.namaAm?.toLowerCase().includes(String(nama_am).toLowerCase()));
+  if (kategori_kontrak) allLops = allLops.filter(l => l.kategoriKontrak === String(kategori_kontrak));
 
-  const totalLop = lops.length;
-  const totalNilai = lops.reduce((s, l) => s + (l.nilaiProyek || 0), 0);
+  const totalLop = allLops.length;
+  const totalNilai = allLops.reduce((s, l) => s + (l.nilaiProyek || 0), 0);
+  const amSet = new Set(allLops.map(l => l.nikAm).filter(Boolean));
+  const pelangganSet = new Set(allLops.map(l => l.pelanggan).filter(Boolean));
 
   const statusGroups = Object.entries(
-    lops.reduce((acc: any, l) => {
+    allLops.reduce((acc: any, l) => {
       const s = l.statusF || "Unknown";
       if (!acc[s]) acc[s] = { status: s, count: 0, totalNilai: 0 };
       acc[s].count++;
@@ -31,9 +49,12 @@ router.get("/funnel", requireAuth, async (req, res): Promise<void> => {
   ).map(([, v]) => v);
 
   const amGroups = Object.entries(
-    lops.reduce((acc: any, l) => {
+    allLops.reduce((acc: any, l) => {
       const key = l.nikAm || l.namaAm || "Unknown";
-      if (!acc[key]) acc[key] = { namaAm: l.namaAm || "", nik: l.nikAm || "", divisi: l.divisi || "", totalLop: 0, totalNilai: 0, shortage: 0, statusMap: {} };
+      if (!acc[key]) acc[key] = {
+        namaAm: l.namaAm || "", nik: l.nikAm || "", divisi: l.divisi || "",
+        totalLop: 0, totalNilai: 0, shortage: 0, statusMap: {}
+      };
       acc[key].totalLop++;
       acc[key].totalNilai += l.nilaiProyek || 0;
       const s = l.statusF || "Unknown";
@@ -42,21 +63,42 @@ router.get("/funnel", requireAuth, async (req, res): Promise<void> => {
       acc[key].statusMap[s].totalNilai += l.nilaiProyek || 0;
       return acc;
     }, {})
-  ).map(([, v]: any) => ({ namaAm: v.namaAm, nik: v.nik, divisi: v.divisi, totalLop: v.totalLop, totalNilai: v.totalNilai, shortage: 0, byStatus: Object.values(v.statusMap) }));
+  ).map(([, v]: any) => ({
+    namaAm: v.namaAm, nik: v.nik, divisi: v.divisi,
+    totalLop: v.totalLop, totalNilai: v.totalNilai, shortage: 0,
+    byStatus: Object.values(v.statusMap),
+  }));
 
-  const targets = await db.select().from(salesFunnelTargetTable);
-  const latestTarget = targets[targets.length - 1];
-  const targetFullHo = latestTarget?.targetFullHo || 0;
-  const shortage = targetFullHo - totalNilai;
+  const targets = await db.select().from(salesFunnelTargetTable).catch(() => []);
+  const latestTarget = targets[targets.length - 1] as any;
+  const targetFullHo = (latestTarget?.targetFullHo as number) || 0;
+  const shortage = targetFullHo > 0 ? targetFullHo - totalNilai : 0;
 
   res.json({
     totalLop, totalNilai, targetFullHo,
     realFullHo: totalNilai,
     shortage,
-    cutoffDate: lops[0]?.reportDate || null,
+    amCount: amSet.size,
+    pelangganCount: pelangganSet.size,
     byStatus: statusGroups,
     byAm: amGroups,
-    lops: lops.map(l => ({ ...l, createdAt: l.createdAt.toISOString() })),
+    lops: allLops.map(l => ({
+      id: l.id,
+      lopid: l.lopid,
+      judulProyek: l.judulProyek,
+      pelanggan: l.pelanggan,
+      nilaiProyek: l.nilaiProyek,
+      divisi: l.divisi,
+      segmen: l.segmen,
+      statusF: l.statusF,
+      proses: l.proses,
+      statusProyek: l.statusProyek,
+      kategoriKontrak: l.kategoriKontrak,
+      estimateBulan: l.estimateBulan,
+      namaAm: l.namaAm,
+      nikAm: l.nikAm,
+      reportDate: l.reportDate,
+    })),
   });
 });
 

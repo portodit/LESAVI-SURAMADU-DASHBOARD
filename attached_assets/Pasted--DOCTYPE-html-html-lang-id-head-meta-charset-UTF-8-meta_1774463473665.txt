@@ -1,0 +1,1215 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LESA VI — Sales Funnel Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f5f4f0;
+  --surface: #ffffff;
+  --surface2: #f0efe9;
+  --border: #e2e0d8;
+  --border-strong: #c8c6bc;
+  --text: #1a1916;
+  --text-2: #5a5850;
+  --text-3: #9a9890;
+  --red: #c53030;
+  --red-bg: #fff5f5;
+  --red-border: #fed7d7;
+  --blue: #1a56a0;
+  --blue-bg: #eff6ff;
+  --blue-border: #bfdbfe;
+  --green: #166534;
+  --green-bg: #f0fdf4;
+  --green-border: #bbf7d0;
+  --amber: #92400e;
+  --amber-bg: #fffbeb;
+  --amber-border: #fde68a;
+  --purple: #5b21b6;
+  --purple-bg: #f5f3ff;
+  --purple-border: #ddd6fe;
+  --sans: 'IBM Plex Sans', sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
+  --radius: 6px;
+  --radius-lg: 10px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  min-height: 100vh;
+}
+
+/* ── TOPBAR ── */
+.topbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 20px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.topbar-left { display: flex; align-items: center; gap: 14px; }
+.brand-mark {
+  width: 32px; height: 32px;
+  background: var(--red);
+  border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 600; color: white;
+  letter-spacing: -0.5px;
+  flex-shrink: 0;
+}
+.brand-text { line-height: 1.3; }
+.brand-title { font-size: 13px; font-weight: 600; color: var(--text); }
+.brand-sub { font-size: 11px; color: var(--text-3); }
+.topbar-right { display: flex; align-items: center; gap: 8px; }
+.cutoff-chip {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 4px 10px;
+  font-size: 11px;
+  color: var(--text-2);
+  font-family: var(--mono);
+}
+.cutoff-chip span { color: var(--text-3); margin-right: 4px; }
+
+/* ── FILTER BAR ── */
+.filterbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  position: sticky;
+  top: 52px;
+  z-index: 90;
+}
+.filter-group { display: flex; flex-direction: column; gap: 3px; }
+.filter-label {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.filter-divider {
+  width: 1px;
+  height: 36px;
+  background: var(--border);
+  margin: 0 4px;
+}
+
+/* ── CUSTOM DROPDOWN ── */
+.dropdown-wrapper { position: relative; }
+.dropdown-trigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 12px;
+  font-family: var(--sans);
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+  min-width: 120px;
+  justify-content: space-between;
+  transition: border-color 0.15s;
+  user-select: none;
+}
+.dropdown-trigger:hover { border-color: var(--border-strong); }
+.dropdown-trigger.open { border-color: var(--blue); }
+.dropdown-trigger .arrow {
+  font-size: 9px;
+  color: var(--text-3);
+  transition: transform 0.15s;
+}
+.dropdown-trigger.open .arrow { transform: rotate(180deg); }
+.dropdown-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 200px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow), 0 8px 24px rgba(0,0,0,0.08);
+  z-index: 200;
+  overflow: hidden;
+}
+.dropdown-menu.open { display: block; }
+.dropdown-menu.right { left: auto; right: 0; }
+.dd-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text);
+  transition: background 0.1s;
+}
+.dd-option:hover { background: var(--surface2); }
+.dd-option.selected { background: var(--blue-bg); color: var(--blue); }
+.dd-option input[type="checkbox"] {
+  accent-color: var(--blue);
+  width: 13px; height: 13px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.dd-divider { height: 1px; background: var(--border); margin: 4px 0; }
+.dd-header {
+  padding: 6px 12px 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.dd-actions {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+  background: var(--surface2);
+}
+.dd-btn {
+  flex: 1;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: 11px;
+  font-family: var(--sans);
+  cursor: pointer;
+  color: var(--text-2);
+  transition: all 0.15s;
+}
+.dd-btn:hover { border-color: var(--border-strong); color: var(--text); }
+.dd-btn.primary {
+  background: var(--blue);
+  color: white;
+  border-color: var(--blue);
+}
+.dd-btn.primary:hover { background: #1648a0; }
+
+.active-badge {
+  background: var(--blue);
+  color: white;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 10px;
+  margin-left: 2px;
+}
+
+/* ── MAIN ── */
+.main { padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
+
+/* ── OVERVIEW ROW ── */
+.overview-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+}
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+  box-shadow: var(--shadow);
+}
+.card-title {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 12px;
+}
+
+/* Bar chart */
+.bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+.bar-phase {
+  font-size: 11px;
+  font-weight: 500;
+  font-family: var(--mono);
+  width: 18px;
+  flex-shrink: 0;
+  text-align: right;
+}
+.bar-track {
+  flex: 1;
+  background: var(--surface2);
+  border-radius: 3px;
+  height: 13px;
+  overflow: hidden;
+}
+.bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+.bar-count {
+  font-size: 11px;
+  font-family: var(--mono);
+  color: var(--text-2);
+  width: 26px;
+  flex-shrink: 0;
+}
+
+/* Progress panel */
+.prog-rows { display: flex; flex-direction: column; gap: 10px; }
+.prog-stat { display: flex; justify-content: space-between; font-size: 12px; }
+.prog-stat .lbl { color: var(--text-2); }
+.prog-stat .val { font-weight: 500; font-family: var(--mono); }
+.prog-track-wrap {
+  background: var(--surface2);
+  border-radius: 4px;
+  height: 8px;
+  overflow: hidden;
+  margin: 6px 0;
+}
+.prog-fill {
+  background: var(--blue);
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+.prog-pct { font-size: 20px; font-weight: 500; color: var(--blue); margin-bottom: 2px; }
+.shortage-line {
+  font-size: 11px;
+  color: var(--red);
+  font-family: var(--mono);
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+/* KPI grid */
+.kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.kpi-item {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+}
+.kpi-lbl { font-size: 10px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+.kpi-val { font-size: 18px; font-weight: 500; }
+.kpi-sub { font-size: 10px; color: var(--text-3); margin-top: 1px; }
+.c-red { color: var(--red); }
+.c-blue { color: var(--blue); }
+.c-green { color: var(--green); }
+.c-amber { color: var(--amber); }
+.c-text2 { color: var(--text-2); }
+
+/* ── TABLE SECTION ── */
+.table-section { }
+.table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.table-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.table-title-txt { font-size: 13px; font-weight: 600; }
+.count-badge {
+  background: var(--text);
+  color: var(--surface);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-family: var(--mono);
+}
+.search-input {
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: 12px;
+  font-family: var(--sans);
+  color: var(--text);
+  width: 220px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.search-input:focus { border-color: var(--blue); }
+.search-input::placeholder { color: var(--text-3); }
+
+.table-wrap {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+thead tr { background: var(--surface2); border-bottom: 1px solid var(--border); }
+th {
+  padding: 8px 12px;
+  text-align: left;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-2);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  border-right: 1px solid var(--border);
+}
+th:last-child { border-right: none; }
+
+/* AM row */
+.tr-am td {
+  background: #f9f8f5;
+  border-bottom: 1px solid var(--border);
+  padding: 6px 12px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-2);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  user-select: none;
+}
+.tr-am:hover td { background: var(--surface2); }
+.tr-am td:first-child {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.am-chevron {
+  font-size: 9px;
+  color: var(--text-3);
+  transition: transform 0.2s;
+  display: inline-block;
+  width: 12px;
+}
+.am-chevron.open { transform: rotate(90deg); }
+.am-summary { margin-left: auto; }
+.am-summary-pills { display: flex; gap: 4px; }
+.am-lop-count {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--text-3);
+  font-family: var(--mono);
+}
+
+/* Phase row */
+.tr-phase td {
+  background: var(--surface);
+  border-bottom: 1px solid rgba(0,0,0,0.04);
+  padding: 5px 12px 5px 36px;
+  color: var(--text-2);
+  font-size: 11px;
+  cursor: pointer;
+  user-select: none;
+}
+.tr-phase:hover td { background: var(--blue-bg); }
+.tr-phase td:first-child {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.phase-chevron {
+  font-size: 9px;
+  color: var(--text-3);
+  transition: transform 0.2s;
+  display: inline-block;
+  width: 12px;
+}
+.phase-chevron.open { transform: rotate(90deg); }
+.phase-count {
+  font-size: 10px;
+  color: var(--text-3);
+  font-family: var(--mono);
+}
+.phase-nilai {
+  font-size: 10px;
+  color: var(--text-3);
+  font-family: var(--mono);
+}
+
+/* Detail row */
+.tr-detail td {
+  padding: 7px 12px 7px 56px;
+  border-bottom: 1px solid rgba(0,0,0,0.03);
+  color: var(--text);
+  vertical-align: middle;
+}
+.tr-detail:hover td { background: #fafaf8; }
+.tr-detail td:first-child { padding-left: 56px; }
+.tr-detail td.col-mono {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-2);
+}
+.tr-detail td.col-right { text-align: right; }
+.tr-detail td.col-name { color: var(--blue); font-weight: 400; }
+
+/* Status badge */
+.s-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.s-badge::before { content: ''; width: 5px; height: 5px; border-radius: 50%; }
+.s-f0, .s-f1 { background: #dbeafe; color: #1e40af; }
+.s-f0::before, .s-f1::before { background: #3b82f6; }
+.s-f2, .s-f3 { background: var(--blue-bg); color: var(--blue); }
+.s-f2::before, .s-f3::before { background: var(--blue); }
+.s-f4, .s-f5 { background: var(--purple-bg); color: var(--purple); }
+.s-f4::before, .s-f5::before { background: var(--purple); }
+.s-won { background: var(--green-bg); color: var(--green); }
+.s-won::before { background: var(--green); }
+.s-lost { background: var(--red-bg); color: var(--red); }
+.s-lost::before { background: var(--red); }
+.s-prospect { background: var(--amber-bg); color: var(--amber); }
+.s-prospect::before { background: #d97706; }
+
+/* Phase label badge */
+.phase-badge {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--mono);
+}
+.ph-f0,.ph-f1 { background: #dbeafe; color: #1e40af; }
+.ph-f2,.ph-f3 { background: var(--blue-bg); color: var(--blue); }
+.ph-f4,.ph-f5 { background: var(--purple-bg); color: var(--purple); }
+
+/* Kontrak badge */
+.k-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+}
+
+/* Empty state */
+.empty-row td {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-3);
+  font-size: 12px;
+  background: var(--surface);
+}
+
+/* Expand/collapse all */
+.expand-all-btn {
+  font-size: 11px;
+  color: var(--blue);
+  cursor: pointer;
+  background: none;
+  border: none;
+  font-family: var(--sans);
+  padding: 0;
+}
+.expand-all-btn:hover { text-decoration: underline; }
+
+/* scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--surface2); }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 900px) {
+  .overview-row { grid-template-columns: 1fr; }
+  .filterbar { gap: 6px; }
+}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <div class="topbar-left">
+    <div class="brand-mark">TK</div>
+    <div class="brand-text">
+      <div class="brand-title">LESA VI — Sales Funnel Dashboard</div>
+      <div class="brand-sub">Witel Suramadu · AM Activity</div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="cutoff-chip"><span>cutoff</span><span id="cutoff-val">14 Mar 2026</span></div>
+  </div>
+</header>
+
+<!-- FILTER BAR -->
+<div class="filterbar">
+
+  <!-- Snapshot -->
+  <div class="filter-group">
+    <div class="filter-label">Snapshot</div>
+    <div class="dropdown-wrapper">
+      <div class="dropdown-trigger" onclick="toggleDd('dd-snapshot')" id="trig-snapshot">
+        <span id="snapshot-label">Mar 2026</span>
+        <span class="arrow">▼</span>
+      </div>
+      <div class="dropdown-menu" id="dd-snapshot">
+        <div class="dd-header">Pilih snapshot periode</div>
+        <div class="dd-option selected" onclick="setSnapshot(this, 'Mar 2026', '14 Mar 2026')">Mar 2026 (latest)</div>
+        <div class="dd-option" onclick="setSnapshot(this, 'Feb 2026', '29 Jan 2026')">Feb 2026</div>
+        <div class="dd-option" onclick="setSnapshot(this, 'Jan 2026', '31 Jan 2026')">Jan 2026</div>
+        <div class="dd-option" onclick="setSnapshot(this, 'Des 2025', '31 Des 2025')">Des 2025</div>
+        <div class="dd-option" onclick="setSnapshot(this, 'Nov 2025', '30 Nov 2025')">Nov 2025</div>
+        <div class="dd-option" onclick="setSnapshot(this, 'Okt 2025', '31 Okt 2025')">Okt 2025</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="filter-divider"></div>
+
+  <!-- Target scope -->
+  <div class="filter-group">
+    <div class="filter-label">Target scope</div>
+    <div class="dropdown-wrapper">
+      <div class="dropdown-trigger" onclick="toggleDd('dd-scope')" id="trig-scope">
+        <span id="scope-label">HO</span>
+        <span class="arrow">▼</span>
+      </div>
+      <div class="dropdown-menu" id="dd-scope" style="min-width:160px">
+        <div class="dd-option selected" onclick="setScope(this, 'HO', 52.30)">HO</div>
+        <div class="dd-option" onclick="setScope(this, 'Full HO (DPS+DSS)', 87.52)">Full HO (DPS+DSS)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Nama AM -->
+  <div class="filter-group">
+    <div class="filter-label">Nama AM</div>
+    <div class="dropdown-wrapper">
+      <div class="dropdown-trigger" onclick="toggleDd('dd-am')" id="trig-am" style="min-width:140px">
+        <span id="am-label">Semua AM</span>
+        <span class="arrow">▼</span>
+      </div>
+      <div class="dropdown-menu" id="dd-am">
+        <div class="dd-header">Pilih AM</div>
+        <div class="dd-option" onclick="toggleAM('all')"><input type="checkbox" id="chk-am-all" checked> Semua AM</div>
+        <div class="dd-divider"></div>
+        <div class="dd-option" onclick="toggleAM('ANA RUKMANA')"><input type="checkbox" class="am-chk" data-am="ANA RUKMANA" checked> Ana Rukmana</div>
+        <div class="dd-option" onclick="toggleAM('CAESAR RIO A.T.')"><input type="checkbox" class="am-chk" data-am="CAESAR RIO A.T." checked> Caesar Rio A.T.</div>
+        <div class="dd-option" onclick="toggleAM('ERVINA HANDAYANI')"><input type="checkbox" class="am-chk" data-am="ERVINA HANDAYANI" checked> Ervina Handayani</div>
+        <div class="dd-option" onclick="toggleAM('HANDIKA DAGNA N.')"><input type="checkbox" class="am-chk" data-am="HANDIKA DAGNA N." checked> Handika Dagna N.</div>
+        <div class="dd-option" onclick="toggleAM('HAVEA PERTIWI')"><input type="checkbox" class="am-chk" data-am="HAVEA PERTIWI" checked> Havea Pertiwi</div>
+        <div class="dd-option" onclick="toggleAM('SAFIRINA FEBRYANTI')"><input type="checkbox" class="am-chk" data-am="SAFIRINA FEBRYANTI" checked> Safirina Febryanti</div>
+        <div class="dd-option" onclick="toggleAM('WILDAN ARIEF')"><input type="checkbox" class="am-chk" data-am="WILDAN ARIEF" checked> Wildan Arief</div>
+        <div class="dd-actions">
+          <button class="dd-btn" onclick="clearAM()">Reset</button>
+          <button class="dd-btn primary" onclick="closeDd('dd-am')">Terapkan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Status funnel -->
+  <div class="filter-group">
+    <div class="filter-label">Status funnel</div>
+    <div class="dropdown-wrapper">
+      <div class="dropdown-trigger" onclick="toggleDd('dd-status')" id="trig-status" style="min-width:130px">
+        <span id="status-label">Semua status</span>
+        <span class="arrow">▼</span>
+      </div>
+      <div class="dropdown-menu" id="dd-status">
+        <div class="dd-header">Status funnel</div>
+        <div class="dd-option" onclick="toggleStatus('all')"><input type="checkbox" id="chk-status-all" checked> Semua</div>
+        <div class="dd-divider"></div>
+        <div class="dd-option" onclick="toggleStatus('F0')"><input type="checkbox" class="status-chk" data-status="F0" checked> F0 — Lead</div>
+        <div class="dd-option" onclick="toggleStatus('F1')"><input type="checkbox" class="status-chk" data-status="F1" checked> F1 — Prospect</div>
+        <div class="dd-option" onclick="toggleStatus('F2')"><input type="checkbox" class="status-chk" data-status="F2" checked> F2 — Quote</div>
+        <div class="dd-option" onclick="toggleStatus('F3')"><input type="checkbox" class="status-chk" data-status="F3" checked> F3 — Negosiasi</div>
+        <div class="dd-option" onclick="toggleStatus('F4')"><input type="checkbox" class="status-chk" data-status="F4" checked> F4 — Closing</div>
+        <div class="dd-option" onclick="toggleStatus('F5')"><input type="checkbox" class="status-chk" data-status="F5" checked> F5 — Won</div>
+        <div class="dd-actions">
+          <button class="dd-btn" onclick="clearStatus()">Reset</button>
+          <button class="dd-btn primary" onclick="closeDd('dd-status')">Terapkan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Kategori kontrak -->
+  <div class="filter-group">
+    <div class="filter-label">Kategori kontrak</div>
+    <div class="dropdown-wrapper">
+      <div class="dropdown-trigger" onclick="toggleDd('dd-kontrak')" id="trig-kontrak" style="min-width:130px">
+        <span id="kontrak-label">Semua kontrak</span>
+        <span class="arrow">▼</span>
+      </div>
+      <div class="dropdown-menu" id="dd-kontrak">
+        <div class="dd-header">Jenis kontrak</div>
+        <div class="dd-option" onclick="toggleKontrak('all')"><input type="checkbox" id="chk-kontrak-all" checked> Semua</div>
+        <div class="dd-divider"></div>
+        <div class="dd-option" onclick="toggleKontrak('GTMA')"><input type="checkbox" class="kontrak-chk" data-kontrak="GTMA" checked> GTMA</div>
+        <div class="dd-option" onclick="toggleKontrak('New GTMA')"><input type="checkbox" class="kontrak-chk" data-kontrak="New GTMA" checked> New GTMA</div>
+        <div class="dd-option" onclick="toggleKontrak('Non-GTMA')"><input type="checkbox" class="kontrak-chk" data-kontrak="Non-GTMA" checked> Non-GTMA</div>
+        <div class="dd-actions">
+          <button class="dd-btn" onclick="clearKontrak()">Reset</button>
+          <button class="dd-btn primary" onclick="closeDd('dd-kontrak')">Terapkan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- MAIN CONTENT -->
+<div class="main">
+
+  <!-- OVERVIEW ROW -->
+  <div class="overview-row">
+
+    <!-- LOP per fase -->
+    <div class="card">
+      <div class="card-title">LOP per fase</div>
+      <div id="bar-chart-area"></div>
+    </div>
+
+    <!-- Capaian vs target -->
+    <div class="card">
+      <div class="card-title" id="prog-title">Capaian real vs target (HO)</div>
+      <div class="prog-rows">
+        <div>
+          <div class="prog-pct" id="prog-pct">–%</div>
+          <div class="prog-track-wrap"><div class="prog-fill" id="prog-bar" style="width:0%"></div></div>
+        </div>
+        <div class="prog-stat"><span class="lbl">Real pipeline</span><span class="val" id="val-real">–</span></div>
+        <div class="prog-stat"><span class="lbl" id="lbl-target">Target HO</span><span class="val" id="val-target">–</span></div>
+        <div class="shortage-line" id="shortage-line">Shortage: –</div>
+      </div>
+    </div>
+
+    <!-- KPI cards -->
+    <div class="card" style="padding:12px">
+      <div class="card-title">Ringkasan</div>
+      <div class="kpi-grid" id="kpi-grid"></div>
+    </div>
+
+  </div>
+
+  <!-- TABLE -->
+  <div class="table-section">
+    <div class="table-header">
+      <div class="table-title-row">
+        <span class="table-title-txt">Detail Funnel per AM</span>
+        <span class="count-badge" id="lop-count-badge">0</span>
+        <button class="expand-all-btn" id="expand-all-btn" onclick="toggleExpandAll()">Expand semua</button>
+      </div>
+      <input class="search-input" id="search" placeholder="Cari proyek / pelanggan / LOP ID..." oninput="render()">
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:240px">AM / Fase / Proyek</th>
+            <th>Kat. kontrak</th>
+            <th>LOP ID</th>
+            <th>Pelanggan</th>
+            <th>Status</th>
+            <th style="text-align:right">Nilai proyek</th>
+            <th>Est. BC</th>
+          </tr>
+        </thead>
+        <tbody id="tbl-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ============================================================
+// DATA
+// ============================================================
+const DATA = [
+  { am:"ANA RUKMANA",      phase:"F0", kontrak:"GTMA",     lopid:"S26-2001", proyek:"Pengadaan Akses Internet Gedung Dinas",     pelanggan:"Dinas Kominfo Bangkalan",    status:"F0", nilai:280e6,  est:"Apr 2026" },
+  { am:"ANA RUKMANA",      phase:"F0", kontrak:"New GTMA",  lopid:"S26-2002", proyek:"Dedicated Internet 100M Office Park",        pelanggan:"PT Mitra Bangsa",            status:"F0", nilai:170e6,  est:"Mei 2026" },
+  { am:"ANA RUKMANA",      phase:"F1", kontrak:"GTMA",     lopid:"S26-2003", proyek:"Fiber Optik Kampus Terpadu",                 pelanggan:"Univ. Trunojoyo Madura",     status:"F1", nilai:450e6,  est:"Apr 2026" },
+  { am:"ANA RUKMANA",      phase:"F1", kontrak:"New GTMA",  lopid:"S26-2004", proyek:"Internet Dedicated 500M RS Bangkalan",       pelanggan:"RSUD Bangkalan",             status:"F1", nilai:312e6,  est:"Mei 2026" },
+  { am:"ANA RUKMANA",      phase:"F1", kontrak:"GTMA",     lopid:"S26-2005", proyek:"Managed WiFi Kampus PENS",                  pelanggan:"PENS Surabaya",              status:"F1", nilai:110e6,  est:"Jun 2026" },
+  { am:"ANA RUKMANA",      phase:"F2", kontrak:"GTMA",     lopid:"S26-2006", proyek:"MPLS Multi-site Sidoarjo",                  pelanggan:"PT Petrokimia Gresik",       status:"F2", nilai:200e6,  est:"Mei 2026" },
+
+  { am:"CAESAR RIO A.T.",  phase:"F1", kontrak:"GTMA",     lopid:"P25-1001", proyek:"Internet Dedicated 1G Pabrik",              pelanggan:"PT Sinar Mas Agro",          status:"F1", nilai:500e6,  est:"Apr 2026" },
+  { am:"CAESAR RIO A.T.",  phase:"F2", kontrak:"New GTMA",  lopid:"P25-1002", proyek:"SD-WAN Implementation Multi-Branch",        pelanggan:"Bank Jatim",                 status:"F2", nilai:620e6,  est:"Jun 2026" },
+  { am:"CAESAR RIO A.T.",  phase:"F3", kontrak:"GTMA",     lopid:"P25-1003", proyek:"VPN MPLS Enterprise",                       pelanggan:"PT Sampoerna Agro",          status:"F3", nilai:300e6,  est:"Mei 2026" },
+  { am:"CAESAR RIO A.T.",  phase:"F3", kontrak:"GTMA",     lopid:"P25-1004", proyek:"Upgrade Metro-E Gresik 10G",                pelanggan:"PT Krakatau Steel",          status:"F3", nilai:820e6,  est:"Jul 2026" },
+  { am:"CAESAR RIO A.T.",  phase:"F3", kontrak:"Non-GTMA", lopid:"P25-1005", proyek:"Cloud Server Hosting BPJS",                 pelanggan:"BPJS Pamekasan",             status:"F3", nilai:380e6,  est:"Mei 2026" },
+  { am:"CAESAR RIO A.T.",  phase:"F3", kontrak:"New GTMA",  lopid:"P25-1006", proyek:"Sewa Infrastruktur IoT Mojokerto",          pelanggan:"PT Gudang Garam",            status:"F3", nilai:650e6,  est:"Agt 2026" },
+  { am:"CAESAR RIO A.T.",  phase:"F5", kontrak:"GTMA",     lopid:"P25-1007", proyek:"Sewa Dark Fiber Surabaya–Gresik",           pelanggan:"PT Tower Bersama",           status:"F5", nilai:2940e6, est:"Mar 2026" },
+  { am:"CAESAR RIO A.T.",  phase:"F5", kontrak:"GTMA",     lopid:"P25-1008", proyek:"Dedicated Internet 10G Kawasan Industri",   pelanggan:"PT Maspion",                 status:"F5", nilai:1200e6, est:"Feb 2026" },
+  { am:"CAESAR RIO A.T.",  phase:"F5", kontrak:"Non-GTMA", lopid:"P25-1009", proyek:"IP Transit Internasional 10G",              pelanggan:"PT iForte Solusi Infotek",   status:"F5", nilai:2160e6, est:"Jan 2026" },
+
+  { am:"ERVINA HANDAYANI", phase:"F1", kontrak:"GTMA",     lopid:"E26-3001", proyek:"Bandwidth Upgrade Pemkot Surabaya",         pelanggan:"Pemkot Surabaya",            status:"F1", nilai:310e6,  est:"Mei 2026" },
+  { am:"ERVINA HANDAYANI", phase:"F2", kontrak:"GTMA",     lopid:"E26-3002", proyek:"Metro-E Koneksi Antar-Gedung Pemda",        pelanggan:"Pemkab Gresik",              status:"F2", nilai:180e6,  est:"Jun 2026" },
+  { am:"ERVINA HANDAYANI", phase:"F2", kontrak:"New GTMA",  lopid:"E26-3003", proyek:"Internet Dedicated Polres Sidoarjo",        pelanggan:"Polres Sidoarjo",            status:"F2", nilai:300e6,  est:"Jun 2026" },
+  { am:"ERVINA HANDAYANI", phase:"F3", kontrak:"GTMA",     lopid:"E26-3004", proyek:"CCTV & Monitoring Pelabuhan Tanjung Perak", pelanggan:"Pelindo III",                status:"F3", nilai:540e6,  est:"Jul 2026" },
+  { am:"ERVINA HANDAYANI", phase:"F3", kontrak:"Non-GTMA", lopid:"E26-3005", proyek:"Layanan SOC Managed Service Dinas",         pelanggan:"Dinas Kominfo Surabaya",     status:"F3", nilai:780e6,  est:"Agt 2026" },
+  { am:"ERVINA HANDAYANI", phase:"F4", kontrak:"GTMA",     lopid:"E26-3006", proyek:"Data Center Colocation Gov Zone",           pelanggan:"BPS Jawa Timur",             status:"F4", nilai:1200e6, est:"Sep 2026" },
+  { am:"ERVINA HANDAYANI", phase:"F4", kontrak:"New GTMA",  lopid:"E26-3007", proyek:"SD-WAN Dishub Multi-lokasi",               pelanggan:"Dinas Perhubungan Jatim",    status:"F4", nilai:450e6,  est:"Okt 2026" },
+  { am:"ERVINA HANDAYANI", phase:"F4", kontrak:"GTMA",     lopid:"E26-3008", proyek:"Integrasi CCTV Kota Surabaya",              pelanggan:"Diskominfo Surabaya",        status:"F4", nilai:1450e6, est:"Nov 2026" },
+
+  { am:"HANDIKA DAGNA N.", phase:"F0", kontrak:"GTMA",     lopid:"H26-4001", proyek:"Dedicated Internet SME Cluster Gresik",    pelanggan:"PT Bumi Waras",              status:"F0", nilai:240e6,  est:"Jun 2026" },
+  { am:"HANDIKA DAGNA N.", phase:"F0", kontrak:"New GTMA",  lopid:"H26-4002", proyek:"Fiber Optik Kawasan Rungkut",              pelanggan:"PT Charoen Pokphand",        status:"F0", nilai:360e6,  est:"Jun 2026" },
+  { am:"HANDIKA DAGNA N.", phase:"F0", kontrak:"Non-GTMA", lopid:"H26-4003", proyek:"Internet Dedicated 200M Pergudangan",       pelanggan:"PT Cipta Gudang Jaya",       status:"F0", nilai:300e6,  est:"Jul 2026" },
+  { am:"HANDIKA DAGNA N.", phase:"F1", kontrak:"GTMA",     lopid:"H26-4004", proyek:"Metro-E Link Surabaya–Sidoarjo",            pelanggan:"PT Petrokimia Gresik",       status:"F1", nilai:600e6,  est:"Jun 2026" },
+  { am:"HANDIKA DAGNA N.", phase:"F1", kontrak:"GTMA",     lopid:"H26-4005", proyek:"VPN MPLS Cabang Jawa Timur",               pelanggan:"Bank Mandiri Reg. Surabaya", status:"F1", nilai:820e6,  est:"Jul 2026" },
+  { am:"HANDIKA DAGNA N.", phase:"F3", kontrak:"New GTMA",  lopid:"H26-4006", proyek:"Security SOC Managed Service Bank",        pelanggan:"Bank Jatim",                 status:"F3", nilai:2750e6, est:"Sep 2026" },
+  { am:"HANDIKA DAGNA N.", phase:"F4", kontrak:"GTMA",     lopid:"H26-4007", proyek:"Ethernet Private Line Suramadu",           pelanggan:"PT Maspion",                 status:"F4", nilai:970e6,  est:"Okt 2026" },
+  { am:"HANDIKA DAGNA N.", phase:"F4", kontrak:"GTMA",     lopid:"H26-4008", proyek:"Data Center Colocation 2 Rack",            pelanggan:"PT Astra International",     status:"F4", nilai:1130e6, est:"Nov 2026" },
+  { am:"HANDIKA DAGNA N.", phase:"F5", kontrak:"Non-GTMA", lopid:"H26-4009", proyek:"Sewa Dark Fiber Ring Surabaya",            pelanggan:"PT Hutchison Tri",            status:"F5", nilai:1800e6, est:"Jan 2026" },
+
+  { am:"HAVEA PERTIWI",    phase:"F1", kontrak:"GTMA",     lopid:"V26-5001", proyek:"Internet Dedicated Madura 500M",           pelanggan:"RSUD Pamekasan",             status:"F1", nilai:280e6,  est:"Jun 2026" },
+  { am:"HAVEA PERTIWI",    phase:"F1", kontrak:"Non-GTMA", lopid:"V26-5002", proyek:"Fiber Optik Kampus Bangkalan",             pelanggan:"STKIP PGRI Bangkalan",       status:"F1", nilai:160e6,  est:"Jul 2026" },
+  { am:"HAVEA PERTIWI",    phase:"F1", kontrak:"GTMA",     lopid:"V26-5003", proyek:"Dedicated Internet Puskesmas Sampang",     pelanggan:"Dinkes Sampang",             status:"F1", nilai:400e6,  est:"Mei 2026" },
+  { am:"HAVEA PERTIWI",    phase:"F2", kontrak:"GTMA",     lopid:"V26-5004", proyek:"Metro-E Koneksi DPRD Pamekasan",           pelanggan:"DPRD Pamekasan",             status:"F2", nilai:190e6,  est:"Jun 2026" },
+  { am:"HAVEA PERTIWI",    phase:"F2", kontrak:"New GTMA",  lopid:"V26-5005", proyek:"Managed WiFi Kabupaten Sumenep",          pelanggan:"Pemkab Sumenep",             status:"F2", nilai:400e6,  est:"Jul 2026" },
+  { am:"HAVEA PERTIWI",    phase:"F4", kontrak:"GTMA",     lopid:"V26-5006", proyek:"IP Transit Internasional 1G",              pelanggan:"PT iForte Solusi Infotek",   status:"F4", nilai:450e6,  est:"Agt 2026" },
+
+  { am:"SAFIRINA FEBRYANTI", phase:"F0", kontrak:"Non-GTMA", lopid:"S26-6001", proyek:"Internet Dedicated 200M Pabrik Pasuruan", pelanggan:"PT Mayora Indah",           status:"F0", nilai:200e6,  est:"Jul 2026" },
+  { am:"SAFIRINA FEBRYANTI", phase:"F1", kontrak:"GTMA",     lopid:"S26-6002", proyek:"Bandwidth Enterprise Surabaya Barat",    pelanggan:"PT Japfa Comfeed",           status:"F1", nilai:310e6,  est:"Mei 2026" },
+  { am:"SAFIRINA FEBRYANTI", phase:"F2", kontrak:"New GTMA",  lopid:"S26-6003", proyek:"SD-WAN Multi-Branch Restoran",           pelanggan:"PT Kalbe Farma",             status:"F2", nilai:890e6,  est:"Jun 2026" },
+  { am:"SAFIRINA FEBRYANTI", phase:"F2", kontrak:"GTMA",     lopid:"S26-6004", proyek:"Data Center Colocation 1 Rack",          pelanggan:"PT Prodia Widyahusada",      status:"F2", nilai:560e6,  est:"Jul 2026" },
+  { am:"SAFIRINA FEBRYANTI", phase:"F3", kontrak:"Non-GTMA", lopid:"S26-6005", proyek:"VPN MPLS Enterprise Manufaktur",         pelanggan:"PT Unilever Indonesia",      status:"F3", nilai:1800e6, est:"Agt 2026" },
+  { am:"SAFIRINA FEBRYANTI", phase:"F5", kontrak:"GTMA",     lopid:"S26-6006", proyek:"Sewa Kapasitas Metro-E 10G",             pelanggan:"PT Tower Bersama",           status:"F5", nilai:1500e6, est:"Feb 2026" },
+  { am:"SAFIRINA FEBRYANTI", phase:"F5", kontrak:"New GTMA",  lopid:"S26-6007", proyek:"Data Center Colocation 5 Rack",         pelanggan:"PT Telkom Akses",            status:"F5", nilai:1500e6, est:"Jan 2026" },
+
+  { am:"WILDAN ARIEF",     phase:"F0", kontrak:"GTMA",     lopid:"W26-7001", proyek:"Internet Dedicated 300M Pabrik",          pelanggan:"PT Charoen Pokphand",        status:"F0", nilai:480e6,  est:"Jun 2026" },
+  { am:"WILDAN ARIEF",     phase:"F0", kontrak:"Non-GTMA", lopid:"W26-7002", proyek:"Akses Internet Pergudangan Kalimas",      pelanggan:"PT Semen Gresik",            status:"F0", nilai:320e6,  est:"Jul 2026" },
+  { am:"WILDAN ARIEF",     phase:"F2", kontrak:"GTMA",     lopid:"W26-7003", proyek:"Fiber Optik Private Line Surabaya",       pelanggan:"PT Astra Daihatsu",          status:"F2", nilai:720e6,  est:"Mei 2026" },
+  { am:"WILDAN ARIEF",     phase:"F3", kontrak:"New GTMA",  lopid:"W26-7004", proyek:"VPN MPLS Multi-site Jatim",              pelanggan:"Bank BRI Reg. Surabaya",     status:"F3", nilai:2400e6, est:"Jun 2026" },
+  { am:"WILDAN ARIEF",     phase:"F3", kontrak:"GTMA",     lopid:"W26-7005", proyek:"Upgrade Bandwidth HQ Surabaya",          pelanggan:"PT Mayora Indah",            status:"F3", nilai:580e6,  est:"Jul 2026" },
+  { am:"WILDAN ARIEF",     phase:"F3", kontrak:"Non-GTMA", lopid:"W26-7006", proyek:"SOC Managed Service Manufaktur",          pelanggan:"PT Unilever Indonesia",      status:"F3", nilai:1100e6, est:"Agt 2026" },
+  { am:"WILDAN ARIEF",     phase:"F4", kontrak:"GTMA",     lopid:"W26-7007", proyek:"Metro-E 10G Ring Surabaya",              pelanggan:"PT Hutchison Tri",            status:"F4", nilai:1100e6, est:"Sep 2026" },
+];
+
+// Targets
+const TARGETS = { HO: 52300e6, 'Full HO (DPS+DSS)': 87520e6 };
+
+// ============================================================
+// STATE
+// ============================================================
+let state = {
+  scope: 'HO',
+  am: null,      // null = all
+  status: null,  // null = all
+  kontrak: null, // null = all
+  search: '',
+  expandedAM: {},   // { AM_NAME: bool }
+  expandedPhase: {}, // { 'AM_NAME|F0': bool }
+  allExpanded: false,
+};
+
+// ============================================================
+// FILTER HELPERS
+// ============================================================
+function getFilteredData() {
+  const q = (document.getElementById('search')?.value || '').toLowerCase();
+  return DATA.filter(r => {
+    if (state.am && !state.am.includes(r.am)) return false;
+    if (state.status && !state.status.includes(r.phase)) return false;
+    if (state.kontrak && !state.kontrak.includes(r.kontrak)) return false;
+    if (q && !r.proyek.toLowerCase().includes(q) &&
+             !r.pelanggan.toLowerCase().includes(q) &&
+             !r.lopid.toLowerCase().includes(q)) return false;
+    return true;
+  });
+}
+
+// ============================================================
+// FORMAT
+// ============================================================
+function fmtNilai(n) {
+  if (!n && n !== 0) return '–';
+  if (n >= 1e9) return `Rp ${(n/1e9).toFixed(2)}M`;
+  if (n >= 1e6) return `Rp ${Math.round(n/1e6)} jt`;
+  return `Rp ${n.toLocaleString('id-ID')}`;
+}
+function fmtNilaiShort(n) {
+  if (n >= 1e9) return `${(n/1e9).toFixed(1)}M`;
+  if (n >= 1e6) return `${Math.round(n/1e6)} jt`;
+  return `${n}`;
+}
+
+function phaseClass(p) {
+  if (p==='F0'||p==='F1') return 'ph-f0';
+  if (p==='F2'||p==='F3') return 'ph-f2';
+  return 'ph-f4';
+}
+function statusClass(p) {
+  if (p==='F0'||p==='F1') return 's-f0';
+  if (p==='F2'||p==='F3') return 's-f2';
+  if (p==='F4'||p==='F5') return 's-f4';
+  if (p==='WON') return 's-won';
+  if (p==='LOST') return 's-lost';
+  return 's-prospect';
+}
+
+// ============================================================
+// OVERVIEW
+// ============================================================
+function renderOverview(data) {
+  // Bar chart
+  const phases = ['F0','F1','F2','F3','F4','F5'];
+  const phaseColors = {
+    F0:'#93c5fd', F1:'#93c5fd',
+    F2:'#378ADD', F3:'#378ADD',
+    F4:'#5b21b6', F5:'#3730a3'
+  };
+  const counts = {};
+  phases.forEach(p => counts[p] = data.filter(r=>r.phase===p).length);
+  const maxCount = Math.max(...Object.values(counts), 1);
+
+  document.getElementById('bar-chart-area').innerHTML = phases.map(p => `
+    <div class="bar-row">
+      <span class="bar-phase" style="color:${phaseColors[p]}">${p}</span>
+      <div class="bar-track">
+        <div class="bar-fill" style="background:${phaseColors[p]};width:${(counts[p]/maxCount*100).toFixed(0)}%"></div>
+      </div>
+      <span class="bar-count">${counts[p]}</span>
+    </div>
+  `).join('');
+
+  // Progress
+  const totalReal = data.reduce((s,r)=>s+r.nilai,0);
+  const target = TARGETS[state.scope];
+  const pct = target ? (totalReal / target * 100) : 0;
+  const shortage = totalReal - target;
+
+  document.getElementById('prog-title').textContent = `Capaian real vs target (${state.scope})`;
+  document.getElementById('lbl-target').textContent = `Target ${state.scope}`;
+  document.getElementById('prog-pct').textContent = pct.toFixed(1) + '%';
+  document.getElementById('prog-bar').style.width = Math.min(pct, 100) + '%';
+  document.getElementById('val-real').textContent = fmtNilai(totalReal);
+  document.getElementById('val-target').textContent = fmtNilai(target);
+
+  const sl = document.getElementById('shortage-line');
+  if (shortage >= 0) {
+    sl.textContent = `Surplus: +${fmtNilai(shortage)}`;
+    sl.style.color = 'var(--green)';
+  } else {
+    sl.textContent = `Shortage: ${fmtNilai(shortage)}`;
+    sl.style.color = 'var(--red)';
+  }
+
+  // KPI
+  const activeAM = [...new Set(data.map(r=>r.am))].length;
+  const won = data.filter(r=>r.phase==='F5').length;
+  const avgNilai = data.length ? totalReal / data.length : 0;
+
+  document.getElementById('kpi-grid').innerHTML = `
+    <div class="kpi-item">
+      <div class="kpi-lbl">Total LOP</div>
+      <div class="kpi-val c-blue">${data.length}</div>
+      <div class="kpi-sub">aktif</div>
+    </div>
+    <div class="kpi-item">
+      <div class="kpi-lbl">Active AM</div>
+      <div class="kpi-val">${activeAM}</div>
+      <div class="kpi-sub">dari 7 AM</div>
+    </div>
+    <div class="kpi-item">
+      <div class="kpi-lbl">Avg nilai / LOP</div>
+      <div class="kpi-val c-amber" style="font-size:16px">${fmtNilaiShort(avgNilai)}</div>
+    </div>
+    <div class="kpi-item">
+      <div class="kpi-lbl">Won (F5)</div>
+      <div class="kpi-val c-green">${won}</div>
+      <div class="kpi-sub">LOP closed</div>
+    </div>
+  `;
+}
+
+// ============================================================
+// TABLE RENDER
+// ============================================================
+function render() {
+  const data = getFilteredData();
+  renderOverview(data);
+
+  // Group by AM → phase
+  const amNames = [...new Set(DATA.map(r=>r.am))];
+  const html = [];
+  let totalLOP = 0;
+
+  amNames.forEach(am => {
+    const amData = data.filter(r=>r.am===am);
+    if (!amData.length) return;
+    totalLOP += amData.length;
+    const amExpanded = !!state.expandedAM[am];
+    const amTotal = amData.reduce((s,r)=>s+r.nilai,0);
+
+    // AM row
+    html.push(`
+      <tr class="tr-am" onclick="toggleAMExpand('${escAtt(am)}')">
+        <td>
+          <span class="am-chevron${amExpanded?' open':''}">▶</span>
+          ${am}
+          <span class="am-lop-count">${amData.length} LOP · ${fmtNilaiShort(amTotal)}</span>
+        </td>
+        <td></td><td></td><td></td><td></td><td></td><td></td>
+      </tr>
+    `);
+
+    if (!amExpanded) return;
+
+    // Group by phase
+    const phases = ['F0','F1','F2','F3','F4','F5'];
+    phases.forEach(phase => {
+      const phaseData = amData.filter(r=>r.phase===phase);
+      if (!phaseData.length) return;
+      const key = `${am}|${phase}`;
+      const phaseExpanded = !!state.expandedPhase[key];
+      const phaseTotal = phaseData.reduce((s,r)=>s+r.nilai,0);
+
+      html.push(`
+        <tr class="tr-phase" onclick="togglePhaseExpand('${escAtt(key)}')">
+          <td>
+            <span class="phase-chevron${phaseExpanded?' open':''}">▶</span>
+            <span class="phase-badge ${phaseClass(phase)}">${phase}</span>
+            <span class="phase-count">${phaseData.length} LOP</span>
+            <span class="phase-nilai">· ${fmtNilaiShort(phaseTotal)}</span>
+          </td>
+          <td></td><td></td><td></td><td></td><td></td><td></td>
+        </tr>
+      `);
+
+      if (!phaseExpanded) return;
+
+      phaseData.forEach(r => {
+        html.push(`
+          <tr class="tr-detail">
+            <td class="col-name">${r.proyek}</td>
+            <td><span class="k-badge">${r.kontrak}</span></td>
+            <td class="col-mono">${r.lopid}</td>
+            <td>${r.pelanggan}</td>
+            <td><span class="s-badge ${statusClass(r.status)}">${r.status}</span></td>
+            <td class="col-mono col-right">${fmtNilai(r.nilai)}</td>
+            <td style="font-size:11px;color:var(--text-2)">${r.est}</td>
+          </tr>
+        `);
+      });
+    });
+  });
+
+  if (!html.length) {
+    html.push(`<tr class="empty-row"><td colspan="7">Tidak ada data yang cocok dengan filter aktif</td></tr>`);
+  }
+
+  document.getElementById('tbl-body').innerHTML = html.join('');
+  document.getElementById('lop-count-badge').textContent = totalLOP;
+}
+
+function escAtt(s) { return s.replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
+
+// ============================================================
+// EXPAND / COLLAPSE
+// ============================================================
+function toggleAMExpand(am) {
+  state.expandedAM[am] = !state.expandedAM[am];
+  render();
+}
+function togglePhaseExpand(key) {
+  state.expandedPhase[key] = !state.expandedPhase[key];
+  render();
+}
+function toggleExpandAll() {
+  state.allExpanded = !state.allExpanded;
+  const data = getFilteredData();
+  const amNames = [...new Set(data.map(r=>r.am))];
+  const phases = ['F0','F1','F2','F3','F4','F5'];
+  amNames.forEach(am => {
+    state.expandedAM[am] = state.allExpanded;
+    phases.forEach(p => {
+      state.expandedPhase[`${am}|${p}`] = state.allExpanded;
+    });
+  });
+  document.getElementById('expand-all-btn').textContent = state.allExpanded ? 'Collapse semua' : 'Expand semua';
+  render();
+}
+
+// ============================================================
+// DROPDOWN CONTROL
+// ============================================================
+function toggleDd(id) {
+  document.querySelectorAll('.dropdown-menu').forEach(m => {
+    if (m.id !== id) { m.classList.remove('open'); }
+  });
+  document.querySelectorAll('.dropdown-trigger').forEach(t => {
+    if (t.id !== 'trig-' + id.replace('dd-','')) t.classList.remove('open');
+  });
+  const menu = document.getElementById(id);
+  const trigId = 'trig-' + id.replace('dd-','');
+  const trig = document.getElementById(trigId);
+  menu.classList.toggle('open');
+  if (trig) trig.classList.toggle('open', menu.classList.contains('open'));
+}
+function closeDd(id) {
+  document.getElementById(id).classList.remove('open');
+  const trigId = 'trig-' + id.replace('dd-','');
+  const trig = document.getElementById(trigId);
+  if (trig) trig.classList.remove('open');
+  render();
+}
+
+// Close on outside click
+document.addEventListener('click', e => {
+  if (!e.target.closest('.dropdown-wrapper')) {
+    document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('open'));
+    document.querySelectorAll('.dropdown-trigger').forEach(t => t.classList.remove('open'));
+  }
+});
+
+// ============================================================
+// SNAPSHOT
+// ============================================================
+function setSnapshot(el, label, cutoff) {
+  document.querySelectorAll('#dd-snapshot .dd-option').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('snapshot-label').textContent = label;
+  document.getElementById('cutoff-val').textContent = cutoff;
+  closeDd('dd-snapshot');
+}
+
+// ============================================================
+// SCOPE
+// ============================================================
+function setScope(el, scopeVal, targetVal) {
+  document.querySelectorAll('#dd-scope .dd-option').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+  state.scope = scopeVal;
+  document.getElementById('scope-label').textContent = scopeVal;
+  closeDd('dd-scope');
+  render();
+}
+
+// ============================================================
+// AM FILTER
+// ============================================================
+function toggleAM(val) {
+  if (val === 'all') {
+    const allChk = document.getElementById('chk-am-all');
+    const checked = !allChk.checked;
+    allChk.checked = checked;
+    document.querySelectorAll('.am-chk').forEach(c => c.checked = checked);
+  } else {
+    const chk = document.querySelector(`.am-chk[data-am="${val}"]`);
+    if (chk) chk.checked = !chk.checked;
+    const allChecked = [...document.querySelectorAll('.am-chk')].every(c=>c.checked);
+    document.getElementById('chk-am-all').checked = allChecked;
+  }
+  updateAMState();
+}
+function updateAMState() {
+  const all = [...document.querySelectorAll('.am-chk')];
+  const checked = all.filter(c=>c.checked).map(c=>c.dataset.am);
+  state.am = checked.length === all.length ? null : (checked.length ? checked : null);
+  const lbl = state.am ? (state.am.length === 1 ? state.am[0].split(' ')[0] : `${state.am.length} AM`) : 'Semua AM';
+  document.getElementById('am-label').innerHTML = lbl + (state.am ? `<span class="active-badge">${state.am.length}</span>` : '');
+}
+function clearAM() {
+  document.querySelectorAll('.am-chk, #chk-am-all').forEach(c=>c.checked=true);
+  state.am = null;
+  document.getElementById('am-label').textContent = 'Semua AM';
+  render();
+}
+
+// ============================================================
+// STATUS FILTER
+// ============================================================
+function toggleStatus(val) {
+  if (val === 'all') {
+    const allChk = document.getElementById('chk-status-all');
+    const checked = !allChk.checked;
+    allChk.checked = checked;
+    document.querySelectorAll('.status-chk').forEach(c => c.checked = checked);
+  } else {
+    const chk = document.querySelector(`.status-chk[data-status="${val}"]`);
+    if (chk) chk.checked = !chk.checked;
+    const allChecked = [...document.querySelectorAll('.status-chk')].every(c=>c.checked);
+    document.getElementById('chk-status-all').checked = allChecked;
+  }
+  updateStatusState();
+}
+function updateStatusState() {
+  const all = [...document.querySelectorAll('.status-chk')];
+  const checked = all.filter(c=>c.checked).map(c=>c.dataset.status);
+  state.status = checked.length === all.length ? null : (checked.length ? checked : null);
+  const lbl = state.status ? (state.status.join(', ')) : 'Semua status';
+  document.getElementById('status-label').innerHTML = lbl + (state.status ? `<span class="active-badge">${state.status.length}</span>` : '');
+}
+function clearStatus() {
+  document.querySelectorAll('.status-chk, #chk-status-all').forEach(c=>c.checked=true);
+  state.status = null;
+  document.getElementById('status-label').textContent = 'Semua status';
+  render();
+}
+
+// ============================================================
+// KONTRAK FILTER
+// ============================================================
+function toggleKontrak(val) {
+  if (val === 'all') {
+    const allChk = document.getElementById('chk-kontrak-all');
+    const checked = !allChk.checked;
+    allChk.checked = checked;
+    document.querySelectorAll('.kontrak-chk').forEach(c => c.checked = checked);
+  } else {
+    const chk = document.querySelector(`.kontrak-chk[data-kontrak="${val}"]`);
+    if (chk) chk.checked = !chk.checked;
+    const allChecked = [...document.querySelectorAll('.kontrak-chk')].every(c=>c.checked);
+    document.getElementById('chk-kontrak-all').checked = allChecked;
+  }
+  updateKontrakState();
+}
+function updateKontrakState() {
+  const all = [...document.querySelectorAll('.kontrak-chk')];
+  const checked = all.filter(c=>c.checked).map(c=>c.dataset.kontrak);
+  state.kontrak = checked.length === all.length ? null : (checked.length ? checked : null);
+  const lbl = state.kontrak ? (state.kontrak.join(', ')) : 'Semua kontrak';
+  document.getElementById('kontrak-label').innerHTML = lbl + (state.kontrak ? `<span class="active-badge">${state.kontrak.length}</span>` : '');
+}
+function clearKontrak() {
+  document.querySelectorAll('.kontrak-chk, #chk-kontrak-all').forEach(c=>c.checked=true);
+  state.kontrak = null;
+  document.getElementById('kontrak-label').textContent = 'Semua kontrak';
+  render();
+}
+
+// ============================================================
+// INIT
+// ============================================================
+render();
+</script>
+</body>
+</html>

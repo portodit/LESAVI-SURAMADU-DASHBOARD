@@ -240,13 +240,22 @@ router.post("/import/performance", requireAuth, async (req, res): Promise<void> 
   }).returning();
 
   const existingAMs = await db.select().from(accountManagersTable);
+  const existingNiks = new Set(existingAMs.map((a: any) => a.nik));
+  const newAMs: any[] = [];
+  const BATCH_PERF = 200;
+  for (let i = 0; i < toInsert.length; i += BATCH_PERF) {
+    const batch = toInsert.slice(i, i + BATCH_PERF).map(row => ({ ...row, importId: imp.id }));
+    await db.insert(performanceDataTable).values(batch);
+  }
   for (const row of toInsert) {
-    await db.insert(performanceDataTable).values({ ...row, importId: imp.id });
-    if (!existingAMs.find((a: any) => a.nik === row.nik) && row.nik) {
-      const slug = slugify(row.namaAm);
-      await db.insert(accountManagersTable).values({
-        nik: row.nik, nama: row.namaAm, slug, divisi: row.divisi, witel: row.witel || "SURAMADU",
-      }).onConflictDoNothing();
+    if (!existingNiks.has(row.nik) && row.nik) {
+      existingNiks.add(row.nik);
+      newAMs.push({ nik: row.nik, nama: row.namaAm, slug: slugify(row.namaAm), divisi: row.divisi, witel: row.witel || "SURAMADU" });
+    }
+  }
+  if (newAMs.length > 0) {
+    for (let i = 0; i < newAMs.length; i += 50) {
+      await db.insert(accountManagersTable).values(newAMs.slice(i, i + 50)).onConflictDoNothing();
     }
   }
 
@@ -320,8 +329,10 @@ router.post("/import/funnel", requireAuth, async (req, res): Promise<void> => {
     autoTelegramSent: false,
   }).returning();
 
-  for (const row of cleaned) {
-    await db.insert(salesFunnelTable).values({ ...row, snapshotDate: snapshotDate || null, importId: imp.id });
+  const BATCH_SIZE = 200;
+  for (let i = 0; i < cleaned.length; i += BATCH_SIZE) {
+    const batch = cleaned.slice(i, i + BATCH_SIZE).map(row => ({ ...row, snapshotDate: snapshotDate || null, importId: imp.id }));
+    await db.insert(salesFunnelTable).values(batch);
   }
 
   const amCount = new Set(cleaned.map(r => r.nikAm)).size;
@@ -395,8 +406,10 @@ router.post("/import/activity", requireAuth, async (req, res): Promise<void> => 
     autoTelegramSent: false,
   }).returning();
 
-  for (const row of cleaned) {
-    await db.insert(salesActivityTable).values({ ...row, snapshotDate: snapshotDate || null, importId: imp.id });
+  const BATCH_ACT = 200;
+  for (let i = 0; i < cleaned.length; i += BATCH_ACT) {
+    const batch = cleaned.slice(i, i + BATCH_ACT).map(row => ({ ...row, snapshotDate: snapshotDate || null, importId: imp.id }));
+    await db.insert(salesActivityTable).values(batch);
   }
 
   const amCount = new Set(cleaned.map(r => r.nik)).size;

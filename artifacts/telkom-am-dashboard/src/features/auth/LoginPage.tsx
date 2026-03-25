@@ -48,8 +48,8 @@ export default function Login() {
               className="h-14 object-contain"
             />
             <div className="leading-tight">
-              <p className="text-xs font-black tracking-[0.18em] text-[#cc0000] uppercase">LESA VI · WITEL SURAMADU</p>
-              <p className="text-lg font-display font-black text-gray-900 tracking-tight leading-snug">AM Performance Dashboard</p>
+              <p className="text-lg font-display font-bold text-gray-900 tracking-tight leading-snug">LESA VI · WITEL SURAMADU</p>
+              <p className="text-[11px] font-semibold tracking-[0.15em] text-[#cc0000] uppercase">AM Performance Dashboard</p>
             </div>
           </div>
         </div>

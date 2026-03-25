@@ -204,10 +204,10 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                 <button
                   onClick={() => setVisOpen(!visOpen)}
                   className={cn(
-                    "w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-150",
+                    "w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150",
                     isChildActive
                       ? "text-primary bg-primary/10 font-medium"
-                      : "text-muted-foreground hover:text-foreground hover:bg-secondary/70"
+                      : "text-foreground/70 hover:text-foreground hover:bg-secondary/70"
                   )}
                 >
                   <div className="flex items-center gap-3">
@@ -233,10 +233,10 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                             <a key={child.href} href={child.href}
                               onClick={e => { e.preventDefault(); guardNav(child.href, () => setMobileOpen(false)); }}
                               className={cn(
-                                "block px-3 py-2 rounded-xl text-[12px] font-medium transition-all duration-150 cursor-pointer",
+                                "block px-3 py-2 rounded-xl text-[13px] font-medium transition-all duration-150 cursor-pointer",
                                 isActive
                                   ? "bg-primary text-white shadow-sm shadow-primary/25 font-medium"
-                                  : "text-muted-foreground hover:text-primary hover:bg-primary/8"
+                                  : "text-foreground/65 hover:text-primary hover:bg-primary/8"
                               )}
                             >
                               {child.label}
@@ -257,11 +257,11 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
               onClick={e => { e.preventDefault(); guardNav((item as any).href, () => setMobileOpen(false)); }}
               title={collapsed && !isMobile ? item.label : undefined}
               className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-150 cursor-pointer",
+                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 cursor-pointer",
                 collapsed && !isMobile ? "justify-center" : "",
                 isActive
                   ? "bg-primary text-white shadow-md shadow-primary/25 font-medium"
-                  : "text-muted-foreground hover:text-foreground hover:bg-secondary/70"
+                  : "text-foreground/70 hover:text-foreground hover:bg-secondary/70"
               )}
             >
               <item.icon className="w-4 h-4 shrink-0" />
@@ -335,7 +335,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       <motion.aside
         animate={{ width: collapsed ? SIDEBAR_COLLAPSED : SIDEBAR_W }}
         transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
-        className="hidden md:flex flex-col shrink-0 overflow-hidden z-20 border-r border-border"
+        className="hidden md:flex flex-col shrink-0 overflow-hidden z-20 border-r border-border h-screen sticky top-0"
         style={{ background: "hsl(var(--sidebar))" }}
       >
         <SidebarInner />

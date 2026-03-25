@@ -75,13 +75,24 @@ function buildWelcomeLinked(namaLengkap: string, divisi: string): string {
   );
 }
 
-// Returning user /start (short, casual)
-function buildWelcomeReturning(namaLengkap: string): string {
+// Returning user /start (full info, same style as linked, no ✅ header)
+function buildWelcomeReturning(namaLengkap: string, divisi: string): string {
   const greeting = greetingByTime();
   return (
-    `Hai kak *${namaLengkap}*! 👋 ${greeting}\n\n` +
-    `Semangat terus ya kak, jangan sampai ada LOP yang ketiduran! 😄\n\n` +
-    `Mau cek data apa hari ini?`
+    `Hai kak *${namaLengkap}*! 👋 ${greeting}\n` +
+    `_Divisi: ${divisi}_\n\n` +
+    `Bot ini akan membantu pantau 3 hal penting:\n\n` +
+    `📋 *Sales Funneling*\n` +
+    `Update & pergerakan LOP yang kamu handle, termasuk yang perlu segera ditindaklanjuti.\n\n` +
+    `📅 *Sales Activity*\n` +
+    `Pantauan KPI activity kamu — hanya aktivitas *Dengan Pelanggan* yang dihitung KPI ya kak.\n\n` +
+    `📊 *Performansi Revenue*\n` +
+    `Rekap capaian Revenue, Sustain, Scaling, dan NGTMA setiap periode.\n\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+    `⚠️ *Mohon jangan di-mute apalagi hapus bot ini ya kak* — hadir untuk bantu kamu tetap on track dan ngejar target. 🎯\n\n` +
+    `Jangan menyerah, yuk segera menangkan LOP yang ada dan cari prospek proyek baru sebanyak-banyaknya! 💪\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+    `Pilih menu di bawah untuk akses data:`
   );
 }
 
@@ -201,7 +212,7 @@ export async function pollOnce() {
         const [linkedAm] = await db.select().from(accountManagersTable)
           .where(eq(accountManagersTable.telegramChatId, chatId));
         if (linkedAm) {
-          await sendToTelegram(token, chatId, buildWelcomeReturning(linkedAm.nama), MAIN_KEYBOARD).catch(() => {});
+          await sendToTelegram(token, chatId, buildWelcomeReturning(linkedAm.nama, linkedAm.divisi), MAIN_KEYBOARD).catch(() => {});
         } else {
           await sendToTelegram(token, chatId, buildWelcomeUnlinked(firstName, chatId)).catch(() => {});
         }

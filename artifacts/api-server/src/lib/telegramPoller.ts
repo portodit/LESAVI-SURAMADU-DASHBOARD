@@ -1,7 +1,7 @@
 import { db, accountManagersTable, appSettingsTable, telegramBotUsersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { sendToTelegram, answerCallbackQuery, greetingByTime, buildTelegramMessages } from "./telegram";
-import { chatWithGemini } from "./geminiChat";
+import { chatWithGemini, generateBasaBasi } from "./geminiChat";
 import { logger } from "./logger";
 
 let lastUpdateId = 0;
@@ -52,15 +52,11 @@ const MAIN_KEYBOARD = {
 };
 
 // ── Message builders ────────────────────────────────────────────────────────
-// First-time linked welcome (enthusiastic, full intro)
-function buildWelcomeLinked(namaLengkap: string, divisi: string): string {
-  const greeting = greetingByTime();
+
+// Shared core body (features + warning + closing)
+function buildCoreBody(): string {
   return (
-    `✅ *Berhasil terhubung!*\n\n` +
-    `Selamat datang kak *${namaLengkap}*! 🎉\n` +
-    `_Divisi: ${divisi}_\n\n` +
-    `Mulai sekarang kamu akan menerima notifikasi dan reminder otomatis dari *BOT LESA VI* — Witel Suramadu TREG 3.\n\n` +
-    `Bot ini akan membantu pantau 3 hal penting:\n\n` +
+    `Bot ini siap bantu kamu pantau 3 hal penting:\n\n` +
     `📋 *Sales Funneling*\n` +
     `Update & pergerakan LOP yang kamu handle, termasuk yang perlu segera ditindaklanjuti.\n\n` +
     `📅 *Sales Activity*\n` +
@@ -68,31 +64,36 @@ function buildWelcomeLinked(namaLengkap: string, divisi: string): string {
     `📊 *Performansi Revenue*\n` +
     `Rekap capaian Revenue, Sustain, Scaling, dan NGTMA setiap periode.\n\n` +
     `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `⚠️ *Mohon jangan di-mute apalagi hapus bot ini ya kak* — hadir untuk bantu kamu tetap on track dan ngejar target. 🎯\n\n` +
-    `Jangan menyerah, yuk segera menangkan LOP yang ada dan cari prospek proyek baru sebanyak-banyaknya! 💪\n` +
+    `⚠️ *PENTING — Mohon Perhatikan!*\n\n` +
+    `*Jangan di-mute apalagi hapus bot ini ya kak.* Bot hadir buat bantu kamu on track, pantau progress, dan ngejar target setiap periode. Tanpa notifikasi ini, kamu bisa ketinggalan info penting! 🎯\n\n` +
+    `💪 Yuk segera menangkan LOP yang ada dan terus gali prospek proyek baru — rezeki nggak akan datang sendiri, semangat kak!\n` +
     `━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
     `Pilih menu di bawah untuk akses data:`
   );
 }
 
-// Returning user /start (full info, same style as linked, no ✅ header)
-function buildWelcomeReturning(namaLengkap: string, divisi: string): string {
+// First-time linked welcome
+async function buildWelcomeLinked(namaLengkap: string): Promise<string> {
   const greeting = greetingByTime();
+  const basaBasi = await generateBasaBasi(namaLengkap);
   return (
-    `Hai kak *${namaLengkap}*! 👋 ${greeting}\n` +
-    `_Divisi: ${divisi}_\n\n` +
-    `Bot ini akan membantu pantau 3 hal penting:\n\n` +
-    `📋 *Sales Funneling*\n` +
-    `Update & pergerakan LOP yang kamu handle, termasuk yang perlu segera ditindaklanjuti.\n\n` +
-    `📅 *Sales Activity*\n` +
-    `Pantauan KPI activity kamu — hanya aktivitas *Dengan Pelanggan* yang dihitung KPI ya kak.\n\n` +
-    `📊 *Performansi Revenue*\n` +
-    `Rekap capaian Revenue, Sustain, Scaling, dan NGTMA setiap periode.\n\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `⚠️ *Mohon jangan di-mute apalagi hapus bot ini ya kak* — hadir untuk bantu kamu tetap on track dan ngejar target. 🎯\n\n` +
-    `Jangan menyerah, yuk segera menangkan LOP yang ada dan cari prospek proyek baru sebanyak-banyaknya! 💪\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-    `Pilih menu di bawah untuk akses data:`
+    `✅ *Akun berhasil terhubung!* 🎉\n\n` +
+    `Hai kak *${namaLengkap}*! 👋 ${greeting}\n\n` +
+    `Selamat datang di *BOT LESA VI* — Witel Suramadu TREG 3! 🏢\n\n` +
+    `${basaBasi}\n\n` +
+    buildCoreBody()
+  );
+}
+
+// Returning user /start
+async function buildWelcomeReturning(namaLengkap: string): Promise<string> {
+  const greeting = greetingByTime();
+  const basaBasi = await generateBasaBasi(namaLengkap);
+  return (
+    `Hai kak *${namaLengkap}*! 👋 ${greeting}\n\n` +
+    `Selamat datang kembali di *BOT LESA VI* — Witel Suramadu TREG 3! 🏢\n\n` +
+    `${basaBasi}\n\n` +
+    buildCoreBody()
   );
 }
 
@@ -197,7 +198,7 @@ export async function pollOnce() {
           .set({ telegramChatId: chatId, telegramCode: null, telegramCodeExpiry: null })
           .where(eq(accountManagersTable.id, am.id));
         await upsertBotUser({ ...botUsersMap.get(chatId)!, lastMessage: `✅ Linked via ${source}` });
-        await sendToTelegram(token, chatId, buildWelcomeLinked(am.nama, am.divisi), MAIN_KEYBOARD).catch(() => {});
+        await sendToTelegram(token, chatId, await buildWelcomeLinked(am.nama), MAIN_KEYBOARD).catch(() => {});
         logger.info({ amId: am.id, nama: am.nama, chatId, source }, "AM auto-linked");
         return true;
       };
@@ -212,7 +213,7 @@ export async function pollOnce() {
         const [linkedAm] = await db.select().from(accountManagersTable)
           .where(eq(accountManagersTable.telegramChatId, chatId));
         if (linkedAm) {
-          await sendToTelegram(token, chatId, buildWelcomeReturning(linkedAm.nama, linkedAm.divisi), MAIN_KEYBOARD).catch(() => {});
+          await sendToTelegram(token, chatId, await buildWelcomeReturning(linkedAm.nama), MAIN_KEYBOARD).catch(() => {});
         } else {
           await sendToTelegram(token, chatId, buildWelcomeUnlinked(firstName, chatId)).catch(() => {});
         }

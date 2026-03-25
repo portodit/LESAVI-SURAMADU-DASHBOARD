@@ -14,6 +14,54 @@ function getAI(): GoogleGenAI | null {
 
 const DAYS_ID = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
 
+// Fallback basa-basi per day of week
+const BASA_BASI_FALLBACK: Record<number, string> = {
+  0: "Selamat hari Minggu kak! Sambil recharge, tidak ada salahnya siapkan strategi untuk minggu depan ya. 😊",
+  1: "Selamat memulai minggu baru kak! Semoga minggu ini jadi minggu dengan closing terbanyak. 🚀",
+  2: "Happy Tuesday kak! Yuk manfaatkan energi tengah minggu untuk kejar LOP yang masih pending. 💪",
+  3: "Selamat hari Rabu kak! Sudah setengah minggu — waktunya cek progress dan pastikan target tetap on track. 📊",
+  4: "Hampir akhir minggu kak! Yuk sprint habis-habisan, jangan ada peluang yang terlewat sebelum weekend. 🏃",
+  5: "Happy Friday kak! Jadikan Jumat ini penuh pencapaian — tutup minggu dengan closing yang manis. 🎯",
+  6: "Weekend nih kak, tapi rezeki nggak mengenal hari! Kalau ada prospek yang bisa difollow-up, jangan ditunda ya. 😄",
+};
+
+// Generate a warm, contextual basa-basi opener using AI
+export async function generateBasaBasi(namaLengkap: string): Promise<string> {
+  const ai = getAI();
+  const now = new Date();
+  const day = now.getDay();
+  const dayName = DAYS_ID[day];
+  const hour = now.getHours();
+
+  if (!ai) return BASA_BASI_FALLBACK[day] || BASA_BASI_FALLBACK[1];
+
+  const prompt = [
+    `Kamu adalah BOT LESA VI, asisten AM (Account Manager) di Telkom Witel Suramadu.`,
+    `Sekarang hari ${dayName}, pukul ${hour}.00.`,
+    `Kamu menyapa AM bernama "${namaLengkap}".`,
+    ``,
+    `Tulis basa-basi pembuka yang hangat dan kontekstual — 1-2 kalimat saja.`,
+    `Bisa berupa pantun singkat, kata-kata motivasi relevan dengan hari ini, atau sapaan unik.`,
+    `Sesuaikan dengan suasana hari (hari kerja/weekend, pagi/siang/malam).`,
+    `Bahasa Indonesia santai dan akrab, pakai "kak" untuk menyapa.`,
+    `Jangan gunakan markdown atau simbol berlebihan. Maksimal 30 kata.`,
+  ].join("\n");
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      config: { maxOutputTokens: 80 },
+    });
+    const text = response.text?.trim();
+    return text || BASA_BASI_FALLBACK[day];
+  } catch (err) {
+    logger.debug({ err }, "Gemini basa-basi error (non-fatal)");
+    return BASA_BASI_FALLBACK[day] || BASA_BASI_FALLBACK[1];
+  }
+}
+
+// AI chat for general messages
 export async function chatWithGemini(
   userMessage: string,
   context: { amName?: string; divisi?: string }
@@ -45,10 +93,7 @@ export async function chatWithGemini(
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: [{ role: "user", parts: [{ text: userMessage }] }],
-      config: {
-        systemInstruction: lines.join("\n"),
-        maxOutputTokens: 200,
-      },
+      config: { systemInstruction: lines.join("\n"), maxOutputTokens: 200 },
     });
     const text = response.text?.trim();
     return text || null;

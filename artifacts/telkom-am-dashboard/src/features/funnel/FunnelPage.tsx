@@ -82,7 +82,7 @@ function SelectDropdown({ label, value, onChange, options, disabled, className }
   const current = options.find(o => o.value === value);
   return (
     <div className={cn("flex flex-col gap-1 relative", className)} ref={ref}>
-      {label && <label className="text-xs font-display font-bold text-foreground uppercase tracking-wide">{label}</label>}
+      {label && <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{label}</label>}
       <button
         type="button"
         onClick={() => !disabled && setOpen(o => !o)}
@@ -140,7 +140,7 @@ function CheckboxDropdown({ label, options, selected, onChange, placeholder, lab
 
   return (
     <div className={cn("flex flex-col gap-1 relative", className)} ref={ref}>
-      <label className="text-xs font-display font-bold text-foreground uppercase tracking-wide">{label}</label>
+      <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{label}</label>
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
@@ -616,8 +616,8 @@ export default function FunnelPage() {
                 const amLopCount = Array.from(am.phases.values()).flat().length;
                 const orderedPhases = [...PHASES.filter(p => am.phases.has(p)), ...Array.from(am.phases.keys()).filter(p => !PHASES.includes(p))];
 
-                // Red ring helpers
-                const ring = amExpanded ? "#ef4444" : undefined;
+                // Expanded ring helpers
+                const ring = amExpanded ? "#94a3b8" : undefined;
                 const ringStyle = (extra?: React.CSSProperties): React.CSSProperties =>
                   ring ? { borderLeft: `2px solid ${ring}`, borderRight: `2px solid ${ring}`, ...extra } : {};
                 const lastPhase = orderedPhases[orderedPhases.length - 1];
@@ -626,26 +626,26 @@ export default function FunnelPage() {
                   <React.Fragment key={amKey}>
                     {/* AM Row */}
                     <tr
-                      className="cursor-pointer select-none border-t-2 border-primary/30"
-                      style={{ background: "#7f1d1d", ...(ring ? { borderTop: `2px solid ${ring}`, borderLeft: `2px solid ${ring}`, borderRight: `2px solid ${ring}`, borderBottom: amExpanded ? "none" : `2px solid ${ring}` } : {}) }}
+                      className="cursor-pointer select-none bg-card hover:bg-secondary/30 transition-colors"
+                      style={ring ? { borderTop: `2px solid ${ring}`, borderLeft: `2px solid ${ring}`, borderRight: `2px solid ${ring}`, borderBottom: amExpanded ? "none" : `2px solid ${ring}` } : { borderTop: "2px solid transparent" }}
                       onClick={() => toggleAmRow(amKey)}
                     >
                       <td className="px-4 py-3 w-8">
-                        <ChevronRight className={cn("w-4 h-4 text-red-200 transition-transform", amExpanded && "rotate-90")} />
+                        <ChevronRight className={cn("w-4 h-4 text-muted-foreground transition-transform", amExpanded && "rotate-90")} />
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <span className="font-black text-white text-sm uppercase tracking-wide">{am.namaAm}</span>
-                          <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-bold", am.divisi === "DPS" ? "bg-blue-900 text-blue-200" : "bg-violet-900 text-violet-200")}>
+                          <span className="font-black text-foreground text-sm uppercase tracking-wide">{am.namaAm}</span>
+                          <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-bold", am.divisi === "DPS" ? "bg-blue-100 text-blue-700" : "bg-violet-100 text-violet-700")}>
                             {am.divisi}
                           </span>
                         </div>
                       </td>
                       <td className="px-3 py-3" colSpan={3}>
-                        <span className="text-xs text-red-300 font-medium">{amLopCount} LOP</span>
+                        <span className="text-xs text-muted-foreground font-medium">{amLopCount} LOP</span>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <span className="font-black text-white font-mono text-sm">{fmtRupiah(amTotal)}</span>
+                        <span className="font-black text-foreground font-mono text-sm">{fmtRupiah(amTotal)}</span>
                       </td>
                     </tr>
 

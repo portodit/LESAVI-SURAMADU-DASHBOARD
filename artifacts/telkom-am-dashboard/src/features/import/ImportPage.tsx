@@ -108,17 +108,6 @@ export default function ImportData() {
   const [importProgress, setImportProgress] = useState<{ percent: number; stage: string } | null>(null);
   const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Block browser back/reload while importing
-  useEffect(() => {
-    if (!isPending) return;
-    const handler = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue = "Import sedang berjalan, yakin ingin meninggalkan halaman?";
-    };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, [isPending]);
-
   const { data: history, refetch } = useListImportHistory();
   const perfMut = useImportPerformance();
   const funnelMut = useImportFunnel();
@@ -138,6 +127,17 @@ export default function ImportData() {
     (activeTab === "performansi" && perfMut.isPending) ||
     (activeTab === "funnel" && funnelMut.isPending) ||
     (activeTab === "activity" && actMut.isPending);
+
+  // Block browser back/reload while importing
+  useEffect(() => {
+    if (!isPending) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "Import sedang berjalan, yakin ingin meninggalkan halaman?";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isPending]);
 
   const filteredHistory = history?.filter(h => h.type === activeTabData.type) || [];
   const todayStr = format(new Date(), "yyyy-MM-dd");

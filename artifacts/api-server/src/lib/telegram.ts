@@ -5,9 +5,9 @@ import { logger } from "./logger";
 const MONTH_NAMES = ["", "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
 
 function formatRupiah(val: number): string {
-  if (val >= 1_000_000_000_000) return `Rp ${(val / 1_000_000_000_000).toFixed(2).replace(".", ",")} T`;
-  if (val >= 1_000_000_000) return `Rp ${(val / 1_000_000_000).toFixed(2).replace(".", ",")} M`;
-  if (val >= 1_000_000) return `Rp ${(val / 1_000_000).toFixed(2).replace(".", ",")} Jt`;
+  if (val >= 1_000_000_000_000) return `Rp ${(val / 1_000_000_000_000).toFixed(2).replace(".", ",")} Triliun`;
+  if (val >= 1_000_000_000) return `Rp ${(val / 1_000_000_000).toFixed(2).replace(".", ",")} Miliar`;
+  if (val >= 1_000_000) return `Rp ${(val / 1_000_000).toFixed(2).replace(".", ",")} Juta`;
   if (val === 0) return `Rp 0`;
   return `Rp ${val.toLocaleString("id-ID")}`;
 }
@@ -16,10 +16,10 @@ function fmtPct(val: number): string {
   return val.toFixed(2).replace(".", ",") + "%";
 }
 
-function achEmoji(ach: number): string {
-  if (ach >= 100) return "🟢";
-  if (ach >= 80) return "🟡";
-  return "🔴";
+function achLabel(ach: number): string {
+  if (ach >= 100) return "(Tercapai)";
+  if (ach >= 80) return "(Mendekati)";
+  return "(Di bawah target)";
 }
 
 function greetingByTime(): string {
@@ -64,10 +64,10 @@ async function buildPerformanceMessage(
   const p = allPerfs.find(x => x.nik === nik);
   const totalAMs = allPerfs.length;
 
-  // CM rank from stored field
-  const rankCm = p?.rankAch || 0;
+  // Both ranks computed dynamically from all AMs in this period
+  const sortedByCm = [...allPerfs].sort((a, b) => (b.achRate || 0) - (a.achRate || 0));
+  const rankCm = sortedByCm.findIndex(x => x.nik === nik) + 1;
 
-  // YTD rank — compute by sorting all AMs in this period by achRateYtd descending
   const sortedByYtd = [...allPerfs].sort((a, b) => (b.achRateYtd || 0) - (a.achRateYtd || 0));
   const rankYtd = sortedByYtd.findIndex(x => x.nik === nik) + 1;
 
@@ -105,35 +105,35 @@ async function buildPerformanceMessage(
   msg += `Berikut rekap performansi kamu\n`;
   msg += `untuk periode *${MONTH_NAMES[month]} ${year}*:\n\n`;
 
-  // Section A: Reguler — with rank
+  // Section A: Reguler — with rank; order: Real → Target → Ach CM → Ach YTD → Rank CM → Rank YTD
   msg += `*A. Reguler Revenue*\n`;
-  msg += `├ Real Revenue  : ${formatRupiah(p?.realReguler ?? 0)}\n`;
-  msg += `├ Target        : ${formatRupiah(p?.targetReguler ?? 0)}\n`;
-  msg += `├ Ach CM        : ${fmtPct(achRegulerCm)} ${achEmoji(achRegulerCm)}\n`;
-  msg += `│   Rank CM     : #${rankCm} dari ${totalAMs}\n`;
-  msg += `├ Ach YTD       : ${fmtPct(achRegulerYtd)} ${achEmoji(achRegulerYtd)}\n`;
-  msg += `│   Rank YTD    : #${rankYtd} dari ${totalAMs}\n\n`;
+  msg += `├ Real Revenue    : ${formatRupiah(p?.realReguler ?? 0)}\n`;
+  msg += `├ Target Revenue  : ${formatRupiah(p?.targetReguler ?? 0)}\n`;
+  msg += `├ Ach CM          : ${fmtPct(achRegulerCm)} ${achLabel(achRegulerCm)}\n`;
+  msg += `├ Ach YTD         : ${fmtPct(achRegulerYtd)} ${achLabel(achRegulerYtd)}\n`;
+  msg += `│   Rank CM       : #${rankCm} dari ${totalAMs}\n`;
+  msg += `│   Rank YTD      : #${rankYtd} dari ${totalAMs}\n\n`;
 
   // Section B: Sustain
   msg += `*B. Sustain Revenue*\n`;
-  msg += `├ Real Revenue  : ${formatRupiah(p?.realSustain ?? 0)}\n`;
-  msg += `├ Target        : ${formatRupiah(p?.targetSustain ?? 0)}\n`;
-  msg += `├ Ach CM        : ${fmtPct(achSustainCm)} ${achEmoji(achSustainCm)}\n`;
-  msg += `└ Ach YTD       : ${fmtPct(achSustainYtd)} ${achEmoji(achSustainYtd)}\n\n`;
+  msg += `├ Real Revenue    : ${formatRupiah(p?.realSustain ?? 0)}\n`;
+  msg += `├ Target Sustain  : ${formatRupiah(p?.targetSustain ?? 0)}\n`;
+  msg += `├ Ach CM          : ${fmtPct(achSustainCm)} ${achLabel(achSustainCm)}\n`;
+  msg += `└ Ach YTD         : ${fmtPct(achSustainYtd)} ${achLabel(achSustainYtd)}\n\n`;
 
   // Section C: Scaling
   msg += `*C. Scaling Revenue*\n`;
-  msg += `├ Real Revenue  : ${formatRupiah(p?.realScaling ?? 0)}\n`;
-  msg += `├ Target        : ${formatRupiah(p?.targetScaling ?? 0)}\n`;
-  msg += `├ Ach CM        : ${fmtPct(achScalingCm)} ${achEmoji(achScalingCm)}\n`;
-  msg += `└ Ach YTD       : ${fmtPct(achScalingYtd)} ${achEmoji(achScalingYtd)}\n\n`;
+  msg += `├ Real Revenue    : ${formatRupiah(p?.realScaling ?? 0)}\n`;
+  msg += `├ Target Scaling  : ${formatRupiah(p?.targetScaling ?? 0)}\n`;
+  msg += `├ Ach CM          : ${fmtPct(achScalingCm)} ${achLabel(achScalingCm)}\n`;
+  msg += `└ Ach YTD         : ${fmtPct(achScalingYtd)} ${achLabel(achScalingYtd)}\n\n`;
 
   // Section D: NGTMA
   msg += `*D. NGTMA Revenue*\n`;
-  msg += `├ Real Revenue  : ${formatRupiah(p?.realNgtma ?? 0)}\n`;
-  msg += `├ Target        : ${formatRupiah(p?.targetNgtma ?? 0)}\n`;
-  msg += `├ Ach CM        : ${fmtPct(achNgtmaCm)} ${achEmoji(achNgtmaCm)}\n`;
-  msg += `└ Ach YTD       : ${fmtPct(achNgtmaYtd)} ${achEmoji(achNgtmaYtd)}\n\n`;
+  msg += `├ Real Revenue    : ${formatRupiah(p?.realNgtma ?? 0)}\n`;
+  msg += `├ Target NGTMA    : ${formatRupiah(p?.targetNgtma ?? 0)}\n`;
+  msg += `├ Ach CM          : ${fmtPct(achNgtmaCm)} ${achLabel(achNgtmaCm)}\n`;
+  msg += `└ Ach YTD         : ${fmtPct(achNgtmaYtd)} ${achLabel(achNgtmaYtd)}\n\n`;
 
   msg += `💬 *Feedback*\n\n`;
   msg += `${feedback}\n\n`;

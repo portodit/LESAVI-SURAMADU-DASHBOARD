@@ -6,7 +6,7 @@ import {
 } from "recharts";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
-import { ChevronDown, ChevronRight, Camera, Menu, X, BarChart2, Filter, Activity, ChevronLeft } from "lucide-react";
+import { ChevronDown, ChevronRight, Camera, Menu, X, BarChart2, Filter, Activity, ChevronLeft, Check } from "lucide-react";
 
 const SLIDES = [
   { label: "Visualisasi Performa", icon: BarChart2 },
@@ -138,6 +138,48 @@ function CheckboxDropdown({ label, options, selected, onChange, placeholder, lab
               }} />
               {lFn(opt)}
             </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── SelectDropdown (single-select, matches CheckboxDropdown style) ─────────────
+function SelectDropdown({ label, value, onChange, options, className, disabled }: {
+  label?: string; value: string; onChange: (v: string) => void;
+  options: { value: string; label: string }[]; className?: string; disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = React.useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    function handler(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+  const current = options.find(o => o.value === value);
+  return (
+    <div className={cn("flex flex-col gap-0.5 relative", className)} ref={ref}>
+      {label && <label className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wide">{label}</label>}
+      <button
+        onClick={() => !disabled && setOpen(v => !v)}
+        disabled={disabled}
+        className={cn(
+          "h-6 px-1.5 bg-secondary/50 border border-border rounded-md text-[10px] flex items-center gap-1 w-full disabled:opacity-40 transition-colors",
+          open && "border-primary/50 bg-secondary/70"
+        )}
+      >
+        <span className="flex-1 text-left truncate">{current?.label ?? value}</span>
+        <ChevronDown className={cn("w-3 h-3 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} />
+      </button>
+      {open && (
+        <div className="absolute top-full mt-1 left-0 z-50 bg-popover border border-border rounded-xl shadow-lg min-w-[140px] max-h-60 overflow-y-auto py-1">
+          {options.map(opt => (
+            <button key={opt.value} onClick={() => { onChange(opt.value); setOpen(false); }}
+              className={cn("w-full text-left px-3 py-1.5 text-xs hover:bg-secondary transition-colors flex items-center gap-2", opt.value === value && "font-semibold text-primary")}>
+              <span className="w-3.5 shrink-0">{opt.value === value ? <Check className="w-3 h-3" /> : null}</span>
+              {opt.label}
+            </button>
           ))}
         </div>
       )}
@@ -372,42 +414,38 @@ export default function EmbedPerforma() {
           {/* Filters (only on Performa slide) */}
           {currentSlide === 0 ? (
             <>
-              <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                <label className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-0.5">
-                  <Camera className="w-2.5 h-2.5" /> Snapshot
-                </label>
-                <select
-                  value={snapshotId ?? ""}
-                  disabled={!imports.length}
-                  onChange={e => { setSnapshotId(Number(e.target.value)); setFilterPeriodes(new Set()); }}
-                  className="h-6 px-1.5 bg-secondary/50 border border-border rounded-md text-[10px] focus:outline-none disabled:opacity-40 w-full"
-                >
-                  {imports.length === 0 && <option value="">Belum ada data</option>}
-                  {imports.map(imp => <option key={imp.id} value={imp.id}>{shortSnap(imp.createdAt)}</option>)}
-                </select>
-              </div>
+              <SelectDropdown
+                label="📷 Snapshot"
+                value={String(snapshotId ?? "")}
+                onChange={v => { setSnapshotId(Number(v)); setFilterPeriodes(new Set()); }}
+                options={imports.length === 0 ? [{ value: "", label: "Belum ada data" }] : imports.map(imp => ({ value: String(imp.id), label: shortSnap(imp.createdAt) }))}
+                disabled={!imports.length}
+                className="flex-1 min-w-0"
+              />
               <CheckboxDropdown label="Periode" options={availablePeriodes} selected={filterPeriodes} onChange={setFilterPeriodes} labelFn={periodeLabel} headerLabel="" summaryLabel="Periode" className="flex-1 min-w-0" />
-              <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                <label className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wide">Divisi</label>
-                <select value={filterDivisi} onChange={e => { setFilterDivisi(e.target.value); setFilterNamaAms(new Set()); }}
-                  disabled={!divisiOptions.length} className="h-6 px-1.5 bg-secondary/50 border border-border rounded-md text-[10px] focus:outline-none disabled:opacity-40 w-full">
-                  <option value="All">Semua Divisi</option>
-                  {divisiOptions.map(d => <option key={d} value={d}>{d}</option>)}
-                </select>
-              </div>
+              <SelectDropdown
+                label="Divisi"
+                value={filterDivisi}
+                onChange={v => { setFilterDivisi(v); setFilterNamaAms(new Set()); }}
+                options={[{ value: "All", label: "Semua Divisi" }, ...divisiOptions.map(d => ({ value: d, label: d }))]}
+                disabled={!divisiOptions.length}
+                className="flex-1 min-w-0"
+              />
               <CheckboxDropdown label="Nama AM" options={amNames} selected={filterNamaAms} onChange={setFilterNamaAms} placeholder="Semua AM" headerLabel="Pilih AM" summaryLabel="AM" className="flex-1 min-w-0" />
-              <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                <label className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wide">Tipe Rank</label>
-                <select value={filterTipeRank} onChange={e => setFilterTipeRank(e.target.value)} className="h-6 px-1.5 bg-secondary/50 border border-border rounded-md text-[10px] focus:outline-none w-full">
-                  {TIPE_RANK.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-              </div>
-              <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                <label className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wide">Revenue</label>
-                <select value={filterTipeRevenue} onChange={e => setFilterTipeRevenue(e.target.value)} className="h-6 px-1.5 bg-secondary/50 border border-border rounded-md text-[10px] focus:outline-none w-full">
-                  {TIPE_REVENUE.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-              </div>
+              <SelectDropdown
+                label="Tipe Rank"
+                value={filterTipeRank}
+                onChange={setFilterTipeRank}
+                options={TIPE_RANK.map(t => ({ value: t, label: t }))}
+                className="flex-1 min-w-0"
+              />
+              <SelectDropdown
+                label="Revenue"
+                value={filterTipeRevenue}
+                onChange={setFilterTipeRevenue}
+                options={TIPE_REVENUE.map(t => ({ value: t, label: t }))}
+                className="flex-1 min-w-0"
+              />
             </>
           ) : (
             <div className="flex-1" />

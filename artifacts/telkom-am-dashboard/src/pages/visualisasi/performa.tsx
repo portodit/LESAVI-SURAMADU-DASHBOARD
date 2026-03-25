@@ -234,6 +234,48 @@ function CheckboxDropdown({ label, options, selected, onChange, placeholder, lab
   );
 }
 
+// ─── SelectDropdown (single-select, consistent with CheckboxDropdown) ───────────
+function SelectDropdown({ label, value, onChange, options, className, disabled }: {
+  label?: string; value: string; onChange: (v: string) => void;
+  options: { value: string; label: string }[]; className?: string; disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffectRef(() => {
+    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+  const current = options.find(o => o.value === value);
+  return (
+    <div className={cn("flex flex-col gap-1 relative", className)} ref={ref}>
+      {label && <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{label}</label>}
+      <button
+        onClick={() => !disabled && setOpen(v => !v)}
+        disabled={disabled}
+        className={cn(
+          "h-8 px-2.5 bg-secondary/50 border border-border rounded-lg text-xs flex items-center gap-1.5 w-full disabled:opacity-40 transition-colors",
+          open && "border-primary/50 ring-2 ring-primary/20"
+        )}
+      >
+        <span className="flex-1 text-left truncate text-foreground">{current?.label ?? value}</span>
+        <ChevronDown className={cn("w-3.5 h-3.5 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} />
+      </button>
+      {open && (
+        <div className="absolute top-full mt-1 left-0 z-50 bg-card border border-border rounded-xl shadow-xl min-w-[160px] max-h-60 overflow-y-auto py-1">
+          {options.map(opt => (
+            <button key={opt.value} onClick={() => { onChange(opt.value); setOpen(false); }}
+              className={cn("w-full text-left px-3 py-1.5 text-xs hover:bg-secondary/50 transition-colors flex items-center gap-2 text-foreground", opt.value === value && "font-semibold text-primary")}>
+              <span className="w-3.5 shrink-0 flex items-center justify-center">{opt.value === value ? <Check className="w-3 h-3" /> : null}</span>
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Helper: format "2026-01" → "Jan 2026"
 function periodeLabel(p: string): string {
   const [year, month] = p.split("-");
@@ -513,24 +555,16 @@ export default function PerformaVis() {
       <div className="bg-card border border-border rounded-xl px-4 py-3">
         <div className="flex items-end gap-2 min-w-0">
           {/* 1. Snapshot */}
-          <div className="flex flex-col gap-1 flex-1 min-w-0">
-            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-              <Camera className="w-3 h-3" /> Snapshot
-            </label>
-            <select
-              value={filterSnapshotId ?? ""}
-              disabled={!perfImports.length}
-              onChange={e => { setFilterSnapshotId(Number(e.target.value)); setFilterPeriodes(new Set()); }}
-              className="h-8 px-2.5 bg-secondary/50 border border-border rounded-lg text-xs focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:opacity-40 w-full"
-            >
-              {perfImports.length === 0 && <option value="">Belum ada data</option>}
-              {perfImports.map((imp: any) => (
-                <option key={imp.id} value={imp.id}>{formatSnapshotLabel(imp.createdAt)}</option>
-              ))}
-            </select>
-          </div>
+          <SelectDropdown
+            label="📷 Snapshot"
+            value={String(filterSnapshotId ?? "")}
+            onChange={v => { setFilterSnapshotId(Number(v)); setFilterPeriodes(new Set()); }}
+            options={perfImports.length === 0 ? [{ value: "", label: "Belum ada data" }] : perfImports.map((imp: any) => ({ value: String(imp.id), label: formatSnapshotLabel(imp.createdAt) }))}
+            disabled={!perfImports.length}
+            className="flex-1 min-w-0"
+          />
 
-          {/* 2. Periode Bulan — checkbox dropdown (YYYY-MM) */}
+          {/* 2. Periode Bulan */}
           <CheckboxDropdown
             label="Periode Bulan"
             options={availablePeriodes}
@@ -543,18 +577,14 @@ export default function PerformaVis() {
           />
 
           {/* 3. Divisi */}
-          <div className="flex flex-col gap-1 flex-1 min-w-0">
-            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Divisi</label>
-            <select
-              value={filterDivisi}
-              onChange={e => { setFilterDivisi(e.target.value); setFilterNamaAms(new Set()); }}
-              disabled={!divisiOptions.length}
-              className="h-8 px-2.5 bg-secondary/50 border border-border rounded-lg text-xs focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:opacity-40 w-full"
-            >
-              <option value="All">Semua Divisi</option>
-              {divisiOptions.map(d => <option key={d} value={d}>{d}</option>)}
-            </select>
-          </div>
+          <SelectDropdown
+            label="Divisi"
+            value={filterDivisi}
+            onChange={v => { setFilterDivisi(v); setFilterNamaAms(new Set()); }}
+            options={[{ value: "All", label: "Semua Divisi" }, ...divisiOptions.map(d => ({ value: d, label: d }))]}
+            disabled={!divisiOptions.length}
+            className="flex-1 min-w-0"
+          />
 
           {/* 4. Nama AM */}
           <CheckboxDropdown
@@ -569,28 +599,22 @@ export default function PerformaVis() {
           />
 
           {/* 5. Tipe Rank */}
-          <div className="flex flex-col gap-1 flex-1 min-w-0">
-            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Tipe Rank</label>
-            <select
-              value={filterTipeRank}
-              onChange={e => setFilterTipeRank(e.target.value)}
-              className="h-8 px-2.5 bg-secondary/50 border border-border rounded-lg text-xs focus:ring-2 focus:ring-primary/20 focus:border-primary w-full"
-            >
-              {TIPE_RANK.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
+          <SelectDropdown
+            label="Tipe Rank"
+            value={filterTipeRank}
+            onChange={setFilterTipeRank}
+            options={TIPE_RANK.map(t => ({ value: t, label: t }))}
+            className="flex-1 min-w-0"
+          />
 
           {/* 6. Tipe Revenue */}
-          <div className="flex flex-col gap-1 flex-1 min-w-0">
-            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Tipe Revenue</label>
-            <select
-              value={filterTipeRevenue}
-              onChange={e => setFilterTipeRevenue(e.target.value)}
-              className="h-8 px-2.5 bg-secondary/50 border border-border rounded-lg text-xs focus:ring-2 focus:ring-primary/20 focus:border-primary w-full"
-            >
-              {TIPE_REVENUE.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
+          <SelectDropdown
+            label="Tipe Revenue"
+            value={filterTipeRevenue}
+            onChange={setFilterTipeRevenue}
+            options={TIPE_REVENUE.map(t => ({ value: t, label: t }))}
+            className="flex-1 min-w-0"
+          />
 
         </div>
       </div>

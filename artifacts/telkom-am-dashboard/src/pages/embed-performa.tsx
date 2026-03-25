@@ -562,11 +562,13 @@ export default function EmbedPerforma() {
             </div>
 
             {/* Table */}
-            <div className="bg-card border border-border rounded-xl overflow-hidden">
+            <div className="bg-card border border-border rounded-xl">
               <div className="px-4 py-3 border-b border-border bg-secondary/30">
                 <h3 className="text-sm font-bold text-foreground">AM Performance Report</h3>
               </div>
-              <div className="overflow-x-auto">
+              <div className="p-3">
+                <div className="border border-border rounded-xl overflow-hidden">
+                <div className="overflow-x-auto">
                 <table className="w-full text-xs text-left">
                   <thead>
                     <tr className="bg-red-700 text-white">
@@ -659,6 +661,8 @@ export default function EmbedPerforma() {
                     })}
                   </tbody>
                 </table>
+              </div>
+              </div>
               </div>
               {/* Summary */}
               <div className="mt-0 grid grid-cols-2 lg:grid-cols-4 gap-2 p-3 border-t border-border">

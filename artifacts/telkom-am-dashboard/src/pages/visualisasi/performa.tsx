@@ -689,7 +689,7 @@ export default function PerformaVis() {
           {/* ─── Table (full width) ──────────────────────── */}
           <div>
             {/* Table */}
-            <div className="bg-card border border-border rounded-xl overflow-hidden">
+            <div className="bg-card border border-border rounded-xl">
               <div className="px-4 py-3 border-b border-border bg-secondary/30 flex items-center justify-between">
                 <h3 className="text-sm font-display font-semibold text-foreground flex items-center gap-2">
                   <TrendingUp className="w-4 h-4 text-primary" />
@@ -703,7 +703,9 @@ export default function PerformaVis() {
                   {expandAll ? "Collapse Semua" : "Expand Semua AM"}
                 </button>
               </div>
-              <div className="overflow-x-auto">
+              <div className="p-3">
+                <div className="border border-border rounded-xl overflow-hidden">
+                <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead>
                     <tr className="bg-red-700 text-white font-black uppercase tracking-wide text-xs">
@@ -821,6 +823,8 @@ export default function PerformaVis() {
                     </tr>
                   </tfoot>
                 </table>
+              </div>
+              </div>
               </div>
             </div>
 

@@ -79,7 +79,6 @@ router.post("/import/performance", requireAuth, async (req, res): Promise<void> 
       const divisiRaw = String(r.DIVISI_AM || r.divisi || "").trim();
       const periodeStr = String(r.PERIODE || "").trim(); // "202601"
       if (!nik || !namaAm || !periodeStr || periodeStr.length < 6) continue;
-      if (divisiRaw.toUpperCase() === "DGS") continue; // skip DGS rows
 
       const key = `${nik}__${periodeStr}`;
 
@@ -105,12 +104,19 @@ router.post("/import/performance", requireAuth, async (req, res): Promise<void> 
           nik, namaAm,
           divisi: divisiRaw,
           witel: String(r.WITEL_AM || r.witel || "SURAMADU").trim(),
-          periodeStr, target: 0, real: 0, customers: [],
+          periodeStr, target: 0, real: 0,
+          tReg: 0, rReg: 0, tSustain: 0, rSustain: 0,
+          tScaling: 0, rScaling: 0, tNgtma: 0, rNgtma: 0,
+          customers: [],
         });
       }
       const entry = amMap.get(key)!;
       entry.target += targetTotal;
       entry.real += realTotal;
+      entry.tReg += tReg; entry.rReg += rReg;
+      entry.tSustain += tSustain; entry.rSustain += rSustain;
+      entry.tScaling += tScaling; entry.rScaling += rScaling;
+      entry.tNgtma += tNgtma; entry.rNgtma += rNgtma;
       if (pelanggan) {
         entry.customers.push({
           nip, pelanggan, proporsi,
@@ -135,6 +141,14 @@ router.post("/import/performance", requireAuth, async (req, res): Promise<void> 
         bulan: month,
         targetRevenue: entry.target,
         realRevenue: entry.real,
+        targetReguler: entry.tReg,
+        realReguler: entry.rReg,
+        targetSustain: entry.tSustain,
+        realSustain: entry.rSustain,
+        targetScaling: entry.tScaling,
+        realScaling: entry.rScaling,
+        targetNgtma: entry.tNgtma,
+        realNgtma: entry.rNgtma,
         achRate,
         achRateYtd: achRate,
         rankAch: 0,
@@ -225,7 +239,7 @@ router.post("/import/performance", requireAuth, async (req, res): Promise<void> 
   res.json({
     success: true, rowsImported: toInsert.length, amCount,
     rawCount, period: importPeriod, snapshotDate,
-    message: `${amCount} AM (${toInsert.length} baris) berhasil diimport dari ${rawCount} baris mentah`,
+    message: `${amCount} AM berhasil diimport — ${toInsert.length} rekord AM-periode dibuat dari ${rawCount} baris mentah (data pelanggan tersimpan di komponen detail)`,
     importId: imp.id,
   });
 });

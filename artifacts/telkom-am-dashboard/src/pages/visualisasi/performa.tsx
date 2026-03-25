@@ -105,8 +105,7 @@ function TrophyCard({ title, subtitle, am, value, valueLabel, colorScheme }: {
         </div>
         <span className="text-3xl leading-none">{scheme.icon}</span>
       </div>
-      <p className="font-display font-extrabold text-base text-foreground truncate mb-1" title={am.namaAm}>{am.namaAm}</p>
-      <p className="text-xs text-muted-foreground mb-3">{am.divisi}</p>
+      <p className="font-display font-extrabold text-base text-foreground truncate mb-3" title={am.namaAm}>{am.namaAm}</p>
       <p className={cn("text-4xl font-display font-black tabular-nums leading-none", scheme.valueClr)}>{value}</p>
       <p className="text-xs text-muted-foreground mt-2">{valueLabel}</p>
     </div>
@@ -329,23 +328,27 @@ export default function PerformaVis() {
       const ytdAch = entry.ytdTarget > 0 ? entry.ytdReal / entry.ytdTarget : 0;
       const cmAch = getAchPct(cmRow.achRate);
 
-      // Filter by tipeRevenue using new komponenDetail schema
-      const cmCustomers = parseKomponen(cmRow.komponenDetail);
-      const cmSums = sumKomponen(cmCustomers, filterTipeRevenue);
-      let effectiveCmTarget = filterTipeRevenue === "Semua" ? cmRow.targetRevenue : cmSums.target;
-      let effectiveCmReal = filterTipeRevenue === "Semua" ? cmRow.realRevenue : cmSums.real;
+      // Filter by tipeRevenue — use new per-type columns if available, fallback to komponenDetail JSON
+      function getTyped(row: any, tipe: string): { target: number; real: number } {
+        if (tipe === "Semua") return { target: row.targetRevenue, real: row.realRevenue };
+        if (row.targetReguler != null && tipe === "Reguler") return { target: row.targetReguler ?? 0, real: row.realReguler ?? 0 };
+        if (row.targetSustain != null && tipe === "Sustain") return { target: row.targetSustain ?? 0, real: row.realSustain ?? 0 };
+        if (row.targetScaling != null && tipe === "Scaling") return { target: row.targetScaling ?? 0, real: row.realScaling ?? 0 };
+        if (row.targetNgtma != null && tipe === "NGTMA") return { target: row.targetNgtma ?? 0, real: row.realNgtma ?? 0 };
+        // fallback to JSON
+        return sumKomponen(parseKomponen(row.komponenDetail), tipe);
+      }
+      const cmSums = getTyped(cmRow, filterTipeRevenue);
+      let effectiveCmTarget = cmSums.target;
+      let effectiveCmReal = cmSums.real;
 
       // For YTD, recalculate per-row
-      let effectiveYtdTarget = entry.ytdTarget;
-      let effectiveYtdReal = entry.ytdReal;
-      if (filterTipeRevenue !== "Semua") {
-        effectiveYtdTarget = 0;
-        effectiveYtdReal = 0;
-        for (const row of filteredRows.filter(r => r.nik === nik)) {
-          const sums = sumKomponen(parseKomponen(row.komponenDetail), filterTipeRevenue);
-          effectiveYtdTarget += sums.target;
-          effectiveYtdReal += sums.real;
-        }
+      let effectiveYtdTarget = 0;
+      let effectiveYtdReal = 0;
+      for (const row of filteredRows.filter(r => r.nik === nik)) {
+        const sums = getTyped(row, filterTipeRevenue);
+        effectiveYtdTarget += sums.target;
+        effectiveYtdReal += sums.real;
       }
 
       const effectiveCmAch = effectiveCmTarget > 0 ? effectiveCmReal / effectiveCmTarget : 0;
@@ -616,34 +619,38 @@ export default function PerformaVis() {
             />
 
             {/* Distribusi Donut */}
-            <div className="bg-card border border-border rounded-xl p-4 flex flex-col">
-              <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">Distribusi Pencapaian Target</h3>
-              <div className="relative flex-1">
-                <ResponsiveContainer width="100%" height={130}>
-                  <PieChart>
-                    <Pie data={distribusi} cx="50%" cy="50%" innerRadius={34} outerRadius={52} dataKey="value" labelLine={false} label={renderCustomLabel}>
-                      {distribusi.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                    </Pie>
-                    <Tooltip contentStyle={{ borderRadius: "10px", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)", fontSize: "12px" }} formatter={(v, n) => [`${v} AM`, n]} />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div className="text-center">
-                    <p className="text-xl font-display font-black text-foreground">{amTableData.length}</p>
-                    <p className="text-[10px] text-muted-foreground">AM</p>
+            <div className="bg-card border border-border rounded-xl p-4">
+              <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3">Distribusi Pencapaian Target</h3>
+              <div className="flex items-center gap-3">
+                {/* Pie chart */}
+                <div className="relative shrink-0" style={{ width: 110, height: 110 }}>
+                  <ResponsiveContainer width={110} height={110}>
+                    <PieChart>
+                      <Pie data={distribusi} cx="50%" cy="50%" innerRadius={30} outerRadius={48} dataKey="value" labelLine={false}>
+                        {distribusi.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                      </Pie>
+                      <Tooltip contentStyle={{ borderRadius: "10px", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)", fontSize: "11px" }} formatter={(v, n) => [`${v} AM`, n]} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="text-center">
+                      <p className="text-lg font-display font-black text-foreground">{amTableData.length}</p>
+                      <p className="text-[9px] text-muted-foreground">AM</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="space-y-1.5 mt-2 border-t border-border pt-2">
-                {distribusi.map(d => (
-                  <div key={d.name} className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-2 h-2 rounded-full shrink-0" style={{ background: d.color }} />
-                      <span className="text-muted-foreground">{d.name}</span>
+                {/* Legend — right side */}
+                <div className="flex-1 space-y-2.5">
+                  {distribusi.map(d => (
+                    <div key={d.name} className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: d.color }} />
+                        <span className="text-muted-foreground text-[11px]">{d.name}</span>
+                      </div>
+                      <span className="font-bold tabular-nums text-[11px]">{d.value} AM</span>
                     </div>
-                    <span className="font-bold tabular-nums">{d.value} AM</span>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
           </div>

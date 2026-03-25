@@ -266,16 +266,6 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
           </button>
 
           <h1 className="text-sm font-display font-bold text-foreground flex-1">{currentLabel}</h1>
-
-          <div className="flex items-center gap-2">
-            <div className="hidden sm:flex flex-col text-right">
-              <span className="text-xs font-semibold text-foreground leading-none">Admin TR3</span>
-              <span className="text-[10px] text-muted-foreground leading-none mt-0.5">{user.email}</span>
-            </div>
-            <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 text-primary flex items-center justify-center font-bold text-xs">
-              AD
-            </div>
-          </div>
         </header>
 
         {/* Content */}

@@ -71,9 +71,10 @@ router.get("/funnel", requireAuth, async (req, res): Promise<void> => {
 
   let allLops = await db.select().from(salesFunnelTable);
 
-  // Resolve null AM names from master_am
+  // Resolve null/numeric AM names from master_am (numeric = just a NIK stored as name)
   allLops = allLops.map(l => {
-    if ((!l.namaAm || l.namaAm === "") && l.nikAm && masterAmByNik.has(l.nikAm)) {
+    const isUnresolved = !l.namaAm || l.namaAm === "" || /^\d+$/.test(l.namaAm.trim());
+    if (isUnresolved && l.nikAm && masterAmByNik.has(l.nikAm)) {
       return { ...l, namaAm: masterAmByNik.get(l.nikAm) || l.namaAm };
     }
     return l;

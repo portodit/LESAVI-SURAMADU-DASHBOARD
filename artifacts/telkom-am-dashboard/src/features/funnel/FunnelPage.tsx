@@ -82,7 +82,7 @@ function SelectDropdown({ label, value, onChange, options, disabled, className }
   const current = options.find(o => o.value === value);
   return (
     <div className={cn("flex flex-col gap-1 relative", className)} ref={ref}>
-      {label && <label className="text-xs font-bold text-foreground uppercase tracking-wide">{label}</label>}
+      {label && <label className="text-xs font-display font-bold text-foreground uppercase tracking-wide">{label}</label>}
       <button
         type="button"
         onClick={() => !disabled && setOpen(o => !o)}
@@ -140,7 +140,7 @@ function CheckboxDropdown({ label, options, selected, onChange, placeholder, lab
 
   return (
     <div className={cn("flex flex-col gap-1 relative", className)} ref={ref}>
-      <label className="text-xs font-bold text-foreground uppercase tracking-wide">{label}</label>
+      <label className="text-xs font-display font-bold text-foreground uppercase tracking-wide">{label}</label>
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
@@ -350,6 +350,7 @@ function KontrakBadge({ k }: { k: string | null }) {
 
 export default function FunnelPage() {
   const [filterYear, setFilterYear] = useState<string>("2026");
+  const [filterMonths, setFilterMonths] = useState<Set<string>>(new Set());
   const [importId, setImportId] = useState<number | null>(null);
   const [filterDivisi, setFilterDivisi] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<Set<string>>(new Set());
@@ -359,6 +360,8 @@ export default function FunnelPage() {
   const [expandedAm, setExpandedAm] = useState<Record<string, boolean>>({});
   const [expandedPhase, setExpandedPhase] = useState<Record<string, boolean>>({});
   const [allExpanded, setAllExpanded] = useState(false);
+  const [targetHoOverride, setTargetHoOverride] = useState<string>("");
+  const [targetFullHoOverride, setTargetFullHoOverride] = useState<string>("");
 
   const { data: snapshots = [] } = useQuery<FunnelSnapshot[]>({
     queryKey: ["funnel-snapshots"],
@@ -372,11 +375,21 @@ export default function FunnelPage() {
     return years.map(y => ({ value: y, label: y }));
   }, [snapshots]);
 
+  const availableMonthsForYear = useMemo(() => {
+    return snapshots
+      .filter(s => s.period.startsWith(filterYear))
+      .map(s => s.period.slice(5, 7));
+  }, [snapshots, filterYear]);
+
   const snapshotOptions = useMemo(() =>
     snapshots
-      .filter(s => s.period.startsWith(filterYear))
+      .filter(s => {
+        if (!s.period.startsWith(filterYear)) return false;
+        if (filterMonths.size > 0 && !filterMonths.has(s.period.slice(5, 7))) return false;
+        return true;
+      })
       .map(s => ({ value: String(s.id), label: `${periodLabel(s.period)} (${s.rowsImported.toLocaleString()} LOP)` })),
-    [snapshots, filterYear]
+    [snapshots, filterYear, filterMonths]
   );
 
   useEffect(() => {
@@ -454,7 +467,19 @@ export default function FunnelPage() {
     });
   }, [filteredLops]);
 
-  function toggleAmRow(key: string) { setExpandedAm(p => ({ ...p, [key]: !p[key] })); }
+  function toggleAmRow(key: string) {
+    const nowExpanding = !expandedAm[key];
+    setExpandedAm(p => ({ ...p, [key]: nowExpanding }));
+    if (nowExpanding) {
+      // Auto-expand all phases for this AM
+      const amEntry = groupedByAm.find(a => (a.nikAm || a.namaAm) === key);
+      if (amEntry) {
+        const pk: Record<string, boolean> = {};
+        for (const [ph] of amEntry.phases) pk[`${key}|${ph}`] = true;
+        setExpandedPhase(p => ({ ...p, ...pk }));
+      }
+    }
+  }
   function togglePhaseRow(key: string) { setExpandedPhase(p => ({ ...p, [key]: !p[key] })); }
 
   function handleToggleAll() {
@@ -474,7 +499,9 @@ export default function FunnelPage() {
   const lopBadge = filteredLops.length !== (data?.totalLop || 0)
     ? `${filteredLops.length} / ${data?.totalLop || 0}` : filteredLops.length.toLocaleString("id-ID");
 
-  const pct = data?.targetFullHo ? (data.realFullHo / data.targetFullHo) * 100 : 0;
+  const effectiveTargetHo = targetHoOverride ? parseFloat(targetHoOverride) * 1e9 : (data?.targetHo || 0);
+  const effectiveTargetFullHo = targetFullHoOverride ? parseFloat(targetFullHoOverride) * 1e9 : (data?.targetFullHo || 0);
+  const pct = effectiveTargetFullHo ? ((data?.realFullHo || 0) / effectiveTargetFullHo) * 100 : 0;
 
   return (
     <div className="space-y-4 p-4">
@@ -488,10 +515,15 @@ export default function FunnelPage() {
       </div>
 
       {/* Filter Bar */}
-      <div className="bg-card border border-border rounded-xl px-4 py-3 shadow-sm">
+      <div className="bg-card border border-border rounded-xl px-4 py-3 shadow-sm space-y-2.5">
+        {/* Row 1: Snapshot selectors */}
         <div className="flex items-end gap-2 flex-wrap">
-          <SelectDropdown label="Tahun" value={filterYear} onChange={v => { setFilterYear(v); setImportId(null); }}
+          <SelectDropdown label="Tahun" value={filterYear} onChange={v => { setFilterYear(v); setFilterMonths(new Set()); setImportId(null); }}
             options={yearOptions} className="w-24 shrink-0" />
+          <CheckboxDropdown label="Bulan" options={availableMonthsForYear}
+            selected={filterMonths} onChange={setFilterMonths}
+            placeholder="Semua bulan" labelFn={m => MONTHS_ID[parseInt(m)] || m}
+            summaryLabel="bulan" className="w-36 shrink-0" />
           <SelectDropdown label="Snapshot" value={String(importId || "")}
             onChange={v => setImportId(Number(v))}
             options={snapshotOptions.length > 0 ? snapshotOptions : [{ value: "", label: "Belum ada data" }]}
@@ -518,31 +550,62 @@ export default function FunnelPage() {
             </div>
           )}
         </div>
+        {/* Row 2: Target overrides */}
+        <div className="flex items-end gap-2 flex-wrap border-t border-border/60 pt-2.5">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-display font-bold text-foreground uppercase tracking-wide">Target HO <span className="text-muted-foreground font-normal normal-case">(Milyar)</span></label>
+            <input type="number" min="0" step="0.1" value={targetHoOverride} onChange={e => setTargetHoOverride(e.target.value)}
+              placeholder={effectiveTargetHo > 0 ? (effectiveTargetHo/1e9).toFixed(2) : "e.g. 5.5"}
+              className="h-9 px-3 w-36 bg-secondary/50 border border-border rounded-lg text-sm font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 placeholder:text-muted-foreground/50" />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-display font-bold text-foreground uppercase tracking-wide">Target Full HO <span className="text-muted-foreground font-normal normal-case">(Milyar)</span></label>
+            <input type="number" min="0" step="0.1" value={targetFullHoOverride} onChange={e => setTargetFullHoOverride(e.target.value)}
+              placeholder={effectiveTargetFullHo > 0 ? (effectiveTargetFullHo/1e9).toFixed(2) : "e.g. 8.0"}
+              className="h-9 px-3 w-36 bg-secondary/50 border border-border rounded-lg text-sm font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 placeholder:text-muted-foreground/50" />
+          </div>
+          {(targetHoOverride || targetFullHoOverride) && (
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-bold text-transparent uppercase">.</label>
+              <button onClick={() => { setTargetHoOverride(""); setTargetFullHoOverride(""); }}
+                className="h-9 flex items-center gap-1 px-3 text-xs text-muted-foreground border border-border rounded-lg hover:bg-secondary/50 transition-colors whitespace-nowrap">
+                <X className="w-3 h-3" /> Reset target
+              </button>
+            </div>
+          )}
+          <p className="text-[11px] text-muted-foreground self-end pb-1.5 ml-1">
+            {targetHoOverride || targetFullHoOverride
+              ? "Menggunakan target manual (override)"
+              : effectiveTargetHo > 0 ? `Target dari DB: HO ${(effectiveTargetHo/1e9).toFixed(2)}M · Full HO ${(effectiveTargetFullHo/1e9).toFixed(2)}M`
+              : "Belum ada target tersimpan — input manual di atas atau import di menu Target HO"}
+          </p>
+        </div>
       </div>
 
       {/* Overview Cards */}
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {[0,1,2].map(i => <div key={i} className="bg-card border border-border rounded-xl h-52 animate-pulse" />)}
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {[0,1].map(i => <div key={i} className="bg-card border border-border rounded-xl h-52 animate-pulse" />)}
+          </div>
+          <div className="bg-card border border-border rounded-xl h-36 animate-pulse" />
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-
-          {/* LOP per Fase */}
-          <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
-            <h3 className="text-sm font-black text-foreground uppercase tracking-wide mb-3">LOP per Fase</h3>
-            <FaseBarChart data={data} />
+        <div className="space-y-4">
+          {/* Row 1: LOP per Fase + Capaian Real */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
+              <h3 className="text-sm font-display font-black text-foreground uppercase tracking-wide mb-3">LOP per Fase</h3>
+              <FaseBarChart data={data} />
+            </div>
+            <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
+              <h3 className="text-sm font-display font-black text-foreground uppercase tracking-wide mb-2">Capaian Real vs Target</h3>
+              <Gauge pct={pct} targetHo={effectiveTargetHo} targetFullHo={effectiveTargetFullHo} real={data?.realFullHo || 0} />
+            </div>
           </div>
-
-          {/* Capaian vs Target */}
+          {/* Row 2: Ringkasan */}
           <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
-            <h3 className="text-sm font-black text-foreground uppercase tracking-wide mb-2">Capaian Real vs Target</h3>
-            <Gauge pct={pct} targetHo={data?.targetHo || 0} targetFullHo={data?.targetFullHo || 0} real={data?.realFullHo || 0} />
-          </div>
-
-          {/* Ringkasan */}
-          <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
-            <h3 className="text-sm font-black text-foreground uppercase tracking-wide mb-3">Ringkasan</h3>
+            <h3 className="text-sm font-display font-black text-foreground uppercase tracking-wide mb-3">Ringkasan</h3>
             <KpiGrid data={data} />
           </div>
         </div>
@@ -551,7 +614,7 @@ export default function FunnelPage() {
       {/* Detail Table */}
       <div className="bg-card border border-border rounded-xl shadow-sm">
         <div className="px-4 py-3 border-b border-border bg-secondary/30 flex items-center justify-between gap-3 flex-wrap">
-          <h3 className="text-sm font-black text-foreground flex items-center gap-2">
+          <h3 className="text-sm font-display font-black text-foreground flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-primary" />
             Detail Funnel per AM
             <span className="bg-foreground text-background text-[11px] font-bold px-2 py-0.5 rounded-full font-mono">{lopBadge}</span>
@@ -583,15 +646,14 @@ export default function FunnelPage() {
                 <th className="px-3 py-3 whitespace-nowrap">Kat. Kontrak</th>
                 <th className="px-3 py-3 font-mono whitespace-nowrap">LOP ID</th>
                 <th className="px-3 py-3 min-w-[140px]">Pelanggan</th>
-                <th className="px-3 py-3">Status</th>
                 <th className="px-4 py-3 text-right whitespace-nowrap rounded-tr-lg">Nilai Proyek</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/50">
               {isLoading ? (
-                <tr><td colSpan={7} className="text-center py-16 text-muted-foreground text-sm">Memuat data...</td></tr>
+                <tr><td colSpan={6} className="text-center py-16 text-muted-foreground text-sm">Memuat data...</td></tr>
               ) : groupedByAm.length === 0 ? (
-                <tr><td colSpan={7} className="text-center py-16 text-muted-foreground text-sm">
+                <tr><td colSpan={6} className="text-center py-16 text-muted-foreground text-sm">
                   {search || hasActiveFilter ? "Tidak ada data yang cocok dengan filter" : "Belum ada data funnel"}
                 </td></tr>
               ) : groupedByAm.map(am => {
@@ -620,14 +682,14 @@ export default function FunnelPage() {
                               const c = PHASE_COLORS[p];
                               return (
                                 <span key={p} className={cn("text-[10px] px-1.5 py-0.5 rounded font-bold", c?.pill || "bg-muted text-muted-foreground")}>
-                                  {p}:{lops.length}
+                                  {p}: {lops.length} proyek
                                 </span>
                               );
                             })}
                           </div>
                         </div>
                       </td>
-                      <td className="px-3 py-3 bg-secondary/20" colSpan={4}>
+                      <td className="px-3 py-3 bg-secondary/20" colSpan={3}>
                         <span className="text-xs text-muted-foreground font-medium">{amLopCount} LOP</span>
                       </td>
                       <td className="px-4 py-3 bg-secondary/20 text-right">
@@ -654,7 +716,7 @@ export default function FunnelPage() {
                                 <span className="text-xs text-muted-foreground font-medium">{lops.length} proyek</span>
                               </div>
                             </td>
-                            <td colSpan={4} className="px-3 py-2.5" />
+                            <td colSpan={3} className="px-3 py-2.5" />
                             <td className="px-4 py-2.5 text-right">
                               <span className="text-sm font-bold text-muted-foreground font-mono">{fmtRupiah(phaseTotal)}</span>
                             </td>
@@ -664,14 +726,13 @@ export default function FunnelPage() {
                             <tr key={`${lop.lopid}-${idx}`} className="hover:bg-muted/30 transition-colors">
                               <td className="px-4 py-2" />
                               <td className="px-4 py-2 pl-14">
-                                <div className="text-sm text-primary font-medium leading-tight line-clamp-2 max-w-[220px]" title={lop.judulProyek}>
+                                <div className="text-sm text-foreground font-medium leading-tight line-clamp-2 max-w-[220px]" title={lop.judulProyek}>
                                   {lop.judulProyek}
                                 </div>
                               </td>
                               <td className="px-3 py-2"><KontrakBadge k={lop.kategoriKontrak} /></td>
-                              <td className="px-3 py-2 font-mono text-xs text-muted-foreground whitespace-nowrap">{lop.lopid}</td>
-                              <td className="px-3 py-2 text-sm text-foreground max-w-[160px] truncate" title={lop.pelanggan}>{lop.pelanggan}</td>
-                              <td className="px-3 py-2"><PhaseBadge phase={lop.statusF || "?"} /></td>
+                              <td className="px-3 py-2 font-mono text-xs text-foreground whitespace-nowrap">{lop.lopid}</td>
+                              <td className="px-3 py-2 text-sm text-foreground font-bold max-w-[160px] truncate" title={lop.pelanggan}>{lop.pelanggan}</td>
                               <td className="px-4 py-2 text-right font-mono text-sm font-bold text-foreground whitespace-nowrap">{fmtRupiah(lop.nilaiProyek)}</td>
                             </tr>
                           ))}

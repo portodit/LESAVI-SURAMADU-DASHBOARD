@@ -85,7 +85,7 @@ const NAV_ITEMS = [
     label: "Visualisasi", icon: BarChart2,
     children: [
       { href: "/visualisasi/performa", label: "Performa AM", icon: BarChart2, pageTitle: "Performansi Account Manager LESA VI WITEL SURAMADU" },
-      { href: "/visualisasi/funnel", label: "Sales Funnel", icon: Filter },
+      { href: "/visualisasi/funnel", label: "Sales Funnel", icon: Filter, pageTitle: "Sales Funneling LOP MYTENS LESA VI Witel Suramadu" },
       { href: "/visualisasi/activity", label: "Sales Activity", icon: Activity },
     ]
   },

@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useCallback } from "react";
+import React, { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import { formatRupiah, formatPercent, getStatusColor, getAchPct, cn } from "@/shared/lib/utils";
@@ -256,125 +256,580 @@ function SelectDropdown({ label, value, onChange, options, className, disabled }
   );
 }
 
-// ─── Funnel Slide ───────────────────────────────────────────────────────────────
-function FunnelSlide() {
-  const { data: snapshots = [] } = useQuery<any[]>({
-    queryKey: ["funnel-snapshots-pres"],
-    queryFn: async () => {
-      const r = await fetch(`${BASE_PATH}/api/funnel/snapshots`, { credentials: "include" });
-      return r.json();
-    },
-    staleTime: 60_000,
-  });
+// ─── Funnel Slide (full mirror of FunnelPage) ────────────────────────────────────
 
-  const latestId = snapshots[0]?.id;
+const FS_PHASES = ["F0","F1","F2","F3","F4","F5"];
+const FS_PHASE_LABELS: Record<string,string> = { F0:"Lead",F1:"Prospect",F2:"Quote",F3:"Negosiasi",F4:"Closing",F5:"Won/Closed" };
+const FS_PHASE_COLORS: Record<string,{ pill:string; bar:string; text:string }> = {
+  F0:{pill:"bg-sky-100 text-sky-800",bar:"#38bdf8",text:"#0369a1"},
+  F1:{pill:"bg-blue-100 text-blue-800",bar:"#3b82f6",text:"#1d4ed8"},
+  F2:{pill:"bg-indigo-100 text-indigo-800",bar:"#6366f1",text:"#4338ca"},
+  F3:{pill:"bg-violet-100 text-violet-800",bar:"#7c3aed",text:"#5b21b6"},
+  F4:{pill:"bg-orange-100 text-orange-800",bar:"#f97316",text:"#c2410c"},
+  F5:{pill:"bg-emerald-100 text-emerald-800",bar:"#10b981",text:"#065f46"},
+};
+const FS_MONTHS_ID = ["","Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agt","Sep","Okt","Nov","Des"];
 
-  const { data, isLoading } = useQuery<any>({
-    queryKey: ["funnel-data-pres", latestId],
-    queryFn: async () => {
-      const r = await fetch(`${BASE_PATH}/api/funnel?import_id=${latestId}`, { credentials: "include" });
-      return r.json();
-    },
-    enabled: !!latestId,
-    staleTime: 30_000,
-  });
+function fmtRupiahFS(n: number): string {
+  if (!n && n!==0) return "–";
+  if (n>=1e12) return `Rp ${(n/1e12).toFixed(2)}T`;
+  if (n>=1e9)  return `Rp ${(n/1e9).toFixed(2)}M`;
+  if (n>=1e6)  return `Rp ${Math.round(n/1e6)} jt`;
+  return `Rp ${n.toLocaleString("id-ID")}`;
+}
+function fmtCompactFS(n: number): string {
+  if (!n) return "–";
+  if (n>=1e12) return `${(n/1e12).toFixed(1)}T`;
+  if (n>=1e9)  return `${(n/1e9).toFixed(1)}M`;
+  if (n>=1e6)  return `${Math.round(n/1e6)} jt`;
+  return String(n);
+}
+function periodLabelFS(p: string): string {
+  const [y,m] = p.split("-");
+  return `${FS_MONTHS_ID[parseInt(m)]||m} ${y}`;
+}
 
-  if (isLoading || !data) {
-    return (
-      <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">
-        Memuat data funnel...
+function FSSelectDropdown({ label, value, onChange, options, disabled, className }: {
+  label?:string; value:string; onChange:(v:string)=>void;
+  options:{value:string;label:string}[]; disabled?:boolean; className?:string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(()=>{
+    const h=(e:MouseEvent)=>{if(ref.current&&!ref.current.contains(e.target as Node))setOpen(false);};
+    document.addEventListener("mousedown",h); return()=>document.removeEventListener("mousedown",h);
+  },[]);
+  const current = options.find(o=>o.value===value);
+  return (
+    <div className={cn("flex flex-col gap-1 relative",className)} ref={ref}>
+      {label&&<label className="text-xs font-display font-bold text-foreground uppercase tracking-wide">{label}</label>}
+      <button type="button" onClick={()=>!disabled&&setOpen(o=>!o)} disabled={disabled}
+        className={cn("h-9 px-3 bg-secondary/50 border border-border rounded-lg text-sm flex items-center gap-1.5 w-full disabled:opacity-40 transition-colors text-left",open&&"border-primary/50 ring-2 ring-primary/20")}>
+        <span className="flex-1 truncate font-medium text-foreground">{current?.label??value}</span>
+        <ChevronDown className={cn("w-3.5 h-3.5 text-muted-foreground shrink-0 transition-transform",open&&"rotate-180")}/>
+      </button>
+      {open&&(
+        <div className="absolute top-full left-0 mt-1 z-50 bg-card border border-border rounded-xl shadow-xl min-w-[160px] max-h-64 overflow-y-auto py-1">
+          {options.map(opt=>(
+            <button key={opt.value} onClick={()=>{onChange(opt.value);setOpen(false);}}
+              className={cn("w-full text-left px-3 py-2 text-sm hover:bg-secondary transition-colors flex items-center gap-2",
+                opt.value===value?"font-semibold text-primary bg-primary/5":"text-foreground")}>
+              {opt.value===value&&<span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0"/>}
+              {opt.value!==value&&<span className="w-1.5 shrink-0"/>}
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FSCheckboxDropdown({ label, options, selected, onChange, placeholder, labelFn, summaryLabel, className }: {
+  label:string; options:string[]; selected:Set<string>; onChange:(n:Set<string>)=>void;
+  placeholder?:string; labelFn?:(v:string)=>string; summaryLabel?:string; className?:string;
+}) {
+  const [open,setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const getLabel=(v:string)=>labelFn?labelFn(v):v;
+  useEffect(()=>{
+    const h=(e:MouseEvent)=>{if(ref.current&&!ref.current.contains(e.target as Node))setOpen(false);};
+    document.addEventListener("mousedown",h); return()=>document.removeEventListener("mousedown",h);
+  },[]);
+  const toggle=(item:string)=>{const n=new Set(selected);if(n.has(item))n.delete(item);else n.add(item);onChange(n);};
+  const unit=summaryLabel??"item";
+  const displayText=selected.size===0?(placeholder??"Semua")
+    :selected.size===options.length?`Semua ${unit}`
+    :selected.size===1?getLabel([...selected][0])
+    :`${selected.size} ${unit} dipilih`;
+  return (
+    <div className={cn("flex flex-col gap-1 relative",className)} ref={ref}>
+      <label className="text-xs font-display font-bold text-foreground uppercase tracking-wide">{label}</label>
+      <button type="button" onClick={()=>setOpen(o=>!o)} disabled={options.length===0}
+        className={cn("h-9 px-3 bg-secondary/50 border border-border rounded-lg text-sm flex items-center gap-1.5 w-full disabled:opacity-40 transition-colors text-left",open&&"border-primary/50 ring-2 ring-primary/20")}>
+        <span className="flex-1 truncate font-medium text-foreground">{displayText}</span>
+        {selected.size>0&&selected.size<options.length&&(
+          <span className="bg-primary text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none shrink-0">{selected.size}</span>
+        )}
+        <ChevronDown className={cn("w-3.5 h-3.5 text-muted-foreground shrink-0 transition-transform",open&&"rotate-180")}/>
+      </button>
+      {open&&(
+        <div className="absolute top-full left-0 mt-1 z-50 bg-card border border-border rounded-xl shadow-xl min-w-[200px] max-w-[260px] overflow-hidden">
+          <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-secondary/30">
+            <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{label}</span>
+            <div className="flex gap-1.5">
+              <button onClick={()=>onChange(new Set(options))} className="text-[11px] text-primary font-semibold hover:underline">Semua</button>
+              <span className="text-muted-foreground text-[11px]">·</span>
+              <button onClick={()=>onChange(new Set())} className="text-[11px] text-muted-foreground font-semibold hover:underline">Kosongkan</button>
+            </div>
+          </div>
+          <div className="max-h-56 overflow-y-auto py-1">
+            {options.map(opt=>(
+              <button key={opt} onClick={()=>toggle(opt)}
+                className={cn("w-full text-left px-3 py-2 text-sm hover:bg-secondary flex items-center gap-2 transition-colors",
+                  selected.has(opt)?"font-semibold text-primary bg-primary/5":"text-foreground")}>
+                <span className={cn("w-3.5 h-3.5 rounded border shrink-0 flex items-center justify-center",selected.has(opt)?"bg-primary border-primary":"border-border")}>
+                  {selected.has(opt)&&<span className="text-white text-[8px] font-black">✓</span>}
+                </span>
+                {getLabel(opt)}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FSGauge({ pct, targetHo, targetFullHo, real }: { pct:number; targetHo:number; targetFullHo:number; real:number }) {
+  const clamp=Math.min(Math.max(pct,0),100);
+  const r=56,cx=80,cy=76;
+  const startAngle=-210,endAngle=30,totalDeg=endAngle-startAngle;
+  const fillDeg=(clamp/100)*totalDeg;
+  const toRad=(d:number)=>(d*Math.PI)/180;
+  const arc=(start:number,end:number,radius:number)=>{
+    const s=toRad(start),e=toRad(end);
+    const x1=cx+radius*Math.cos(s),y1=cy+radius*Math.sin(s);
+    const x2=cx+radius*Math.cos(e),y2=cy+radius*Math.sin(e);
+    const large=end-start>180?1:0;
+    return `M ${x1} ${y1} A ${radius} ${radius} 0 ${large} 1 ${x2} ${y2}`;
+  };
+  const color=clamp>=100?"#10b981":clamp>=75?"#3b82f6":clamp>=50?"#f59e0b":"#CC0000";
+  const hasTarget=targetFullHo>0;
+  return (
+    <div className="flex flex-col items-center">
+      <svg width="160" height="110" viewBox="0 0 160 110">
+        <path d={arc(startAngle,endAngle,r)} fill="none" stroke="#e5e7eb" strokeWidth="12" strokeLinecap="round"/>
+        {hasTarget&&clamp>0&&<path d={arc(startAngle,startAngle+fillDeg,r)} fill="none" stroke={color} strokeWidth="12" strokeLinecap="round"/>}
+        {hasTarget?(
+          <>
+            <text x={cx} y={cy-6} textAnchor="middle" fontSize="22" fontWeight="800" fill={color} fontFamily="ui-monospace,monospace">{clamp.toFixed(1)}%</text>
+            <text x={cx} y={cy+12} textAnchor="middle" fontSize="9" fill="#6b7280">CAPAIAN</text>
+          </>
+        ):(
+          <>
+            <text x={cx} y={cy-4} textAnchor="middle" fontSize="11" fontWeight="700" fill="#6b7280">Target</text>
+            <text x={cx} y={cy+10} textAnchor="middle" fontSize="10" fill="#9ca3af">belum diset</text>
+          </>
+        )}
+        <text x={cx-r+2} y={cy+22} textAnchor="middle" fontSize="8" fill="#9ca3af">0%</text>
+        <text x={cx+r-2} y={cy+22} textAnchor="middle" fontSize="8" fill="#9ca3af">100%</text>
+      </svg>
+      <div className="w-full space-y-1.5 mt-1 text-sm">
+        <div className="flex justify-between items-center">
+          <span className="text-muted-foreground text-xs">Real Pipeline</span>
+          <span className="font-bold text-foreground font-mono">{fmtRupiahFS(real)}</span>
+        </div>
+        {hasTarget&&(
+          <>
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground text-xs">Target HO</span>
+              <span className="font-mono text-foreground">{fmtRupiahFS(targetHo)}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground text-xs">Target Full HO</span>
+              <span className="font-mono text-foreground">{fmtRupiahFS(targetFullHo)}</span>
+            </div>
+            <div className="pt-1.5 border-t border-border flex justify-between items-center">
+              <span className={cn("text-xs font-semibold",real>=targetFullHo?"text-emerald-600":"text-destructive")}>{real>=targetFullHo?"Surplus":"Shortage"}</span>
+              <span className={cn("font-bold font-mono text-sm",real>=targetFullHo?"text-emerald-600":"text-destructive")}>
+                {real>=targetFullHo?"+":"-"}{fmtRupiahFS(Math.abs(targetFullHo-real))}
+              </span>
+            </div>
+          </>
+        )}
       </div>
-    );
+    </div>
+  );
+}
+
+function FSFaseBarChart({ data }: { data:any }) {
+  if(!data) return null;
+  const phaseMap: Record<string,{count:number;nilai:number}> = {};
+  for(const p of FS_PHASES) phaseMap[p]={count:0,nilai:0};
+  for(const s of (data.byStatus||[])) { if(phaseMap[s.status]){phaseMap[s.status].count=s.count;phaseMap[s.status].nilai=s.totalNilai;} }
+  const maxCount=Math.max(...FS_PHASES.map(p=>phaseMap[p].count),1);
+  return (
+    <div className="space-y-2.5">
+      {FS_PHASES.map(phase=>{
+        const d=phaseMap[phase]; const pct=(d.count/maxCount)*100; const c=FS_PHASE_COLORS[phase];
+        return (
+          <div key={phase} className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 w-20 shrink-0">
+              <span className="text-sm font-black font-mono" style={{color:c.text}}>{phase}</span>
+              <span className="text-[10px] text-muted-foreground hidden sm:inline truncate">{FS_PHASE_LABELS[phase]}</span>
+            </div>
+            <div className="flex-1 bg-secondary rounded h-7 overflow-hidden relative">
+              <div className="h-full rounded transition-all duration-500" style={{width:`${pct}%`,backgroundColor:c.bar}}/>
+              {d.count>0&&<span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm font-black leading-none" style={{color:pct>25?"white":c.text}}>{d.count} proyek</span>}
+              {d.count===0&&<span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">0 proyek</span>}
+            </div>
+            <span className="text-sm font-bold font-mono text-foreground w-24 text-right shrink-0">{fmtCompactFS(d.nilai)}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function FSKpiGrid({ data }: { data:any }) {
+  if(!data) return null;
+  const kpis = [
+    {label:"Total LOP",value:data.totalLop?.toLocaleString("id-ID"),sub:(data.unidentifiedLops||0)>0?`${data.unidentifiedLops} tdk teridentifikasi`:"proyek aktif",color:"text-foreground"},
+    {label:"Total Nilai Pipeline",value:fmtCompactFS(data.totalNilai),sub:"nilai seluruh LOP",color:"text-blue-600"},
+    {label:"Aktif AM",value:String(data.amCount),sub:"account manager teridentifikasi",color:"text-violet-600"},
+    {label:"Jumlah Pelanggan",value:data.pelangganCount?.toLocaleString("id-ID"),sub:"unique customer",color:"text-amber-600"},
+  ];
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      {kpis.map(k=>(
+        <div key={k.label} className="bg-secondary/50 border border-border rounded-xl p-3">
+          <div className="text-xs font-bold text-foreground uppercase tracking-wide mb-1">{k.label}</div>
+          <div className={cn("text-3xl font-black font-mono leading-tight",k.color)}>{k.value}</div>
+          <div className="text-[11px] text-muted-foreground mt-0.5">{k.sub}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function FunnelSlide() {
+  const [filterYear,setFilterYear] = useState("2026");
+  const [filterMonths,setFilterMonths] = useState<Set<string>>(new Set());
+  const [importId,setImportId] = useState<number|null>(null);
+  const [filterDivisi,setFilterDivisi] = useState("all");
+  const [filterStatus,setFilterStatus] = useState<Set<string>>(new Set());
+  const [filterKontrak,setFilterKontrak] = useState<Set<string>>(new Set());
+  const [filterAm,setFilterAm] = useState<Set<string>>(new Set());
+  const [search,setSearch] = useState("");
+  const [expandedAm,setExpandedAm] = useState<Record<string,boolean>>({});
+  const [expandedPhase,setExpandedPhase] = useState<Record<string,boolean>>({});
+  const [targetHoOverride,setTargetHoOverride] = useState("");
+  const [targetFullHoOverride,setTargetFullHoOverride] = useState("");
+
+  const { data: snapshots = [] } = useQuery<any[]>({
+    queryKey:["funnel-snapshots-pres"],
+    queryFn:async()=>{const r=await fetch(`${BASE_PATH}/api/funnel/snapshots`,{credentials:"include"});return r.json();},
+    staleTime:60_000,
+  });
+
+  const yearOptions = useMemo(()=>{
+    const years=[...new Set(snapshots.map((s:any)=>s.period.slice(0,4)))].sort().reverse() as string[];
+    if(years.length===0) return [{value:"2026",label:"2026"}];
+    return years.map(y=>({value:y,label:y}));
+  },[snapshots]);
+
+  const availableMonthsForYear = useMemo(()=>
+    snapshots.filter((s:any)=>s.period.startsWith(filterYear)).map((s:any)=>s.period.slice(5,7))
+  ,[snapshots,filterYear]);
+
+  const snapshotOptions = useMemo(()=>
+    snapshots.filter((s:any)=>{
+      if(!s.period.startsWith(filterYear)) return false;
+      if(filterMonths.size>0&&!filterMonths.has(s.period.slice(5,7))) return false;
+      return true;
+    }).map((s:any)=>({value:String(s.id),label:`${periodLabelFS(s.period)} (${s.rowsImported?.toLocaleString()} LOP)`}))
+  ,[snapshots,filterYear,filterMonths]);
+
+  useEffect(()=>{if(yearOptions.length>0)setFilterYear(yearOptions[0].value);},[yearOptions.length]);
+  useEffect(()=>{if(snapshotOptions.length>0)setImportId(Number(snapshotOptions[0].value));},[snapshotOptions.length>0&&snapshotOptions[0]?.value]);
+
+  const funnelParams = useMemo(()=>{
+    const p=new URLSearchParams();
+    if(importId) p.set("import_id",String(importId));
+    if(filterDivisi!=="all") p.set("divisi",filterDivisi);
+    p.set("tahun",filterYear);
+    return p.toString();
+  },[importId,filterDivisi,filterYear]);
+
+  const {data,isLoading} = useQuery<any>({
+    queryKey:["funnel-data-pres",funnelParams],
+    queryFn:async()=>{const r=await fetch(`${BASE_PATH}/api/funnel?${funnelParams}`,{credentials:"include"});return r.json();},
+    enabled:importId!==null||snapshots.length===0,
+    staleTime:30_000,
+  });
+
+  const amOptions = useMemo(()=>{
+    if(!data) return [];
+    const map=new Map<string,string>();
+    for(const l of (data.lops||[])){if(l.nikAm&&l.namaAm&&l.namaAm.trim()!=="")map.set(l.nikAm,l.namaAm);}
+    return Array.from(map.keys()).sort((a,b)=>(map.get(a)||"").localeCompare(map.get(b)||""));
+  },[data]);
+  const amLabelFn = useMemo(()=>{
+    if(!data) return (v:string)=>v;
+    const map=new Map<string,string>();
+    for(const l of (data.lops||[])){if(l.nikAm&&l.namaAm)map.set(l.nikAm,l.namaAm);}
+    return (nik:string)=>map.get(nik)||nik;
+  },[data]);
+  const kontrakOptions = useMemo(()=>{
+    if(!data) return [];
+    return [...new Set((data.lops||[]).map((l:any)=>l.kategoriKontrak).filter(Boolean) as string[])].sort();
+  },[data]);
+
+  const filteredLops = useMemo(()=>{
+    if(!data) return [];
+    const q=search.toLowerCase();
+    return (data.lops||[]).filter((l:any)=>{
+      if(filterAm.size>0&&(!l.nikAm||!filterAm.has(l.nikAm))) return false;
+      if(filterStatus.size>0&&(!l.statusF||!filterStatus.has(l.statusF))) return false;
+      if(filterKontrak.size>0&&(!l.kategoriKontrak||!filterKontrak.has(l.kategoriKontrak))) return false;
+      if(q){const hay=`${l.judulProyek} ${l.pelanggan} ${l.lopid} ${l.namaAm}`.toLowerCase();if(!hay.includes(q))return false;}
+      return true;
+    });
+  },[data,filterAm,filterStatus,filterKontrak,search]);
+
+  const groupedByAm = useMemo(()=>{
+    const amMap=new Map<string,{namaAm:string;nikAm:string;divisi:string;phases:Map<string,any[]>}>();
+    for(const l of filteredLops){
+      const key=l.nikAm||l.namaAm||"Unknown";
+      if(!amMap.has(key)) amMap.set(key,{namaAm:l.namaAm||key,nikAm:l.nikAm||"",divisi:l.divisi||"",phases:new Map()});
+      const e=amMap.get(key)!;
+      const phase=l.statusF||"Unknown";
+      if(!e.phases.has(phase)) e.phases.set(phase,[]);
+      e.phases.get(phase)!.push(l);
+    }
+    return Array.from(amMap.values()).sort((a,b)=>{
+      const totA=Array.from(a.phases.values()).flat().reduce((s:number,l:any)=>s+(l.nilaiProyek||0),0);
+      const totB=Array.from(b.phases.values()).flat().reduce((s:number,l:any)=>s+(l.nilaiProyek||0),0);
+      return totB-totA;
+    });
+  },[filteredLops]);
+
+  function toggleAmRow(key:string){
+    const nowExpanding=!expandedAm[key];
+    setExpandedAm(p=>({...p,[key]:nowExpanding}));
+    if(nowExpanding){
+      const amEntry=groupedByAm.find(a=>(a.nikAm||a.namaAm)===key);
+      if(amEntry){
+        const pk:Record<string,boolean>={};
+        for(const[ph] of amEntry.phases) pk[`${key}|${ph}`]=true;
+        setExpandedPhase(p=>({...p,...pk}));
+      }
+    }
   }
+  function togglePhaseRow(key:string){setExpandedPhase(p=>({...p,[key]:!p[key]}));}
 
-  const phaseMap: Record<string, { count: number; nilai: number }> = {};
-  for (const p of FUNNEL_PHASES) phaseMap[p] = { count: 0, nilai: 0 };
-  for (const s of (data.byStatus || [])) {
-    if (phaseMap[s.status]) { phaseMap[s.status].count = s.count; phaseMap[s.status].nilai = s.totalNilai; }
-  }
-  const maxCount = Math.max(...FUNNEL_PHASES.map(p => phaseMap[p].count), 1);
-
-  const topAms = [...(data.byAm || [])].sort((a: any, b: any) => b.totalNilai - a.totalNilai).slice(0, 8);
-
-  const snap = snapshots[0];
-  const snapLabel = snap ? (() => {
-    const [y, m] = snap.period.split("-");
-    const ml = ["","Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agt","Sep","Okt","Nov","Des"];
-    return `${ml[parseInt(m)]} ${y}`;
-  })() : "–";
+  const effectiveTargetHo=targetHoOverride?parseFloat(targetHoOverride)*1e9:(data?.targetHo||0);
+  const effectiveTargetFullHo=targetFullHoOverride?parseFloat(targetFullHoOverride)*1e9:(data?.targetFullHo||0);
+  const pct=effectiveTargetFullHo?((data?.realFullHo||0)/effectiveTargetFullHo)*100:0;
+  const hasActiveFilter=filterAm.size>0||filterStatus.size>0||filterKontrak.size>0||filterDivisi!=="all";
+  const lopBadge=filteredLops.length!==(data?.totalLop||0)?`${filteredLops.length} / ${data?.totalLop||0}`:filteredLops.length.toLocaleString("id-ID");
 
   return (
     <div className="p-4 space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-base font-bold text-foreground">AM Sales Funnel</h2>
-          <p className="text-xs text-muted-foreground">Snapshot: {snapLabel} · {data.totalLop?.toLocaleString("id-ID")} LOP aktif · {data.amCount} AM</p>
+      {/* Title */}
+      <div>
+        <h1 className="text-base font-display font-black text-foreground uppercase tracking-tight leading-tight">Sales Funneling LOP MYTENS LESA VI Witel Suramadu</h1>
+        <p className="text-xs text-muted-foreground mt-0.5">Monitoring pipeline proyek Account Manager — Witel Suramadu · DPS &amp; DSS</p>
+      </div>
+
+      {/* Filter Bar */}
+      <div className="bg-card border border-border rounded-xl px-4 py-3 shadow-sm space-y-2.5">
+        <div className="flex items-end gap-2 flex-wrap">
+          <FSSelectDropdown label="Tahun" value={filterYear} onChange={v=>{setFilterYear(v);setFilterMonths(new Set());setImportId(null);}}
+            options={yearOptions} className="w-24 shrink-0"/>
+          <FSCheckboxDropdown label="Bulan" options={availableMonthsForYear} selected={filterMonths} onChange={setFilterMonths}
+            placeholder="Semua bulan" labelFn={m=>FS_MONTHS_ID[parseInt(m)]||m} summaryLabel="bulan" className="w-36 shrink-0"/>
+          <FSSelectDropdown label="Snapshot" value={String(importId||"")} onChange={v=>setImportId(Number(v))}
+            options={snapshotOptions.length>0?snapshotOptions:[{value:"",label:"Belum ada data"}]}
+            disabled={snapshotOptions.length===0} className="flex-1 min-w-[160px]"/>
+          <div className="w-px h-9 bg-border self-end"/>
+          <FSSelectDropdown label="Divisi" value={filterDivisi} onChange={setFilterDivisi}
+            options={[{value:"all",label:"Semua Divisi"},{value:"DPS",label:"DPS"},{value:"DSS",label:"DSS"}]}
+            className="w-36 shrink-0"/>
+          <FSCheckboxDropdown label="Nama AM" options={amOptions} selected={filterAm} onChange={setFilterAm}
+            placeholder="Semua AM" labelFn={amLabelFn} summaryLabel="AM" className="flex-1 min-w-[140px]"/>
+          <FSCheckboxDropdown label="Status Funnel" options={FS_PHASES} selected={filterStatus} onChange={setFilterStatus}
+            placeholder="Semua status" labelFn={p=>`${p} – ${FS_PHASE_LABELS[p]}`} summaryLabel="status" className="flex-1 min-w-[140px]"/>
+          {kontrakOptions.length>0&&(
+            <FSCheckboxDropdown label="Kategori Kontrak" options={kontrakOptions} selected={filterKontrak} onChange={setFilterKontrak}
+              placeholder="Semua kontrak" summaryLabel="kontrak" className="flex-1 min-w-[140px]"/>
+          )}
+          {hasActiveFilter&&(
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-bold text-transparent uppercase">.</label>
+              <button onClick={()=>{setFilterAm(new Set());setFilterStatus(new Set());setFilterKontrak(new Set());setFilterDivisi("all");}}
+                className="h-9 flex items-center gap-1 px-3 text-sm text-destructive border border-destructive/30 rounded-lg hover:bg-destructive/5 transition-colors whitespace-nowrap">
+                <X className="w-3.5 h-3.5"/> Reset
+              </button>
+            </div>
+          )}
         </div>
-        <div className="text-right">
-          <div className="text-lg font-bold font-mono text-blue-600">{fmtNilaiCompact(data.totalNilai)}</div>
-          <div className="text-[10px] text-muted-foreground">Total nilai pipeline</div>
+        <div className="flex items-end gap-2 flex-wrap border-t border-border/60 pt-2.5">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-display font-bold text-foreground uppercase tracking-wide">Target HO <span className="text-muted-foreground font-normal normal-case">(Milyar)</span></label>
+            <input type="number" min="0" step="0.1" value={targetHoOverride} onChange={e=>setTargetHoOverride(e.target.value)}
+              placeholder={effectiveTargetHo>0?(effectiveTargetHo/1e9).toFixed(2):"e.g. 5.5"}
+              className="h-9 px-3 w-36 bg-secondary/50 border border-border rounded-lg text-sm font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 placeholder:text-muted-foreground/50"/>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-display font-bold text-foreground uppercase tracking-wide">Target Full HO <span className="text-muted-foreground font-normal normal-case">(Milyar)</span></label>
+            <input type="number" min="0" step="0.1" value={targetFullHoOverride} onChange={e=>setTargetFullHoOverride(e.target.value)}
+              placeholder={effectiveTargetFullHo>0?(effectiveTargetFullHo/1e9).toFixed(2):"e.g. 8.0"}
+              className="h-9 px-3 w-36 bg-secondary/50 border border-border rounded-lg text-sm font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 placeholder:text-muted-foreground/50"/>
+          </div>
+          {(targetHoOverride||targetFullHoOverride)&&(
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-bold text-transparent uppercase">.</label>
+              <button onClick={()=>{setTargetHoOverride("");setTargetFullHoOverride("");}}
+                className="h-9 flex items-center gap-1 px-3 text-xs text-muted-foreground border border-border rounded-lg hover:bg-secondary/50 transition-colors">
+                <X className="w-3 h-3"/> Reset target
+              </button>
+            </div>
+          )}
+          <p className="text-[11px] text-muted-foreground self-end pb-1.5 ml-1">
+            {targetHoOverride||targetFullHoOverride?"Menggunakan target manual (override)"
+              :effectiveTargetHo>0?`Target dari DB: HO ${(effectiveTargetHo/1e9).toFixed(2)}M · Full HO ${(effectiveTargetFullHo/1e9).toFixed(2)}M`
+              :"Belum ada target tersimpan — input manual di atas atau import di menu Target HO"}
+          </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-        {/* Fase bar chart */}
-        <div className="lg:col-span-2 bg-card border border-border rounded-xl p-4 shadow-sm">
-          <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3">LOP per Fase</div>
-          <div className="space-y-2">
-            {FUNNEL_PHASES.map(phase => {
-              const d = phaseMap[phase];
-              const pct = (d.count / maxCount) * 100;
-              return (
-                <div key={phase} className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold font-mono w-6 text-right text-muted-foreground">{phase}</span>
-                  <div className="flex-1 bg-secondary rounded-sm h-5 overflow-hidden relative">
-                    <div className="h-full rounded-sm transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: FUNNEL_PHASE_COLORS[phase] }} />
-                    {d.count > 0 && (
-                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-semibold font-mono leading-none"
-                        style={{ color: pct > 30 ? "white" : "#374151" }}>
-                        {d.count}
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-[10px] font-mono text-muted-foreground w-14 text-right shrink-0">
-                    {fmtNilaiCompact(d.nilai)}
-                  </span>
-                </div>
-              );
-            })}
+      {/* Row 1: LOP per Fase + Capaian Real */}
+      {isLoading ? (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {[0,1].map(i=><div key={i} className="bg-card border border-border rounded-xl h-52 animate-pulse"/>)}
+          </div>
+          <div className="bg-card border border-border rounded-xl h-28 animate-pulse"/>
+        </div>
+      ):(
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
+              <h3 className="text-sm font-display font-black text-foreground uppercase tracking-wide mb-3">LOP per Fase</h3>
+              <FSFaseBarChart data={data}/>
+            </div>
+            <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
+              <h3 className="text-sm font-display font-black text-foreground uppercase tracking-wide mb-2">Capaian Real vs Target</h3>
+              <FSGauge pct={pct} targetHo={effectiveTargetHo} targetFullHo={effectiveTargetFullHo} real={data?.realFullHo||0}/>
+            </div>
+          </div>
+          {/* Row 2: Ringkasan */}
+          <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
+            <h3 className="text-sm font-display font-black text-foreground uppercase tracking-wide mb-3">Ringkasan</h3>
+            <FSKpiGrid data={data}/>
           </div>
         </div>
+      )}
 
-        {/* AM leaderboard */}
-        <div className="lg:col-span-3 bg-card border border-border rounded-xl shadow-sm overflow-hidden">
-          <div className="px-4 py-3 border-b border-border">
-            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Top AM by Nilai Pipeline</div>
+      {/* Detail Table */}
+      <div className="bg-card border border-border rounded-xl shadow-sm">
+        <div className="px-4 py-3 border-b border-border bg-secondary/30 flex items-center justify-between gap-3 flex-wrap">
+          <h3 className="text-sm font-display font-black text-foreground flex items-center gap-2">
+            Detail Funnel per AM
+            <span className="bg-foreground text-background text-[11px] font-bold px-2 py-0.5 rounded-full font-mono">{lopBadge}</span>
+          </h3>
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none"/>
+              <input type="text" placeholder="Cari proyek / pelanggan / LOP ID…" value={search} onChange={e=>setSearch(e.target.value)}
+                className="pl-8 pr-7 py-1.5 text-sm bg-background border border-border rounded-lg w-56 focus:outline-none focus:ring-1 focus:ring-primary/40 placeholder:text-muted-foreground/60"/>
+              {search&&<button onClick={()=>setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"><X className="w-3.5 h-3.5"/></button>}
+            </div>
           </div>
-          <table className="w-full text-xs">
+        </div>
+        <div className="p-3">
+          <div className="border border-border rounded-lg overflow-hidden">
+          <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm border-collapse">
             <thead>
-              <tr className="bg-secondary/50">
-                <th className="text-left px-4 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wide">AM</th>
-                <th className="text-center px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Divisi</th>
-                <th className="text-center px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wide">LOP</th>
-                <th className="text-right px-4 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Nilai</th>
+              <tr className="bg-red-700 text-white font-black uppercase tracking-wide text-xs">
+                <th className="px-4 py-3 rounded-tl-lg w-8"></th>
+                <th className="px-4 py-3 min-w-[200px]">AM / Fase / Proyek</th>
+                <th className="px-3 py-3 whitespace-nowrap">Kat. Kontrak</th>
+                <th className="px-3 py-3 font-mono whitespace-nowrap">LOP ID</th>
+                <th className="px-3 py-3 min-w-[140px]">Pelanggan</th>
+                <th className="px-4 py-3 text-right whitespace-nowrap rounded-tr-lg">Nilai Proyek</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
-              {topAms.map((am: any, i: number) => (
-                <tr key={am.nik || i} className="hover:bg-secondary/30 transition-colors">
-                  <td className="px-4 py-2 font-medium text-foreground text-[11px]">{am.namaAm || am.nik}</td>
-                  <td className="px-3 py-2 text-center">
-                    <span className={cn("text-[9px] px-1.5 py-0.5 rounded font-medium", am.divisi === "DPS" ? "bg-blue-50 text-blue-700" : "bg-violet-50 text-violet-700")}>
-                      {am.divisi || "–"}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 text-center font-mono text-muted-foreground">{am.totalLop}</td>
-                  <td className="px-4 py-2 text-right font-bold font-mono text-foreground">{fmtNilaiCompact(am.totalNilai)}</td>
-                </tr>
-              ))}
+            <tbody className="divide-y divide-border/50">
+              {isLoading?(
+                <tr><td colSpan={6} className="text-center py-16 text-muted-foreground text-sm">Memuat data...</td></tr>
+              ):groupedByAm.length===0?(
+                <tr><td colSpan={6} className="text-center py-16 text-muted-foreground text-sm">
+                  {search||hasActiveFilter?"Tidak ada data yang cocok dengan filter":"Belum ada data funnel"}
+                </td></tr>
+              ):groupedByAm.map(am=>{
+                const amKey=am.nikAm||am.namaAm;
+                const amExpanded=!!expandedAm[amKey];
+                const amTotal=Array.from(am.phases.values()).flat().reduce((s:number,l:any)=>s+(l.nilaiProyek||0),0);
+                const amLopCount=Array.from(am.phases.values()).flat().length;
+                const orderedPhases=[...FS_PHASES.filter(p=>am.phases.has(p)),...Array.from(am.phases.keys()).filter(p=>!FS_PHASES.includes(p))];
+                return (
+                  <React.Fragment key={amKey}>
+                    <tr className="hover:bg-secondary/30 transition-colors cursor-pointer" onClick={()=>toggleAmRow(amKey)}>
+                      <td className="px-4 py-3 bg-secondary/20">
+                        <ChevronRight className={cn("w-4 h-4 text-muted-foreground transition-transform",amExpanded&&"rotate-90")}/>
+                      </td>
+                      <td className="px-4 py-3 bg-secondary/20">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-black text-foreground text-sm uppercase">{am.namaAm}</span>
+                          <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-bold",am.divisi==="DPS"?"bg-blue-100 text-blue-800":"bg-violet-100 text-violet-800")}>{am.divisi}</span>
+                          <div className="flex gap-1 flex-wrap mt-0.5">
+                            {orderedPhases.map(p=>{
+                              const lops=am.phases.get(p)!; const c=FS_PHASE_COLORS[p];
+                              return <span key={p} className={cn("text-[10px] px-1.5 py-0.5 rounded font-bold",c?.pill||"bg-muted text-muted-foreground")}>{p}: {lops.length} proyek</span>;
+                            })}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-3 py-3 bg-secondary/20" colSpan={3}>
+                        <span className="text-xs text-muted-foreground font-medium">{amLopCount} LOP</span>
+                      </td>
+                      <td className="px-4 py-3 bg-secondary/20 text-right">
+                        <span className="font-black text-foreground font-mono text-sm">{fmtRupiahFS(amTotal)}</span>
+                      </td>
+                    </tr>
+                    {amExpanded&&orderedPhases.map(phase=>{
+                      const lops=am.phases.get(phase)||[];
+                      const phaseKey=`${amKey}|${phase}`;
+                      const phaseExpanded=!!expandedPhase[phaseKey];
+                      const phaseTotal=lops.reduce((s:number,l:any)=>s+(l.nilaiProyek||0),0);
+                      const c=FS_PHASE_COLORS[phase];
+                      return (
+                        <React.Fragment key={phaseKey}>
+                          <tr className="hover:bg-primary/5 transition-colors cursor-pointer" onClick={()=>togglePhaseRow(phaseKey)}>
+                            <td className="px-4 py-2.5 pl-8">
+                              <ChevronRight className={cn("w-3.5 h-3.5 text-muted-foreground transition-transform",phaseExpanded&&"rotate-90")}/>
+                            </td>
+                            <td className="px-4 py-2.5 pl-10">
+                              <div className="flex items-center gap-2">
+                                <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold",c?.pill||"bg-muted text-muted-foreground")}>
+                                  {phase}<span className="font-normal opacity-80 hidden md:inline">· {FS_PHASE_LABELS[phase]}</span>
+                                </span>
+                                <span className="text-xs text-muted-foreground font-medium">{lops.length} proyek</span>
+                              </div>
+                            </td>
+                            <td colSpan={3} className="px-3 py-2.5"/>
+                            <td className="px-4 py-2.5 text-right">
+                              <span className="text-sm font-bold text-muted-foreground font-mono">{fmtRupiahFS(phaseTotal)}</span>
+                            </td>
+                          </tr>
+                          {phaseExpanded&&lops.map((lop:any,idx:number)=>(
+                            <tr key={`${lop.lopid}-${idx}`} className="hover:bg-muted/30 transition-colors">
+                              <td className="px-4 py-2"/>
+                              <td className="px-4 py-2 pl-14">
+                                <div className="text-sm text-foreground font-medium leading-tight line-clamp-2 max-w-[220px]" title={lop.judulProyek}>{lop.judulProyek}</div>
+                              </td>
+                              <td className="px-3 py-2">
+                                {lop.kategoriKontrak?<span className="inline-block px-2 py-0.5 rounded text-[11px] bg-secondary border border-border text-foreground font-medium">{lop.kategoriKontrak}</span>:<span className="text-muted-foreground text-xs">–</span>}
+                              </td>
+                              <td className="px-3 py-2 font-mono text-xs text-foreground whitespace-nowrap">{lop.lopid}</td>
+                              <td className="px-3 py-2 text-sm text-foreground font-bold max-w-[160px] truncate" title={lop.pelanggan}>{lop.pelanggan}</td>
+                              <td className="px-4 py-2 text-right font-mono text-sm font-bold text-foreground whitespace-nowrap">{fmtRupiahFS(lop.nilaiProyek)}</td>
+                            </tr>
+                          ))}
+                        </React.Fragment>
+                      );
+                    })}
+                  </React.Fragment>
+                );
+              })}
             </tbody>
           </table>
+          </div>
+          </div>
         </div>
       </div>
     </div>

@@ -546,7 +546,6 @@ export default function EmbedPerforma() {
                     {amTableData.map(row => {
                       const isExpanded = expandedRows.has(row.nik);
                       const hasCustomers = row.customers.length > 0;
-                      const totalReal = row.customers.reduce((s: number, c: any) => s + (c.realTotal ?? 0), 0);
                       return (
                         <React.Fragment key={row.nik}>
                           <tr className={cn("hover:bg-secondary/20 transition-colors", hasCustomers && "cursor-pointer")}
@@ -558,13 +557,13 @@ export default function EmbedPerforma() {
                               <span className="block" title={row.namaAm}>{row.namaAm}</span>
                               <span className="text-[10px] text-muted-foreground">{row.divisi}</span>
                             </td>
-                            <td className="px-3 py-2 text-center font-bold text-muted-foreground">{row.displayRank}</td>
-                            <td className="px-4 py-2 text-right text-muted-foreground tabular-nums">{formatRupiah(row.cmTarget)}</td>
+                            <td className="px-3 py-2 text-center font-bold text-foreground">{row.displayRank}</td>
+                            <td className="px-4 py-2 text-right text-foreground tabular-nums">{formatRupiah(row.cmTarget)}</td>
                             <td className="px-4 py-2 text-right font-medium tabular-nums">{formatRupiah(row.cmReal)}</td>
                             <td className={cn("px-3 py-2 text-right font-bold tabular-nums", row.cmAch >= 1 ? "text-green-600" : row.cmAch >= 0.8 ? "text-orange-500" : "text-red-600")}>
                               {(row.cmAch * 100).toFixed(1).replace(".", ",")}%
                             </td>
-                            <td className={cn("px-3 py-2 text-right font-bold tabular-nums", row.ytdAch >= 1 ? "text-green-600" : row.ytdAch >= 0.8 ? "text-blue-600" : "text-muted-foreground")}>
+                            <td className={cn("px-3 py-2 text-right font-bold tabular-nums", row.ytdAch >= 1 ? "text-green-600" : row.ytdAch >= 0.8 ? "text-blue-600" : "text-red-600")}>
                               {(row.ytdAch * 100).toFixed(1).replace(".", ",")}%
                             </td>
                             <td className="px-3 py-2 text-center">
@@ -591,12 +590,12 @@ export default function EmbedPerforma() {
                                       {row.customers.map((c: any, ci: number) => {
                                         const cReal = c.realTotal ?? 0;
                                         const cTarget = c.targetTotal ?? 0;
-                                        const prop = totalReal > 0 ? cReal / totalReal * 100 : 0;
+                                        const prop = c.proporsi != null ? c.proporsi * 100 : 0;
                                         const cAch = cTarget > 0 ? cReal / cTarget * 100 : 0;
                                         return (
                                           <tr key={ci} className="hover:bg-secondary/30">
                                             <td className="px-3 py-1.5 font-medium text-foreground">
-                                              <div className="truncate max-w-[180px]">{c.pelanggan || "—"}</div>
+                                              <div>{c.pelanggan || "—"}</div>
                                               {c.nip && <div className="text-[10px] text-muted-foreground">{c.nip}</div>}
                                             </td>
                                             <td className="px-3 py-1.5 text-right tabular-nums">
@@ -604,11 +603,11 @@ export default function EmbedPerforma() {
                                                 <div className="w-12 h-1.5 bg-secondary rounded-full overflow-hidden">
                                                   <div className="h-full bg-primary rounded-full" style={{ width: `${Math.min(prop, 100)}%` }} />
                                                 </div>
-                                                <span className="text-muted-foreground">{prop.toFixed(1)}%</span>
+                                                <span className="text-foreground font-medium">{prop.toFixed(1)}%</span>
                                               </div>
                                             </td>
-                                            <td className="px-3 py-1.5 text-right tabular-nums text-muted-foreground">{formatRupiah(cTarget)}</td>
-                                            <td className="px-3 py-1.5 text-right tabular-nums font-medium">{formatRupiah(cReal)}</td>
+                                            <td className="px-3 py-1.5 text-right tabular-nums text-foreground">{formatRupiah(cTarget)}</td>
+                                            <td className="px-3 py-1.5 text-right tabular-nums font-medium text-foreground">{formatRupiah(cReal)}</td>
                                             <td className="px-3 py-1.5 text-right tabular-nums">
                                               <span className={cn("font-semibold", cAch >= 100 ? "text-green-600" : cAch >= 80 ? "text-orange-500" : "text-red-500")}>
                                                 {cAch.toFixed(1)}%

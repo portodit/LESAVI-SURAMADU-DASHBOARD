@@ -93,8 +93,8 @@ function TrophyCard({ title, period, am, value, realValue, targetValue, colorSch
 
   if (!am) return (
     <div className={`rounded-xl bg-gradient-to-br ${scheme.bg} border ${scheme.border} p-5 min-h-[120px] flex flex-col justify-center`}>
-      <p className={cn("text-[10px] font-bold uppercase tracking-widest mb-0.5", scheme.accent)}>{title}</p>
-      <p className="text-[10px] text-muted-foreground mb-1">{period}</p>
+      <p className={cn("text-xs font-black uppercase tracking-widest mb-0.5", scheme.accent)}>{title}</p>
+      <p className="text-[10px] text-foreground font-medium mb-1">{period}</p>
       <p className="text-muted-foreground/50 text-sm">Belum ada data</p>
     </div>
   );
@@ -103,14 +103,23 @@ function TrophyCard({ title, period, am, value, realValue, targetValue, colorSch
     <div className={`rounded-xl bg-gradient-to-br ${scheme.bg} border ${scheme.border} p-5`}>
       <div className="flex items-start justify-between mb-2">
         <div>
-          <p className={cn("text-[10px] font-bold uppercase tracking-widest", scheme.accent)}>{title}</p>
-          <p className="text-[10px] text-muted-foreground mt-0.5">Divisi {am.divisi} · {period}</p>
+          <p className={cn("text-xs font-black uppercase tracking-widest leading-tight", scheme.accent)}>{title}</p>
+          <p className="text-[10px] text-foreground font-medium mt-0.5">Divisi {am.divisi} · {period}</p>
         </div>
         <span className="text-2xl leading-none">{scheme.icon}</span>
       </div>
       <p className="font-display font-extrabold text-base text-foreground truncate mb-2" title={am.namaAm}>{am.namaAm}</p>
-      <p className={cn("text-4xl font-display font-black tabular-nums leading-none mb-1.5", scheme.valueClr)}>{value}</p>
-      <p className="text-xs text-muted-foreground">Real: {realValue} · Target: {targetValue}</p>
+      <p className={cn("text-4xl font-display font-black tabular-nums leading-none mb-2", scheme.valueClr)}>{value}</p>
+      <div className="grid grid-cols-2 gap-1.5">
+        <div className="border border-current/20 rounded-md px-2 py-1.5 bg-background/40">
+          <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wide">Real</p>
+          <p className="text-xs font-bold text-foreground truncate">{realValue}</p>
+        </div>
+        <div className="border border-current/20 rounded-md px-2 py-1.5 bg-background/40">
+          <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wide">Target</p>
+          <p className="text-xs font-bold text-foreground truncate">{targetValue}</p>
+        </div>
+      </div>
     </div>
   );
 }
@@ -703,17 +712,17 @@ export default function PerformaVis() {
                             </td>
                             <td className="px-4 py-2.5 font-medium text-foreground">
                               <div className="flex items-center gap-1.5">
-                                <span className="truncate max-w-[140px]" title={row.namaAm}>{row.namaAm}</span>
+                                <span title={row.namaAm}>{row.namaAm}</span>
                                 <span className="text-[10px] text-muted-foreground shrink-0">{row.divisi}</span>
                               </div>
                             </td>
-                            <td className="px-3 py-2.5 text-center font-bold text-muted-foreground">{row.displayRank}</td>
-                            <td className="px-4 py-2.5 text-right text-muted-foreground tabular-nums">{formatRupiah(row.cmTarget)}</td>
+                            <td className="px-3 py-2.5 text-center font-bold text-foreground">{row.displayRank}</td>
+                            <td className="px-4 py-2.5 text-right text-foreground tabular-nums">{formatRupiah(row.cmTarget)}</td>
                             <td className="px-4 py-2.5 text-right font-medium text-foreground tabular-nums">{formatRupiah(row.cmReal)}</td>
                             <td className={cn("px-3 py-2.5 text-right font-bold tabular-nums", row.cmAch >= 1 ? "text-green-600" : row.cmAch >= 0.8 ? "text-orange-500" : "text-red-600")}>
                               {(row.cmAch * 100).toFixed(1).replace(".", ",")}%
                             </td>
-                            <td className={cn("px-3 py-2.5 text-right font-bold tabular-nums", row.ytdAch >= 1 ? "text-green-600" : row.ytdAch >= 0.8 ? "text-blue-600" : "text-muted-foreground")}>
+                            <td className={cn("px-3 py-2.5 text-right font-bold tabular-nums", row.ytdAch >= 1 ? "text-green-600" : row.ytdAch >= 0.8 ? "text-blue-600" : "text-red-600")}>
                               {(row.ytdAch * 100).toFixed(1).replace(".", ",")}%
                             </td>
                             <td className="px-3 py-2.5 text-center">
@@ -728,40 +737,40 @@ export default function PerformaVis() {
                                 <div className="mx-4 mb-2 mt-0.5 border border-border/60 rounded-lg overflow-hidden">
                                   <table className="w-full text-xs">
                                     <thead>
-                                      <tr className="bg-secondary/60 text-muted-foreground">
-                                        <th className="px-3 py-1.5 text-left font-medium">Pelanggan / NIP</th>
-                                        <th className="px-3 py-1.5 text-right font-medium">Target</th>
-                                        <th className="px-3 py-1.5 text-right font-medium">Real</th>
-                                        <th className="px-3 py-1.5 text-right font-medium">Ach %</th>
-                                        <th className="px-3 py-1.5 text-right font-medium">Proporsi</th>
+                                      <tr className="bg-secondary/60">
+                                        <th className="px-3 py-1.5 text-left text-xs font-black text-foreground uppercase tracking-wide">Pelanggan / NIP</th>
+                                        <th className="px-3 py-1.5 text-right text-xs font-black text-foreground uppercase tracking-wide">Proporsi</th>
+                                        <th className="px-3 py-1.5 text-right text-xs font-black text-foreground uppercase tracking-wide">Target</th>
+                                        <th className="px-3 py-1.5 text-right text-xs font-black text-foreground uppercase tracking-wide">Real</th>
+                                        <th className="px-3 py-1.5 text-right text-xs font-black text-foreground uppercase tracking-wide">Ach %</th>
                                       </tr>
                                     </thead>
                                     <tbody className="divide-y divide-border/40">
                                       {customers.map((c: any, ci: number) => {
                                         const cReal = c.realTotal ?? 0;
                                         const cTarget = c.targetTotal ?? 0;
-                                        const prop = totalReal > 0 ? (cReal / totalReal * 100) : 0;
+                                        const prop = c.proporsi != null ? c.proporsi * 100 : 0;
                                         const cAch = cTarget > 0 ? cReal / cTarget * 100 : 0;
                                         return (
                                           <tr key={ci} className="hover:bg-secondary/30">
-                                            <td className="px-3 py-1.5 font-medium text-foreground" title={c.pelanggan}>
-                                              <div className="truncate max-w-[180px]">{c.pelanggan || "—"}</div>
+                                            <td className="px-3 py-1.5 font-medium text-foreground">
+                                              <div>{c.pelanggan || "—"}</div>
                                               {c.nip && <div className="text-[10px] text-muted-foreground">{c.nip}</div>}
                                             </td>
-                                            <td className="px-3 py-1.5 text-right tabular-nums text-muted-foreground">{formatRupiah(cTarget)}</td>
-                                            <td className="px-3 py-1.5 text-right tabular-nums font-medium">{formatRupiah(cReal)}</td>
+                                            <td className="px-3 py-1.5 text-right tabular-nums">
+                                              <div className="flex items-center justify-end gap-1.5">
+                                                <div className="w-12 h-1.5 bg-secondary rounded-full overflow-hidden">
+                                                  <div className="h-full bg-primary rounded-full" style={{ width: `${Math.min(prop, 100)}%` }} />
+                                                </div>
+                                                <span className="text-foreground font-medium">{prop.toFixed(1)}%</span>
+                                              </div>
+                                            </td>
+                                            <td className="px-3 py-1.5 text-right tabular-nums text-foreground">{formatRupiah(cTarget)}</td>
+                                            <td className="px-3 py-1.5 text-right tabular-nums font-medium text-foreground">{formatRupiah(cReal)}</td>
                                             <td className="px-3 py-1.5 text-right tabular-nums text-xs">
                                               <span className={cn("font-semibold", cAch >= 100 ? "text-green-600" : cAch >= 80 ? "text-orange-500" : "text-red-500")}>
                                                 {cAch.toFixed(1)}%
                                               </span>
-                                            </td>
-                                            <td className="px-3 py-1.5 text-right tabular-nums">
-                                              <div className="flex items-center justify-end gap-1.5">
-                                                <div className="w-16 h-1.5 bg-secondary rounded-full overflow-hidden">
-                                                  <div className="h-full bg-primary rounded-full" style={{ width: `${Math.min(prop, 100)}%` }} />
-                                                </div>
-                                                <span className="text-muted-foreground">{prop.toFixed(1)}%</span>
-                                              </div>
                                             </td>
                                           </tr>
                                         );

@@ -3,7 +3,6 @@ import { eq, and, desc } from "drizzle-orm";
 import { logger } from "./logger";
 
 const MONTH_NAMES = ["", "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
-const DIVIDER = `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
 
 function formatRupiah(val: number): string {
   if (val >= 1_000_000_000_000) return `Rp ${(val / 1_000_000_000_000).toFixed(2).replace(".", ",")} T`;
@@ -100,10 +99,8 @@ async function buildPerformanceMessage(
   const greeting = greetingByTime();
   const feedback = rankFeedback(firstName, rankCm, achCm);
 
-  let msg = `${DIVIDER}\n`;
-  msg += `📊 *LAPORAN PERFORMANSI AM*\n`;
-  msg += `LESA VI — Witel Suramadu\n`;
-  msg += `${DIVIDER}\n\n`;
+  let msg = `📊 *LAPORAN PERFORMANSI AM*\n`;
+  msg += `LESA VI — Witel Suramadu\n\n`;
   msg += `Halo kak ${firstName}! 👋 ${greeting}\n\n`;
   msg += `Berikut rekap performansi kamu\n`;
   msg += `untuk periode *${MONTH_NAMES[month]} ${year}*:\n\n`;
@@ -138,10 +135,8 @@ async function buildPerformanceMessage(
   msg += `├ Ach CM        : ${fmtPct(achNgtmaCm)} ${achEmoji(achNgtmaCm)}\n`;
   msg += `└ Ach YTD       : ${fmtPct(achNgtmaYtd)} ${achEmoji(achNgtmaYtd)}\n\n`;
 
-  msg += `${DIVIDER}\n`;
   msg += `💬 *Feedback*\n\n`;
-  msg += `${feedback}\n`;
-  msg += `${DIVIDER}\n`;
+  msg += `${feedback}\n\n`;
   msg += `📎 *Detail lengkap:*\n`;
   msg += `${getEmbedUrl()}`;
 
@@ -162,10 +157,8 @@ async function buildFunnelMessage(nik: string): Promise<string | null> {
 
   const greeting = greetingByTime();
 
-  let msg = `${DIVIDER}\n`;
-  msg += `📋 *SALES FUNNEL*\n`;
-  msg += `LESA VI — Witel Suramadu\n`;
-  msg += `${DIVIDER}\n\n`;
+  let msg = `📋 *SALES FUNNEL*\n`;
+  msg += `LESA VI — Witel Suramadu\n\n`;
   msg += `Halo kak ${firstName}! 👋 ${greeting}\n\n`;
   msg += `Berikut status *Sales Funnel* kamu:\n\n`;
   msg += `LOP Aktif   : *${activeLops.length}* proyek\n`;
@@ -184,7 +177,6 @@ async function buildFunnelMessage(nik: string): Promise<string | null> {
     msg += `_Belum ada LOP aktif. Yuk tambah pipeline baru! 💡_\n\n`;
   }
 
-  msg += `${DIVIDER}`;
   return msg;
 }
 
@@ -202,10 +194,8 @@ async function buildActivityMessage(nik: string, period: string): Promise<string
   const remaining = am.kpiActivity - monthActs.length;
   const greeting = greetingByTime();
 
-  let msg = `${DIVIDER}\n`;
-  msg += `📌 *SALES ACTIVITY*\n`;
-  msg += `LESA VI — Witel Suramadu\n`;
-  msg += `${DIVIDER}\n\n`;
+  let msg = `📌 *SALES ACTIVITY*\n`;
+  msg += `LESA VI — Witel Suramadu\n\n`;
   msg += `Halo kak ${firstName}! 👋 ${greeting}\n\n`;
   msg += `Status *Sales Activity* — ${MONTH_NAMES[month]} ${year}:\n\n`;
   msg += `Activity   : *${monthActs.length}* / ${am.kpiActivity} KPI\n`;
@@ -217,7 +207,6 @@ async function buildActivityMessage(nik: string, period: string): Promise<string
     msg += `_Yuk tambah activity kak ${firstName}, masih ada waktu! 🚀_\n\n`;
   }
 
-  msg += `${DIVIDER}`;
   return msg;
 }
 

@@ -217,6 +217,34 @@ router.post("/telegram/gen-link/:amId", requireAuth, async (req, res): Promise<v
   res.json({ code, link, expiresAt: expiry.toISOString(), botUsername });
 });
 
+// POST /api/telegram/gen-links-bulk — Generate magic links for all non-DGS AMs at once
+router.post("/telegram/gen-links-bulk", requireAuth, async (req, res): Promise<void> => {
+  const [settings] = await db.select().from(appSettingsTable);
+  let botUsername: string | null = null;
+  if (settings?.telegramBotToken) {
+    try {
+      const r = await fetch(`https://api.telegram.org/bot${settings.telegramBotToken}/getMe`);
+      const d = await r.json() as { ok: boolean; result?: { username: string } };
+      botUsername = d.result?.username ?? null;
+    } catch { /* ignore */ }
+  }
+
+  const allAms = await db.select().from(accountManagersTable);
+  const nonDgsAms = allAms.filter(a => a.divisi !== "DGS");
+
+  const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  const results = await Promise.all(nonDgsAms.map(async am => {
+    const code = crypto.randomInt(100000, 999999).toString();
+    await db.update(accountManagersTable)
+      .set({ telegramCode: code, telegramCodeExpiry: expiry })
+      .where(eq(accountManagersTable.id, am.id));
+    const link = botUsername ? `https://t.me/${botUsername}?start=${code}` : null;
+    return { amId: am.id, nama: am.nama, nik: am.nik, divisi: am.divisi, link, code, connected: !!am.telegramChatId };
+  }));
+
+  res.json({ botUsername, expiresAt: expiry.toISOString(), results });
+});
+
 // GET /api/telegram/bot-status — Check if bot token is valid
 router.get("/telegram/bot-status", requireAuth, async (req, res): Promise<void> => {
   const [settings] = await db.select().from(appSettingsTable);

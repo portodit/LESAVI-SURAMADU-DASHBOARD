@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { createPortal } from "react-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -6,7 +7,7 @@ import { id as idLocale } from "date-fns/locale";
 import {
   Send, History, CheckCircle2, XCircle, Users, RefreshCw,
   Link2, Unlink, BarChart2, GitBranch, Activity, MessageSquare,
-  Copy, Clock, ChevronRight, Download, ExternalLink, Trash2
+  Copy, Clock, ChevronRight, Download, ExternalLink, Trash2, X, ClipboardList
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -391,12 +392,145 @@ function KirimPesanSection() {
   );
 }
 
+type BulkLink = { amId: number; nama: string; nik: string; divisi: string; link: string | null; code: string; connected: boolean };
+
+function BulkLinksModal({ data, expiresAt, onClose }: { data: BulkLink[]; expiresAt: string; onClose: () => void }) {
+  const { toast } = useToast();
+  const [copiedId, setCopiedId] = useState<number | null>(null);
+  const [copiedAll, setCopiedAll] = useState(false);
+
+  const copy = (text: string, id: number) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const copyAll = () => {
+    const text = data
+      .map(r => `${r.nama}: ${r.link ?? r.code}`)
+      .join("\n");
+    navigator.clipboard.writeText(text);
+    setCopiedAll(true);
+    setTimeout(() => setCopiedAll(false), 2000);
+    toast({ title: "Semua link disalin!" });
+  };
+
+  const expiryLabel = format(new Date(expiresAt), "dd MMM yyyy HH:mm", { locale: idLocale });
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center"
+      style={{ background: "rgba(0,0,0,0.5)" }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-background border border-border rounded-2xl shadow-2xl w-full max-w-2xl mx-4 flex flex-col max-h-[90vh]">
+        {/* Header */}
+        <div className="flex items-start justify-between p-5 border-b border-border shrink-0">
+          <div>
+            <h2 className="font-display font-bold text-base text-foreground">Link Verifikasi Telegram</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {data.length} AM · Berlaku hingga <span className="font-semibold text-foreground">{expiryLabel}</span>
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={copyAll}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors",
+                copiedAll
+                  ? "bg-green-100 text-green-700"
+                  : "bg-primary text-white hover:bg-primary/90"
+              )}
+            >
+              {copiedAll ? <CheckCircle2 className="w-3.5 h-3.5" /> : <ClipboardList className="w-3.5 h-3.5" />}
+              {copiedAll ? "Tersalin!" : "Salin Semua"}
+            </button>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Instruction */}
+        <div className="px-5 pt-3 pb-2 shrink-0">
+          <p className="text-xs text-muted-foreground bg-secondary/50 rounded-lg px-3 py-2">
+            Bagikan link kepada AM masing-masing. Cukup klik link → bot Telegram otomatis terhubung.
+            AM yang <span className="text-green-600 font-semibold">sudah terhubung</span> tetap mendapat link baru untuk mengganti koneksi.
+          </p>
+        </div>
+
+        {/* List */}
+        <div className="overflow-y-auto px-5 pb-5 space-y-2 flex-1">
+          {data.map((r, idx) => (
+            <div key={r.amId} className="flex items-center gap-3">
+              {/* Index + AM name */}
+              <div className="flex items-center gap-2 shrink-0 w-56 min-w-0">
+                <span className="text-[10px] font-mono text-muted-foreground/60 w-5 text-right shrink-0">{idx + 1}</span>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-foreground truncate">{r.nama}</p>
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] text-muted-foreground">{r.divisi}</span>
+                    {r.connected && (
+                      <span className="text-[9px] bg-green-100 text-green-700 px-1 rounded-full font-bold">Terhubung</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Link field */}
+              <div className="flex-1 flex items-center gap-1.5 min-w-0">
+                <input
+                  readOnly
+                  value={r.link ?? r.code}
+                  className="flex-1 text-[11px] font-mono px-2.5 py-1.5 border border-border rounded-lg bg-secondary/40 text-foreground truncate min-w-0 focus:outline-none focus:ring-1 focus:ring-primary/30"
+                  onClick={e => (e.target as HTMLInputElement).select()}
+                />
+                <button
+                  onClick={() => copy(r.link ?? r.code, r.amId)}
+                  className={cn(
+                    "shrink-0 p-1.5 rounded-lg transition-colors",
+                    copiedId === r.amId
+                      ? "text-green-600 bg-green-50"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                  )}
+                  title="Salin link"
+                >
+                  {copiedId === r.amId
+                    ? <CheckCircle2 className="w-3.5 h-3.5" />
+                    : <Copy className="w-3.5 h-3.5" />}
+                </button>
+                {r.link && (
+                  <a
+                    href={r.link}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="shrink-0 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                    title="Buka di Telegram"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 function KoneksiAmSection() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [linkTarget, setLinkTarget] = useState<string | null>(null);
   const [selectedAmId, setSelectedAmId] = useState<string>("");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkLinksData, setBulkLinksData] = useState<{ results: BulkLink[]; expiresAt: string } | null>(null);
+  const [genBulkLoading, setGenBulkLoading] = useState(false);
 
   const { data: ams, refetch: refetchAms } = useQuery<any[]>({
     queryKey: ["ams"],
@@ -468,6 +602,23 @@ function KoneksiAmSection() {
 
   const subscribers: any[] = updates?.subscribers || [];
   const unlinkedSubscribers = subscribers.filter(s => !s.linked);
+
+  const handleGenBulk = async () => {
+    setGenBulkLoading(true);
+    try {
+      const data = await apiFetch("/telegram/gen-links-bulk", { method: "POST" });
+      if (!data.botUsername) {
+        toast({ title: "Bot belum dikonfigurasi", description: "Atur token bot Telegram di halaman Pengaturan.", variant: "destructive" });
+        return;
+      }
+      setBulkLinksData({ results: data.results, expiresAt: data.expiresAt });
+      await refetchAms();
+    } catch {
+      toast({ title: "Gagal generate link", variant: "destructive" });
+    } finally {
+      setGenBulkLoading(false);
+    }
+  };
 
   const allConnectedSelected = connectedAms.length > 0 && connectedAms.every(a => selectedIds.has(a.id));
   const toggleSelectAll = () => {
@@ -607,6 +758,15 @@ function KoneksiAmSection() {
         )}
       </div>
 
+      {/* Bulk Links Modal */}
+      {bulkLinksData && (
+        <BulkLinksModal
+          data={bulkLinksData.results}
+          expiresAt={bulkLinksData.expiresAt}
+          onClose={() => setBulkLinksData(null)}
+        />
+      )}
+
       {/* Bottom: AM list with connection status */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <div className="p-5 border-b border-border flex items-center justify-between gap-3 flex-wrap">
@@ -617,6 +777,14 @@ function KoneksiAmSection() {
             </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={handleGenBulk}
+              disabled={genBulkLoading}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-colors"
+            >
+              <Link2 className={cn("w-3.5 h-3.5", genBulkLoading && "animate-pulse")} />
+              {genBulkLoading ? "Membuat..." : "Generate Semua Link"}
+            </button>
             {selectedIds.size > 0 && (
               <button
                 onClick={() => unlinkAllMut.mutate([...selectedIds])}

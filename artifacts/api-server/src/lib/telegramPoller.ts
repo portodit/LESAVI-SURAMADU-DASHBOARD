@@ -1,6 +1,6 @@
 import { db, accountManagersTable, appSettingsTable, telegramBotUsersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { sendToTelegram, answerCallbackQuery, greetingByTime, buildTelegramMessages } from "./telegram";
+import { sendToTelegram, answerCallbackQuery, greetingByTime, buildTelegramMessages, getAvailablePerfPeriods } from "./telegram";
 import { chatWithGemini, generateBasaBasi } from "./geminiChat";
 import { logger } from "./logger";
 
@@ -50,6 +50,8 @@ const MAIN_KEYBOARD = {
     ],
   ],
 };
+
+const MONTH_NAMES = ["", "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
 
 // ── Message builders ────────────────────────────────────────────────────────
 
@@ -148,19 +150,86 @@ export async function pollOnce() {
           continue;
         }
 
-        const period = currentPeriod();
         const amFirstName = linkedAm.nama.split(" ")[0];
 
-        const opts = {
-          includePerformance: cbData === "/performansi",
-          includeFunnel:      cbData === "/funneling",
-          includeActivity:    cbData === "/activity",
-        };
-        if (opts.includePerformance || opts.includeFunnel || opts.includeActivity) {
+        // ── Funneling & Activity (unchanged) ────────────────────────────
+        if (cbData === "/funneling" || cbData === "/activity") {
+          const period = currentPeriod();
+          const opts = { includePerformance: false, includeFunnel: cbData === "/funneling", includeActivity: cbData === "/activity" };
           const msgs = await buildTelegramMessages(linkedAm.nik, period, opts);
           for (const m of msgs) await sendToTelegram(token, cbChatId, m).catch(() => {});
           if (!msgs.length) await sendToTelegram(token, cbChatId, `Belum ada data untuk periode ini kak *${amFirstName}*.`).catch(() => {});
+          continue;
         }
+
+        // ── Performansi: show period picker ─────────────────────────────
+        if (cbData === "/performansi") {
+          const now = new Date();
+          const displayMonth = `${MONTH_NAMES[now.getMonth() + 1]} ${now.getFullYear()}`;
+          const pickerKeyboard = {
+            inline_keyboard: [
+              [{ text: `📅 Bulan Terkini (${displayMonth})`, callback_data: "perf:current" }],
+              [{ text: "🗓 Pilih Bulan Lain", callback_data: "perf:menu" }],
+            ],
+          };
+          await sendToTelegram(token, cbChatId,
+            `📊 *Performansi Revenue*\n\nMau lihat rekap performansi bulan apa, kak *${amFirstName}*?`,
+            pickerKeyboard
+          ).catch(() => {});
+          continue;
+        }
+
+        // ── perf:current — current month, snapshot-aware ─────────────────
+        if (cbData === "perf:current") {
+          const period = currentPeriod();
+          const msgs = await buildTelegramMessages(linkedAm.nik, period, { includePerformance: true, includeFunnel: false, includeActivity: false });
+          for (const m of msgs) await sendToTelegram(token, cbChatId, m).catch(() => {});
+          if (!msgs.length) {
+            const now = new Date();
+            await sendToTelegram(token, cbChatId,
+              `_Data performansi untuk *${MONTH_NAMES[now.getMonth() + 1]} ${now.getFullYear()}* belum tersedia kak *${amFirstName}*. Mungkin belum diimport bulan ini._`
+            ).catch(() => {});
+          }
+          continue;
+        }
+
+        // ── perf:menu — show available month buttons ──────────────────────
+        if (cbData === "perf:menu") {
+          const periods = await getAvailablePerfPeriods(linkedAm.nik);
+          if (!periods.length) {
+            await sendToTelegram(token, cbChatId, `❌ Belum ada data performansi tersimpan untuk akun kamu kak *${amFirstName}*.`).catch(() => {});
+            continue;
+          }
+          const SHORT_MONTHS = ["", "Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+          const buttons = periods.map(p => ({
+            text: `${SHORT_MONTHS[p.bulan]} ${p.tahun}`,
+            callback_data: `perf:${p.tahun}-${String(p.bulan).padStart(2, "0")}`,
+          }));
+          const rows: typeof buttons[] = [];
+          for (let i = 0; i < buttons.length; i += 3) rows.push(buttons.slice(i, i + 3));
+          await sendToTelegram(token, cbChatId,
+            `🗓 *Pilih Periode Performansi*\n\nSilakan pilih bulan yang ingin kamu lihat kak *${amFirstName}*:`,
+            { inline_keyboard: rows }
+          ).catch(() => {});
+          continue;
+        }
+
+        // ── perf:YYYY-MM — specific period, snapshot-aware ────────────────
+        if (cbData.startsWith("perf:")) {
+          const periodStr = cbData.slice(5);
+          if (/^\d{4}-\d{2}$/.test(periodStr)) {
+            const msgs = await buildTelegramMessages(linkedAm.nik, periodStr, { includePerformance: true, includeFunnel: false, includeActivity: false });
+            for (const m of msgs) await sendToTelegram(token, cbChatId, m).catch(() => {});
+            if (!msgs.length) {
+              const [yr, mo] = periodStr.split("-").map(Number);
+              await sendToTelegram(token, cbChatId,
+                `_Data performansi untuk *${MONTH_NAMES[mo]} ${yr}* tidak ditemukan kak *${amFirstName}*._`
+              ).catch(() => {});
+            }
+          }
+          continue;
+        }
+
         continue;
       }
 
@@ -236,13 +305,27 @@ export async function pollOnce() {
           await sendToTelegram(token, chatId, `❌ Akun kamu belum terhubung. Minta admin untuk generate link verifikasi.`).catch(() => {});
           continue;
         }
-        const period = currentPeriod();
         const amFirstName = linkedAm.nama.split(" ")[0];
-        const opts = {
-          includePerformance: text === "/performansi",
-          includeFunnel: text === "/funneling",
-          includeActivity: text === "/activity",
-        };
+
+        // /performansi → show period picker
+        if (text === "/performansi") {
+          const now = new Date();
+          const displayMonth = `${MONTH_NAMES[now.getMonth() + 1]} ${now.getFullYear()}`;
+          const pickerKeyboard = {
+            inline_keyboard: [
+              [{ text: `📅 Bulan Terkini (${displayMonth})`, callback_data: "perf:current" }],
+              [{ text: "🗓 Pilih Bulan Lain", callback_data: "perf:menu" }],
+            ],
+          };
+          await sendToTelegram(token, chatId,
+            `📊 *Performansi Revenue*\n\nMau lihat rekap performansi bulan apa, kak *${amFirstName}*?`,
+            pickerKeyboard
+          ).catch(() => {});
+          continue;
+        }
+
+        const period = currentPeriod();
+        const opts = { includePerformance: false, includeFunnel: text === "/funneling", includeActivity: text === "/activity" };
         const msgs = await buildTelegramMessages(linkedAm.nik, period, opts);
         for (const m of msgs) await sendToTelegram(token, chatId, m).catch(() => {});
         if (!msgs.length) await sendToTelegram(token, chatId, `Belum ada data untuk periode ini kak *${amFirstName}*.`).catch(() => {});

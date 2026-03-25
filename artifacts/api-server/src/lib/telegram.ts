@@ -1,8 +1,45 @@
-import { db, appSettingsTable, accountManagersTable, performanceDataTable, salesFunnelTable, salesActivityTable, telegramLogsTable } from "@workspace/db";
+import { db, appSettingsTable, accountManagersTable, performanceDataTable, salesFunnelTable, salesActivityTable, telegramLogsTable, dataImportsTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 import { logger } from "./logger";
 
 const MONTH_NAMES = ["", "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+
+// ── Snapshot-aware helpers ──────────────────────────────────────────────────
+
+// Get performance rows for a period: try latest snapshot first, fallback to all snapshots
+async function getSnapshotAwarePerfs(year: number, month: number) {
+  const [latestImport] = await db.select()
+    .from(dataImportsTable)
+    .where(eq(dataImportsTable.type, "performance"))
+    .orderBy(desc(dataImportsTable.createdAt))
+    .limit(1);
+
+  if (latestImport) {
+    const fromLatest = await db.select().from(performanceDataTable)
+      .where(and(
+        eq(performanceDataTable.importId, latestImport.id),
+        eq(performanceDataTable.tahun, year),
+        eq(performanceDataTable.bulan, month),
+      ));
+    if (fromLatest.length > 0) return fromLatest;
+  }
+
+  // Fallback: any data for that period across all snapshots
+  return db.select().from(performanceDataTable)
+    .where(and(eq(performanceDataTable.tahun, year), eq(performanceDataTable.bulan, month)));
+}
+
+// Get distinct periods that have data for a given NIK, ordered newest first
+export async function getAvailablePerfPeriods(nik: string): Promise<{ tahun: number; bulan: number }[]> {
+  const rows = await db.selectDistinct({
+    tahun: performanceDataTable.tahun,
+    bulan: performanceDataTable.bulan,
+  }).from(performanceDataTable)
+    .where(eq(performanceDataTable.nik, nik));
+  return rows.sort((a, b) => b.tahun !== a.tahun ? b.tahun - a.tahun : b.bulan - a.bulan);
+}
+
+// ── Formatting helpers ──────────────────────────────────────────────────────
 
 function formatRupiah(val: number): string {
   if (val >= 1_000_000_000_000) return `Rp ${(val / 1_000_000_000_000).toFixed(2).replace(".", ",")} Triliun`;
@@ -57,9 +94,8 @@ async function buildPerformanceMessage(
 
   const firstName = am.nama.split(" ")[0];
 
-  // Fetch all AMs' performance data for this period (for rank calculation)
-  const allPerfs = await db.select().from(performanceDataTable)
-    .where(and(eq(performanceDataTable.tahun, year), eq(performanceDataTable.bulan, month)));
+  // Fetch all AMs' performance data for this period — latest snapshot first, fallback to all
+  const allPerfs = await getSnapshotAwarePerfs(year, month);
 
   const p = allPerfs.find(x => x.nik === nik);
   const totalAMs = allPerfs.length;

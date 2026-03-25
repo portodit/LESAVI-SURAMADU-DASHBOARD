@@ -7,7 +7,7 @@ import {
 } from "recharts";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
-import { ChevronDown, ChevronLeft, ChevronRight, Camera, Menu, X, BarChart2, Filter, Activity, Check } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Camera, X, BarChart2, Filter, Activity, Check, Maximize2, Minimize2 } from "lucide-react";
 
 const SLIDES = [
   { label: "Visualisasi Performa", icon: BarChart2 },
@@ -245,6 +245,21 @@ export default function EmbedPerforma() {
   const [loading, setLoading] = useState(true);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  }, []);
 
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
@@ -275,12 +290,12 @@ export default function EmbedPerforma() {
         setAllPerfs(data);
         const ps = [...new Set(data.map((p: any) => `${p.tahun}-${String(p.bulan).padStart(2, "0")}`))] as string[];
         ps.sort();
-        // Auto-select only periods that have real OR target revenue data (not empty months)
+        // Auto-select only periods where at least one AM has real_revenue > 0
         const psWithData = ps.filter(period => {
           const [y, m] = period.split("-");
           return data.some((p: any) =>
             String(p.tahun) === y && String(p.bulan).padStart(2, "0") === m &&
-            ((p.targetRevenue ?? 0) > 0 || (p.realRevenue ?? 0) > 0)
+            (p.realRevenue ?? 0) > 0
           );
         });
         setFilterPeriodes(new Set(psWithData.length > 0 ? psWithData : ps));
@@ -448,26 +463,14 @@ export default function EmbedPerforma() {
       <div className="bg-card border-b border-border shrink-0 z-30">
         {/* Main row — always visible */}
         <div className="flex items-center gap-2 px-3 py-2">
-          {/* Hamburger — always visible */}
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="p-1 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground shrink-0"
-            title="Navigasi slide"
-          >
-            <Menu className="w-4 h-4" />
-          </button>
-          {/* Logo + Brand — click to open slide nav */}
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="flex items-center gap-2 shrink-0 hover:opacity-80 transition-opacity"
-            title="Navigasi slide"
-          >
+          {/* Logo + Brand */}
+          <div className="flex items-center gap-2 shrink-0">
             <img src={`${import.meta.env.BASE_URL}logo-tr3.png`} alt="Logo TR3" className="h-8 object-contain" />
-            <div className="leading-tight text-left">
+            <div className="leading-tight">
               <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest leading-none">LESA VI WITEL SURAMADU</p>
               <p className="text-sm font-bold text-foreground">AM Performance Report</p>
             </div>
-          </button>
+          </div>
           {/* Desktop-only divider + filters */}
           {currentSlide === 0 && (
             <>
@@ -508,10 +511,8 @@ export default function EmbedPerforma() {
               </div>
             </>
           )}
-          {/* Spacer */}
-          <div className="flex-1 sm:hidden" />
-          {/* Slide arrows — always visible; dots hidden on mobile */}
-          <div className="flex items-center gap-1 shrink-0">
+          {/* Slide arrows + fullscreen — always pushed to the right */}
+          <div className="ml-auto flex items-center gap-1 shrink-0">
             <button onClick={() => setCurrentSlide(s => Math.max(s - 1, 0))} disabled={currentSlide === 0}
               className="p-1 rounded-lg hover:bg-secondary transition-colors disabled:opacity-30">
               <ChevronLeft className="w-4 h-4" />
@@ -525,6 +526,11 @@ export default function EmbedPerforma() {
             <button onClick={() => setCurrentSlide(s => Math.min(s + 1, SLIDES.length - 1))} disabled={currentSlide === SLIDES.length - 1}
               className="p-1 rounded-lg hover:bg-secondary transition-colors disabled:opacity-30">
               <ChevronRight className="w-4 h-4" />
+            </button>
+            <div className="w-px h-5 bg-border/60 mx-0.5 hidden sm:block" />
+            <button onClick={toggleFullscreen} title={isFullscreen ? "Keluar fullscreen" : "Fullscreen (F11)"}
+              className="p-1 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground hidden sm:block">
+              {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
             </button>
           </div>
         </div>

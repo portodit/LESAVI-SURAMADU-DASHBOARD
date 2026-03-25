@@ -325,7 +325,7 @@ export default function PerformaVis() {
     if (filterSnapshotId) rows = rows.filter(p => p.importId === filterSnapshotId);
     return new Set(
       rows
-        .filter(p => (p.targetRevenue ?? 0) > 0 || (p.realRevenue ?? 0) > 0)
+        .filter(p => (p.realRevenue ?? 0) > 0)
         .map(p => `${p.tahun}-${String(p.bulan).padStart(2, "0")}`)
     );
   }, [allPerfs, filterSnapshotId]);

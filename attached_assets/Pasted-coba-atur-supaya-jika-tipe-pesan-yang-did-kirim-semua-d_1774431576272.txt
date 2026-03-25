@@ -1,0 +1,54 @@
+coba atur supaya jika tipe pesan yang did kirim semua data itu tidak digabung adi 1 chat tapi beda chat gitu karena yang performance revenue ini Panjang banget
+
+
+sekaligus saya mau minta tolong update template chatnya sesuai permintaan ini (bisa dimodifikasi atau di enhanced dlagi):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 LAPORAN PERFORMANSI AM
+LESA VI — Witel Suramadu
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Halo kak Andis! 👋 Selamat pagi~
+
+Berikut rekap performansi kamu
+untuk periode *Februari 2026*:
+
+*A. Reguler Revenue*
+├ Real Revenue  : Rp 0
+├ Target        : Rp 371,10 M
+├ Ach CM        : 0,00% 🔴
+│   Rank CM     : #12 dari 19
+├ Ach YTD       : 0,00% 🔴
+│   Rank YTD    : #12 dari 19
+
+*B. Sustain Revenue*
+├ Real Revenue  : Rp 0
+├ Target        : Rp 310,20 M
+├ Ach CM        : 0,00% 🔴
+└ Ach YTD       : 0,00% 🔴
+
+*C. Scaling Revenue*
+├ Real Revenue  : Rp 0
+├ Target        : Rp 60,90 M
+├ Ach CM        : 0,00% 🔴
+└ Ach YTD       : 0,00% 🔴
+
+*D. NGTMA Revenue*
+├ Real Revenue  : Rp 0
+├ Target        : Rp 45,00 M
+├ Ach CM        : 0,00% 🔴
+└ Ach YTD       : 0,00% 🔴
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💬 *Feedback*
+
+Semangat kak Andis! Masih ada
+waktu tersisa di bulan ini —
+yuk kejar targetnya! 💪
+Jangan ragu koordinasi dengan
+tim kalau butuh support ya 🙏
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📎 Detail lengkap:
+didnamis ddisesuaikan dengan link iframe website oke 
+
+Feedback otomatis berdasarkan rank reguler:
+KondisiPesanRank #1🥇 Luar biasa kak [nama]! Kamu jadi yang terbaik bulan ini di antara seluruh AM Witel Suramadu. Pertahankan terus ya!Rank #2–3🥈 Keren kak [nama]! Kamu masuk podium top 3 bulan ini. Tinggal sedikit lagi menuju puncak — tetap semangat!Rank #4–10⚡ Good job kak [nama]! Kamu sudah di kelompok atas. Terus tingkatkan dan podium bukan hal yang mustahil buat kamu!Rank #11–19💪 Semangat kak [nama]! Masih ada waktu tersisa di bulan ini — yuk kejar targetnya! Jangan ragu koordinasi dengan tim kalau butuh support ya.Ach ≥ 100% (rank berapapun)✅ Selamat kak [nama]! Target bulan ini sudah tercapai. Mantap sekali, pertahankan momentum ini di bulan depan!

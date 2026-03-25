@@ -62,6 +62,48 @@ export async function generateBasaBasi(namaLengkap: string): Promise<string> {
   }
 }
 
+// Generate AI-permak'd performance feedback, with fallback
+export async function generatePerfFeedback(
+  firstName: string,
+  achCm: number,
+  rankCm: number,
+  totalAMs: number,
+  monthName: string,
+  year: number,
+  fallback: string,
+): Promise<string> {
+  const ai = getAI();
+  if (!ai) return fallback;
+
+  const prompt = [
+    `Kamu adalah BOT LESA VI, asisten AM di Telkom Witel Suramadu.`,
+    `AM bernama "${firstName}" punya performa berikut untuk periode ${monthName} ${year}:`,
+    `- Pencapaian Revenue CM (Current Month): ${achCm.toFixed(2)}%`,
+    `- Ranking CM: #${rankCm} dari ${totalAMs} AM Witel Suramadu`,
+    ``,
+    `Tulis feedback performansi yang:`,
+    `- Personal dan memotivasi sesuai posisi ranking dan pencapaiannya`,
+    `- Tidak generik atau terasa template`,
+    `- Bahasa Indonesia santai, akrab, pakai sapaan "kak"`,
+    `- Boleh selipkan pantun pendek atau humor sales yang relevan`,
+    `- Jangan mulai dengan "Halo" atau "Hai"`,
+    `- Maksimal 3 kalimat`,
+  ].join("\n");
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      config: { maxOutputTokens: 120 },
+    });
+    const text = response.text?.trim();
+    return text || fallback;
+  } catch (err) {
+    logger.debug({ err }, "Gemini perf feedback error (non-fatal)");
+    return fallback;
+  }
+}
+
 // AI chat for general messages
 export async function chatWithGemini(
   userMessage: string,

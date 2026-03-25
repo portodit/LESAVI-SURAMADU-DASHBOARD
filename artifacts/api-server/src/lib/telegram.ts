@@ -1,6 +1,7 @@
 import { db, appSettingsTable, accountManagersTable, performanceDataTable, salesFunnelTable, salesActivityTable, telegramLogsTable, dataImportsTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 import { logger } from "./logger";
+import { generateBasaBasi, generatePerfFeedback } from "./geminiChat";
 
 const MONTH_NAMES = ["", "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
 
@@ -77,8 +78,8 @@ function rankFeedback(firstName: string, rankCm: number, achCm: number): string 
 
 function getEmbedUrl(): string {
   const domain = process.env.REPLIT_DEV_DOMAIN;
-  if (domain) return `https://${domain}/embed/performa`;
-  return `https://rlegs-suramadu.replit.app/embed/performa`;
+  if (domain) return `https://${domain}/presentation`;
+  return `https://rlegs-suramadu.replit.app/presentation`;
 }
 
 // --- BUILD FUNCTIONS: each returns ONE message string ---
@@ -133,47 +134,54 @@ async function buildPerformanceMessage(
   const achNgtmaYtd   = sumYtdAch("realNgtma", "targetNgtma");
 
   const greeting = greetingByTime();
-  const feedback = rankFeedback(firstName, rankCm, achCm);
+  const fallbackFeedback = rankFeedback(firstName, rankCm, achCm);
 
-  let msg = `📊 *LAPORAN PERFORMANSI AM*\n`;
+  // Run AI calls in parallel for speed
+  const [basaBasi, feedback] = await Promise.all([
+    generateBasaBasi(firstName),
+    generatePerfFeedback(firstName, achCm, rankCm, totalAMs, MONTH_NAMES[month], year, fallbackFeedback),
+  ]);
+
+  let msg = `📊 *LAPORAN PERFORMANSI ACCOUNT MANAGER*\n`;
   msg += `LESA VI — Witel Suramadu\n\n`;
-  msg += `Halo kak ${firstName}! 👋 ${greeting}\n\n`;
+  msg += `Halo kak *${firstName}*! 👋 ${greeting}\n\n`;
+  msg += `${basaBasi}\n\n`;
   msg += `Berikut rekap performansi kamu\n`;
   msg += `untuk periode *${MONTH_NAMES[month]} ${year}*:\n\n`;
 
-  // Section A: Reguler — with rank; order: Real → Target → Ach CM → Ach YTD → Rank CM → Rank YTD
+  // Section A: Reguler — with rank
   msg += `*A. Reguler Revenue*\n`;
-  msg += `├ Real Revenue    : ${formatRupiah(p?.realReguler ?? 0)}\n`;
-  msg += `├ Target Revenue  : ${formatRupiah(p?.targetReguler ?? 0)}\n`;
-  msg += `├ Ach CM          : ${fmtPct(achRegulerCm)} ${achLabel(achRegulerCm)}\n`;
-  msg += `├ Ach YTD         : ${fmtPct(achRegulerYtd)} ${achLabel(achRegulerYtd)}\n`;
-  msg += `│   Rank CM       : #${rankCm} dari ${totalAMs}\n`;
-  msg += `│   Rank YTD      : #${rankYtd} dari ${totalAMs}\n\n`;
+  msg += `├ *Real Revenue*   : ${formatRupiah(p?.realReguler ?? 0)}\n`;
+  msg += `├ *Target Revenue* : ${formatRupiah(p?.targetReguler ?? 0)}\n`;
+  msg += `├ *Ach CM*         : ${fmtPct(achRegulerCm)} ${achLabel(achRegulerCm)}\n`;
+  msg += `├ *Ach YTD*        : ${fmtPct(achRegulerYtd)} ${achLabel(achRegulerYtd)}\n`;
+  msg += `│   *Rank CM*      : #${rankCm} dari ${totalAMs}\n`;
+  msg += `│   *Rank YTD*     : #${rankYtd} dari ${totalAMs}\n\n`;
 
   // Section B: Sustain
   msg += `*B. Sustain Revenue*\n`;
-  msg += `├ Real Revenue    : ${formatRupiah(p?.realSustain ?? 0)}\n`;
-  msg += `├ Target Sustain  : ${formatRupiah(p?.targetSustain ?? 0)}\n`;
-  msg += `├ Ach CM          : ${fmtPct(achSustainCm)} ${achLabel(achSustainCm)}\n`;
-  msg += `└ Ach YTD         : ${fmtPct(achSustainYtd)} ${achLabel(achSustainYtd)}\n\n`;
+  msg += `├ *Real Revenue*   : ${formatRupiah(p?.realSustain ?? 0)}\n`;
+  msg += `├ *Target Sustain* : ${formatRupiah(p?.targetSustain ?? 0)}\n`;
+  msg += `├ *Ach CM*         : ${fmtPct(achSustainCm)} ${achLabel(achSustainCm)}\n`;
+  msg += `└ *Ach YTD*        : ${fmtPct(achSustainYtd)} ${achLabel(achSustainYtd)}\n\n`;
 
   // Section C: Scaling
   msg += `*C. Scaling Revenue*\n`;
-  msg += `├ Real Revenue    : ${formatRupiah(p?.realScaling ?? 0)}\n`;
-  msg += `├ Target Scaling  : ${formatRupiah(p?.targetScaling ?? 0)}\n`;
-  msg += `├ Ach CM          : ${fmtPct(achScalingCm)} ${achLabel(achScalingCm)}\n`;
-  msg += `└ Ach YTD         : ${fmtPct(achScalingYtd)} ${achLabel(achScalingYtd)}\n\n`;
+  msg += `├ *Real Revenue*   : ${formatRupiah(p?.realScaling ?? 0)}\n`;
+  msg += `├ *Target Scaling* : ${formatRupiah(p?.targetScaling ?? 0)}\n`;
+  msg += `├ *Ach CM*         : ${fmtPct(achScalingCm)} ${achLabel(achScalingCm)}\n`;
+  msg += `└ *Ach YTD*        : ${fmtPct(achScalingYtd)} ${achLabel(achScalingYtd)}\n\n`;
 
   // Section D: NGTMA
   msg += `*D. NGTMA Revenue*\n`;
-  msg += `├ Real Revenue    : ${formatRupiah(p?.realNgtma ?? 0)}\n`;
-  msg += `├ Target NGTMA    : ${formatRupiah(p?.targetNgtma ?? 0)}\n`;
-  msg += `├ Ach CM          : ${fmtPct(achNgtmaCm)} ${achLabel(achNgtmaCm)}\n`;
-  msg += `└ Ach YTD         : ${fmtPct(achNgtmaYtd)} ${achLabel(achNgtmaYtd)}\n\n`;
+  msg += `├ *Real Revenue*   : ${formatRupiah(p?.realNgtma ?? 0)}\n`;
+  msg += `├ *Target NGTMA*   : ${formatRupiah(p?.targetNgtma ?? 0)}\n`;
+  msg += `├ *Ach CM*         : ${fmtPct(achNgtmaCm)} ${achLabel(achNgtmaCm)}\n`;
+  msg += `└ *Ach YTD*        : ${fmtPct(achNgtmaYtd)} ${achLabel(achNgtmaYtd)}\n\n`;
 
-  msg += `💬 *Feedback*\n\n`;
+  msg += `💬 *Feedback Performansi:*\n\n`;
   msg += `${feedback}\n\n`;
-  msg += `📎 *Detail lengkap:*\n`;
+  msg += `📎 Untuk melihat performa lengkap kamu dan benchmarking dengan AM lain, silahkan akses link berikut:\n`;
   msg += `${getEmbedUrl()}`;
 
   return msg;

@@ -341,8 +341,6 @@ function KontrakBadge({ k }: { k: string | null }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function FunnelPage() {
-  const [filterYear, setFilterYear] = useState<string>("2026");
-  const [filterMonths, setFilterMonths] = useState<Set<string>>(new Set());
   const [importId, setImportId] = useState<number | null>(null);
   const [filterDivisi, setFilterDivisi] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<Set<string>>(new Set());
@@ -360,35 +358,22 @@ export default function FunnelPage() {
     staleTime: 60_000,
   });
 
-  const yearOptions = useMemo(() => {
-    const years = [...new Set(snapshots.map(s => s.period.slice(0, 4)))].sort().reverse();
-    if (years.length === 0) return [{ value: "2026", label: "2026" }];
-    return years.map(y => ({ value: y, label: y }));
-  }, [snapshots]);
-
-  const availableMonthsForYear = useMemo(() => {
-    return snapshots
-      .filter(s => s.period.startsWith(filterYear))
-      .map(s => s.period.slice(5, 7));
-  }, [snapshots, filterYear]);
-
+  // Snapshot options — all available imports, newest first
   const snapshotOptions = useMemo(() =>
-    snapshots
-      .filter(s => {
-        if (!s.period.startsWith(filterYear)) return false;
-        if (filterMonths.size > 0 && !filterMonths.has(s.period.slice(5, 7))) return false;
-        return true;
-      })
+    [...snapshots]
+      .sort((a, b) => b.id - a.id)
       .map(s => ({ value: String(s.id), label: `${periodLabel(s.period)} (${s.rowsImported.toLocaleString()} LOP)` })),
-    [snapshots, filterYear, filterMonths]
+    [snapshots]
   );
 
-  useEffect(() => {
-    if (yearOptions.length > 0) setFilterYear(yearOptions[0].value);
-  }, [yearOptions.length]);
+  // Derive filterYear from selected snapshot's period
+  const selectedSnapshot = useMemo(() => snapshots.find(s => s.id === importId), [snapshots, importId]);
+  const filterYear = selectedSnapshot?.period.slice(0, 4) ?? "2026";
 
   useEffect(() => {
-    if (snapshotOptions.length > 0) setImportId(Number(snapshotOptions[0].value));
+    if (snapshotOptions.length > 0 && importId === null) {
+      setImportId(Number(snapshotOptions[0].value));
+    }
   }, [snapshotOptions.length > 0 && snapshotOptions[0]?.value]);
 
   const funnelParams = useMemo(() => {
@@ -486,7 +471,8 @@ export default function FunnelPage() {
     } else { setExpandedAm({}); setExpandedPhase({}); }
   }
 
-  const hasActiveFilter = filterAm.size > 0 || filterStatus.size > 0 || filterKontrak.size > 0 || filterDivisi !== "all";
+  const hasActiveFilter = filterStatus.size > 0 || filterDivisi !== "all";
+  const hasDetailFilter = filterAm.size > 0 || filterKontrak.size > 0;
   const lopBadge = filteredLops.length !== (data?.totalLop || 0)
     ? `${filteredLops.length} / ${data?.totalLop || 0}` : filteredLops.length.toLocaleString("id-ID");
 
@@ -501,33 +487,23 @@ export default function FunnelPage() {
       {/* Filter Bar — single row */}
       <div className="bg-card border border-border rounded-xl px-4 py-3 shadow-sm">
         <div className="flex items-end gap-2 flex-wrap">
-          <SelectDropdown label="Tahun" value={filterYear} onChange={v => { setFilterYear(v); setFilterMonths(new Set()); setImportId(null); }}
-            options={yearOptions} className="w-20 shrink-0" />
-          <CheckboxDropdown label="Bulan" options={availableMonthsForYear}
-            selected={filterMonths} onChange={setFilterMonths}
-            placeholder="Semua bulan" labelFn={m => MONTHS_ID[parseInt(m)] || m}
-            summaryLabel="bulan" className="w-32 shrink-0" />
-          <SelectDropdown label="Snapshot" value={String(importId || "")}
+          <SelectDropdown label="Periode" value={String(importId || "")}
             onChange={v => setImportId(Number(v))}
             options={snapshotOptions.length > 0 ? snapshotOptions : [{ value: "", label: "Belum ada data" }]}
-            disabled={snapshotOptions.length === 0} className="w-44 shrink-0" />
+            disabled={snapshotOptions.length === 0} className="w-52 shrink-0" />
           <div className="w-px h-9 bg-border self-end" />
           <SelectDropdown label="Divisi" value={filterDivisi} onChange={setFilterDivisi}
             options={[{ value: "all", label: "Semua Divisi" }, { value: "DPS", label: "DPS" }, { value: "DSS", label: "DSS" }]}
             className="w-32 shrink-0" />
-          <CheckboxDropdown label="Nama AM" options={amOptions} selected={filterAm} onChange={setFilterAm}
-            placeholder="Semua AM" labelFn={amLabelFn} summaryLabel="AM" className="w-36 shrink-0" />
           <CheckboxDropdown label="Status Funnel" options={PHASES} selected={filterStatus} onChange={setFilterStatus}
             placeholder="Semua status" labelFn={p => `${p} – ${PHASE_LABELS[p]}`} summaryLabel="status" className="w-36 shrink-0" />
-          <CheckboxDropdown label="Kategori Kontrak" options={kontrakOptions.length > 0 ? kontrakOptions : []} selected={filterKontrak} onChange={setFilterKontrak}
-            placeholder="Semua kontrak" summaryLabel="kontrak" className="w-36 shrink-0" />
           <SelectDropdown label="Target" value={filterTarget} onChange={v => setFilterTarget(v as "ho" | "fullho")}
             options={[{ value: "fullho", label: "Target Full HO" }, { value: "ho", label: "Target HO" }]}
             className="w-36 shrink-0" />
           {hasActiveFilter && (
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-bold text-transparent uppercase">.</label>
-              <button onClick={() => { setFilterAm(new Set()); setFilterStatus(new Set()); setFilterKontrak(new Set()); setFilterDivisi("all"); }}
+              <label className="text-[10px] font-bold text-transparent uppercase">.</label>
+              <button onClick={() => { setFilterStatus(new Set()); setFilterDivisi("all"); }}
                 className="h-9 flex items-center gap-1 px-3 text-sm text-destructive border border-destructive/30 rounded-lg hover:bg-destructive/5 transition-colors whitespace-nowrap">
                 <X className="w-3.5 h-3.5" /> Reset
               </button>
@@ -549,11 +525,11 @@ export default function FunnelPage() {
           {/* Row 1: LOP per Fase + Capaian Real */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
-              <h3 className="text-sm font-display font-black text-foreground uppercase tracking-wide mb-3">LOP per Fase</h3>
+              <h3 className="text-sm font-display font-semibold text-foreground mb-3">LOP per Fase</h3>
               <FaseBarChart data={data} />
             </div>
             <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
-              <h3 className="text-sm font-display font-black text-foreground uppercase tracking-wide mb-2">
+              <h3 className="text-sm font-display font-semibold text-foreground mb-2">
                 Capaian Real vs {filterTarget === "ho" ? "Target HO" : "Target Full HO"}
               </h3>
               <Gauge pct={pct} targetHo={filterTarget === "ho" ? activeTarget : effectiveTargetHo} targetFullHo={filterTarget === "fullho" ? activeTarget : effectiveTargetFullHo} real={data?.realFullHo || 0} />
@@ -567,7 +543,7 @@ export default function FunnelPage() {
       {/* Detail Table */}
       <div className="bg-card border border-border rounded-xl shadow-sm">
         <div className="px-4 py-3 border-b border-border bg-secondary/30 flex items-center justify-between gap-3 flex-wrap">
-          <h3 className="text-sm font-display font-black text-foreground flex items-center gap-2">
+          <h3 className="text-sm font-display font-semibold text-foreground flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-primary" />
             Detail Funnel per AM
             <span className="bg-foreground text-background text-[11px] font-bold px-2 py-0.5 rounded-full font-mono">{lopBadge}</span>
@@ -586,6 +562,22 @@ export default function FunnelPage() {
               {allExpanded ? "Collapse Semua" : "Expand Semua AM"}
             </button>
           </div>
+        </div>
+        {/* Detail-section filters: Nama AM + Kategori Kontrak */}
+        <div className="px-4 py-2 border-b border-border bg-secondary/10 flex items-end gap-2 flex-wrap">
+          <CheckboxDropdown label="Nama AM" options={amOptions} selected={filterAm} onChange={setFilterAm}
+            placeholder="Semua AM" labelFn={amLabelFn} summaryLabel="AM" className="w-44 shrink-0" />
+          <CheckboxDropdown label="Kategori Kontrak" options={kontrakOptions.length > 0 ? kontrakOptions : []} selected={filterKontrak} onChange={setFilterKontrak}
+            placeholder="Semua kontrak" summaryLabel="kontrak" className="w-40 shrink-0" />
+          {hasDetailFilter && (
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-bold text-transparent uppercase">.</label>
+              <button onClick={() => { setFilterAm(new Set()); setFilterKontrak(new Set()); }}
+                className="h-9 flex items-center gap-1 px-3 text-sm text-destructive border border-destructive/30 rounded-lg hover:bg-destructive/5 transition-colors whitespace-nowrap">
+                <X className="w-3.5 h-3.5" /> Reset
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="p-3">
@@ -607,7 +599,7 @@ export default function FunnelPage() {
                 <tr><td colSpan={6} className="text-center py-16 text-muted-foreground text-sm">Memuat data...</td></tr>
               ) : groupedByAm.length === 0 ? (
                 <tr><td colSpan={6} className="text-center py-16 text-muted-foreground text-sm">
-                  {search || hasActiveFilter ? "Tidak ada data yang cocok dengan filter" : "Belum ada data funnel"}
+                  {search || hasActiveFilter || hasDetailFilter ? "Tidak ada data yang cocok dengan filter" : "Belum ada data funnel"}
                 </td></tr>
               ) : groupedByAm.map(am => {
                 const amKey = am.nikAm || am.namaAm;

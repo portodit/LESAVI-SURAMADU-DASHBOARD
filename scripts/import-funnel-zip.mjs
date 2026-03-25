@@ -191,7 +191,7 @@ async function main() {
 
   console.log(`Total raw rows combined: ${allRows.length}`);
   const cleaned = cleanFunnelRows(allRows);
-  console.log(`After cleaning: ${cleaned.length} rows`);
+  console.log(`After cleaning (Steps 1-7): ${cleaned.length} rows`);
 
   if (cleaned.length === 0) {
     console.error("No valid rows after cleaning. Exiting.");
@@ -209,6 +209,12 @@ async function main() {
   // Connect to DB
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
+  // Step 8: Filter by active master_am only
+  const { rows: activeAms } = await pool.query("SELECT nik FROM master_am WHERE aktif = true");
+  const activeNikSet = new Set(activeAms.map(a => a.nik));
+  const activeOnly = cleaned.filter(r => r.nikAm && activeNikSet.has(r.nikAm));
+  console.log(`After Step 8 (active AM filter): ${activeOnly.length} rows (${cleaned.length - activeOnly.length} dropped — non-active AMs)`);
+
   // Check for duplicate
   const { rows: existing } = await pool.query(
     "SELECT id, rows_imported, created_at FROM data_imports WHERE type = 'funnel' AND period = $1",
@@ -224,7 +230,7 @@ async function main() {
   // Insert import record
   const { rows: [imp] } = await pool.query(
     "INSERT INTO data_imports (type, rows_imported, period, source_url, auto_telegram_sent) VALUES ('funnel', $1, $2, $3, false) RETURNING id",
-    [cleaned.length, period, `zip:${path.basename(ZIP_PATH)}`]
+    [activeOnly.length, period, `zip:${path.basename(ZIP_PATH)}`]
   );
   console.log(`Created import record id=${imp.id}`);
 
@@ -232,8 +238,8 @@ async function main() {
   console.log("Inserting rows...");
   const BATCH = 500;
   let inserted = 0;
-  for (let i = 0; i < cleaned.length; i += BATCH) {
-    const batch = cleaned.slice(i, i + BATCH);
+  for (let i = 0; i < activeOnly.length; i += BATCH) {
+    const batch = activeOnly.slice(i, i + BATCH);
     const values = batch.map((r, idx) => {
       const base = idx * 16;
       return `($${base+1},$${base+2},$${base+3},$${base+4},$${base+5},$${base+6},$${base+7},$${base+8},$${base+9},$${base+10},$${base+11},$${base+12},$${base+13},$${base+14},$${base+15},$${base+16})`;
@@ -249,11 +255,11 @@ async function main() {
       params
     );
     inserted += batch.length;
-    process.stdout.write(`\r  ${inserted}/${cleaned.length} rows inserted...`);
+    process.stdout.write(`\r  ${inserted}/${activeOnly.length} rows inserted...`);
   }
   console.log(`\n✅ Done! ${inserted} rows imported for period ${period} (importId=${imp.id})`);
 
-  const amCount = new Set(cleaned.map(r => r.nikAm)).size;
+  const amCount = new Set(activeOnly.map(r => r.nikAm)).size;
   console.log(`AM count: ${amCount}`);
 
   await pool.end();

@@ -13,6 +13,7 @@ import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 
 const MONTHS_LABEL = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
+const MONTHS_FULL  = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
 const TIPE_RANK = ["Ach MTD","Ach YTD","Real Revenue"];
 const TIPE_REVENUE = ["Reguler","Sustain","Scaling","NGTMA"];
 
@@ -36,11 +37,15 @@ function EmptyState() {
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
+  const monthFull = payload[0]?.payload?.monthFull as string | undefined;
+  const divisiLabel = payload[0]?.payload?.divisiLabel as string | undefined;
+  const titleMonth = monthFull ?? label;
+  const titlePrefix = divisiLabel ? `Revenue ${divisiLabel} – ` : "Revenue – ";
   return (
-    <div className="bg-card border border-border rounded-xl shadow-lg px-4 py-3 text-xs">
-      <p className="font-semibold mb-2 text-foreground">{label}</p>
+    <div className="bg-card border border-border rounded-xl shadow-lg px-4 py-3 text-xs min-w-[210px]">
+      <p className="font-bold mb-2 text-foreground leading-snug">{titlePrefix}{titleMonth}</p>
       {payload.map((p: any, i: number) => (
-        <p key={i} style={{ color: p.color }} className="mb-1">
+        <p key={i} style={{ color: p.color }} className="mb-1 font-semibold">
           {p.name}: {p.name === "Ach Rate %" ? `${p.value?.toFixed(2)}%` : formatRupiah(p.value || 0)}
         </p>
       ))}
@@ -489,6 +494,7 @@ export default function PerformaVis() {
   // Trend chart (for CM year)
   const trendData = useMemo(() => {
     if (!allPerfs?.length || !cmYear) return [];
+    const divisiLabel = filterDivisi === "All" ? "Semua Divisi" : filterDivisi;
     return MONTHS_LABEL.map((month, idx) => {
       const mNum = idx + 1;
       let rows = (allPerfs as any[]).filter(p =>
@@ -500,7 +506,14 @@ export default function PerformaVis() {
       const target = rows.reduce((s, p) => s + p.targetRevenue, 0);
       const real = rows.reduce((s, p) => s + p.realRevenue, 0);
       const ach = target > 0 ? (real / target) * 100 : 0;
-      return { month, target, real, ach: parseFloat(ach.toFixed(1)), hasData: rows.length > 0 };
+      return {
+        month,
+        monthFull: `${MONTHS_FULL[idx]} ${cmYear}`,
+        divisiLabel,
+        target, real,
+        ach: parseFloat(ach.toFixed(1)),
+        hasData: rows.length > 0,
+      };
     });
   }, [allPerfs, cmYear, filterSnapshotId, filterDivisi]);
 
@@ -725,18 +738,18 @@ export default function PerformaVis() {
                 </button>
               </div>
               <div className="p-3">
-                <div className="border border-border rounded-lg overflow-hidden">
-                <div className="overflow-x-auto">
+                <div className="border border-border rounded-lg overflow-visible">
+                <div className="[overflow-x:clip]">
                 <table className="w-full text-left text-xs">
                   <thead>
                     <tr className="bg-red-700 text-white font-black uppercase tracking-wide text-xs">
-                      <th className="px-4 py-2.5 w-6"></th>
+                      <th className="px-4 py-2.5 w-6 rounded-tl-lg"></th>
                       <th className="px-4 py-2.5">Nama AM</th>
                       <th className="px-3 py-2.5 text-center">Rank</th>
-                      <th className={cn("px-4 py-2.5 text-right", filterTipeRank === "Real Revenue" && "underline underline-offset-2")}>Target CM</th>
-                      <th className={cn("px-4 py-2.5 text-right", filterTipeRank === "Real Revenue" && "underline underline-offset-2")}>Real CM</th>
+                      <th className={cn("px-4 py-2.5 text-right", filterTipeRank === "Real Revenue" && "underline underline-offset-2")}>Target {filterTipeRevenue}</th>
+                      <th className={cn("px-4 py-2.5 text-right", filterTipeRank === "Real Revenue" && "underline underline-offset-2")}>Real {filterTipeRevenue}</th>
                       <th className={cn("px-3 py-2.5 text-right", filterTipeRank === "Ach MTD" && "underline underline-offset-2")}>CM %</th>
-                      <th className={cn("px-3 py-2.5 text-right", filterTipeRank === "Ach YTD" && "underline underline-offset-2")}>YTD %</th>
+                      <th className={cn("px-3 py-2.5 text-right rounded-tr-lg", filterTipeRank === "Ach YTD" && "underline underline-offset-2")}>YTD %</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/50">
@@ -756,10 +769,30 @@ export default function PerformaVis() {
                                 isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />
                               ) : null}
                             </td>
-                            <td className="px-4 py-2.5 font-medium text-foreground">
-                              <div className="flex items-center gap-1.5">
-                                <span title={row.namaAm}>{row.namaAm}</span>
+                            <td className="px-4 py-2.5 font-medium text-foreground overflow-visible">
+                              <div className="group relative flex items-center gap-1.5 w-fit">
+                                <span>{row.namaAm}</span>
                                 <span className="text-[10px] text-muted-foreground shrink-0">{row.divisi}</span>
+                                {/* Hover tooltip */}
+                                <div className="pointer-events-none absolute left-0 top-full mt-1.5 z-[200] w-56 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                                  <div className="bg-card border border-border rounded-xl shadow-xl px-3 py-2.5 text-xs">
+                                    <p className="font-bold text-foreground mb-2 leading-snug">{row.namaAm}</p>
+                                    <div className="space-y-1.5">
+                                      <div className="flex justify-between gap-3">
+                                        <span className="text-muted-foreground">Total Pelanggan</span>
+                                        <span className="font-semibold text-foreground">{customers.length}</span>
+                                      </div>
+                                      <div className="flex justify-between gap-3">
+                                        <span className="text-muted-foreground">Real Revenue</span>
+                                        <span className="font-semibold text-foreground">{formatRupiah(row.cmReal)}</span>
+                                      </div>
+                                      <div className="flex justify-between gap-3">
+                                        <span className="text-muted-foreground">Target Revenue</span>
+                                        <span className="font-semibold text-foreground">{formatRupiah(row.cmTarget)}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
                               </div>
                             </td>
                             <td className="px-3 py-2.5 text-center font-bold text-foreground">{row.displayRank}</td>

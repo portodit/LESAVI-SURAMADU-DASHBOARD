@@ -17,6 +17,7 @@ const SLIDES = [
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 const MONTHS_LABEL = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
+const MONTHS_FULL  = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
 const TIPE_RANK = ["Ach MTD","Real Revenue","YTD"];
 const TIPE_REVENUE = ["Reguler","Sustain","Scaling","NGTMA"];
 
@@ -89,9 +90,13 @@ function TrophyCard({ title, subtitle, am, value, realValue, targetValue, colorS
 // ─── Custom Tooltip for Trend Chart ────────────────────────────────────────────
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
+  const monthFull = payload[0]?.payload?.monthFull as string | undefined;
+  const divisiLabel = payload[0]?.payload?.divisiLabel as string | undefined;
+  const titleMonth = monthFull ?? label;
+  const titlePrefix = divisiLabel ? `Revenue ${divisiLabel} – ` : "Revenue – ";
   return (
-    <div className="bg-card border border-border rounded-xl p-3 shadow-lg text-xs space-y-1.5 min-w-[160px]">
-      <p className="font-bold text-foreground mb-1">{label}</p>
+    <div className="bg-card border border-border rounded-xl p-3 shadow-lg text-xs space-y-1.5 min-w-[210px]">
+      <p className="font-bold text-foreground mb-1 leading-snug">{titlePrefix}{titleMonth}</p>
       {payload.map((p: any, i: number) => (
         <div key={i} className="flex items-center justify-between gap-4">
           <span style={{ color: p.color }}>{p.name}</span>
@@ -399,6 +404,7 @@ export default function EmbedPerforma() {
 
   const trendData = useMemo(() => {
     if (!allPerfs.length || !cmYear) return [];
+    const divisiLabel = filterDivisi === "All" ? "Semua Divisi" : filterDivisi;
     return MONTHS_LABEL.map((month, idx) => {
       const mNum = idx + 1;
       const rows = allPerfs.filter((p: any) =>
@@ -409,7 +415,12 @@ export default function EmbedPerforma() {
       const target = rows.reduce((s, p) => s + (p.targetRevenue ?? 0), 0);
       const real = rows.reduce((s, p) => s + (p.realRevenue ?? 0), 0);
       const ach = target > 0 ? parseFloat(((real / target) * 100).toFixed(1)) : 0;
-      return { month, target, real, ach };
+      return {
+        month,
+        monthFull: `${MONTHS_FULL[idx]} ${cmYear}`,
+        divisiLabel,
+        target, real, ach,
+      };
     });
   }, [allPerfs, cmYear, filterDivisi]);
 
@@ -679,18 +690,18 @@ export default function EmbedPerforma() {
                 <h3 className="text-sm font-bold text-foreground">AM Performance Report</h3>
               </div>
               <div className="p-3">
-                <div className="border border-border rounded-lg overflow-hidden">
-                <div className="overflow-x-auto">
+                <div className="border border-border rounded-lg overflow-visible">
+                <div className="[overflow-x:clip]">
                 <table className="w-full text-xs text-left">
                   <thead>
                     <tr className="bg-red-700 text-white">
-                      <th className="px-3 py-3 w-5"></th>
+                      <th className="px-3 py-3 w-5 rounded-tl-lg"></th>
                       <th className="px-4 py-3 text-left text-xs font-black uppercase tracking-wide">Nama AM</th>
                       <th className="px-3 py-3 text-center text-xs font-black uppercase tracking-wide">Rank</th>
-                      <th className={cn("px-4 py-3 text-right text-xs font-black uppercase tracking-wide", filterTipeRank === "Real Revenue" && "underline underline-offset-2")}>Target CM</th>
-                      <th className={cn("px-4 py-3 text-right text-xs font-black uppercase tracking-wide", filterTipeRank === "Real Revenue" && "underline underline-offset-2")}>Real CM</th>
+                      <th className={cn("px-4 py-3 text-right text-xs font-black uppercase tracking-wide", filterTipeRank === "Real Revenue" && "underline underline-offset-2")}>Target {filterTipeRevenue}</th>
+                      <th className={cn("px-4 py-3 text-right text-xs font-black uppercase tracking-wide", filterTipeRank === "Real Revenue" && "underline underline-offset-2")}>Real {filterTipeRevenue}</th>
                       <th className={cn("px-3 py-3 text-right text-xs font-black uppercase tracking-wide", filterTipeRank === "Ach MTD" && "underline underline-offset-2")}>CM %</th>
-                      <th className={cn("px-3 py-3 text-right text-xs font-black uppercase tracking-wide", filterTipeRank === "YTD" && "underline underline-offset-2")}>YTD %</th>
+                      <th className={cn("px-3 py-3 text-right text-xs font-black uppercase tracking-wide rounded-tr-lg", filterTipeRank === "YTD" && "underline underline-offset-2")}>YTD %</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/50">
@@ -704,9 +715,31 @@ export default function EmbedPerforma() {
                             <td className="px-2 py-2 text-muted-foreground">
                               {hasCustomers ? (isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />) : null}
                             </td>
-                            <td className="px-4 py-2 font-medium text-foreground">
-                              <span className="block" title={row.namaAm}>{row.namaAm}</span>
-                              <span className="text-[10px] text-muted-foreground">{row.divisi}</span>
+                            <td className="px-4 py-2 font-medium text-foreground overflow-visible">
+                              <div className="group relative flex flex-col w-fit">
+                                <span>{row.namaAm}</span>
+                                <span className="text-[10px] text-muted-foreground">{row.divisi}</span>
+                                {/* Hover tooltip */}
+                                <div className="pointer-events-none absolute left-0 top-full mt-1.5 z-[200] w-56 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                                  <div className="bg-card border border-border rounded-xl shadow-xl px-3 py-2.5 text-xs">
+                                    <p className="font-bold text-foreground mb-2 leading-snug">{row.namaAm}</p>
+                                    <div className="space-y-1.5">
+                                      <div className="flex justify-between gap-3">
+                                        <span className="text-muted-foreground">Total Pelanggan</span>
+                                        <span className="font-semibold text-foreground">{(row.customers || []).length}</span>
+                                      </div>
+                                      <div className="flex justify-between gap-3">
+                                        <span className="text-muted-foreground">Real Revenue</span>
+                                        <span className="font-semibold text-foreground">{formatRupiah(row.cmReal)}</span>
+                                      </div>
+                                      <div className="flex justify-between gap-3">
+                                        <span className="text-muted-foreground">Target Revenue</span>
+                                        <span className="font-semibold text-foreground">{formatRupiah(row.cmTarget)}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
                             </td>
                             <td className="px-3 py-2 text-center font-bold text-foreground">{row.displayRank}</td>
                             <td className="px-4 py-2 text-right text-foreground tabular-nums">{formatRupiah(row.cmTarget)}</td>

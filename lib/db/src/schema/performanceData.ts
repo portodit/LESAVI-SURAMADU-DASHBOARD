@@ -7,6 +7,8 @@ export const performanceDataTable = pgTable("performance_data", {
   nik: text("nik").notNull(),
   namaAm: text("nama_am").notNull(),
   divisi: text("divisi").notNull(),
+  witelAm: text("witel_am"),
+  levelAm: text("level_am"),
   tahun: integer("tahun").notNull(),
   bulan: integer("bulan").notNull(),
   targetRevenue: real("target_revenue").notNull().default(0),

@@ -60,6 +60,8 @@ router.post("/import/performance", requireAuth, async (req, res): Promise<void> 
     //              TARGET_NGTMA, REAL_SUSTAIN, REAL_SCALING, REAL_NGTMA
     type CustomerEntry = {
       nip: string; pelanggan: string; proporsi: number;
+      group: string; industri: string; lsegmen: string; ssegmen: string;
+      witelCc: string; telda: string; regional: string; divisiCc: string; kawasan: string;
       Reguler: { target: number; real: number };
       Sustain: { target: number; real: number };
       Scaling: { target: number; real: number };
@@ -67,8 +69,10 @@ router.post("/import/performance", requireAuth, async (req, res): Promise<void> 
       targetTotal: number; realTotal: number;
     };
     type AmEntry = {
-      nik: string; namaAm: string; divisi: string; witel: string;
+      nik: string; namaAm: string; divisi: string; witel: string; levelAm: string;
       periodeStr: string; target: number; real: number;
+      tReg: number; rReg: number; tSustain: number; rSustain: number;
+      tScaling: number; rScaling: number; tNgtma: number; rNgtma: number;
       customers: CustomerEntry[];
     };
     const amMap = new Map<string, AmEntry>();
@@ -94,16 +98,26 @@ router.post("/import/performance", requireAuth, async (req, res): Promise<void> 
       const targetTotal = tReg + tSustain + tScaling + tNgtma;
       const realTotal = rReg + rSustain + rScaling + rNgtma;
 
-      // Customer info
+      // Customer info — semua kolom pelanggan disimpan
       const pelanggan = String(r.STANDARD_NAME || r.NAMA_PELANGGAN || r.PELANGGAN || r.pelanggan || r.nama_account || "").trim();
       const nip = String(r.NIP_NAS || r.nip_nas || r.NIP || "").trim();
       const proporsi = parseFloat(String(r.PROPORSI ?? r.proporsi ?? 0)) || 0;
+      const group = String(r.GROUP || r.group || "").trim();
+      const industri = String(r.INDUSTRI || r.industri || "").trim();
+      const lsegmen = String(r.LSEGMEN || r.lsegmen || "").trim();
+      const ssegmen = String(r.SSEGMEN || r.ssegmen || "").trim();
+      const witelCc = String(r.WITEL_CC || r.witel_cc || "").trim();
+      const telda = String(r.TELDA || r.telda || "").trim();
+      const regional = String(r.REGIONAL || r.regional || "").trim();
+      const divisiCc = String(r.DIVISI_CC || r.divisi_cc || "").trim();
+      const kawasan = String(r.KAWASAN || r.kawasan || "").trim();
 
       if (!amMap.has(key)) {
         amMap.set(key, {
           nik, namaAm,
           divisi: divisiRaw,
           witel: String(r.WITEL_AM || r.witel || "SURAMADU").trim(),
+          levelAm: String(r.LEVEL_AM || r.level_am || "").trim(),
           periodeStr, target: 0, real: 0,
           tReg: 0, rReg: 0, tSustain: 0, rSustain: 0,
           tScaling: 0, rScaling: 0, tNgtma: 0, rNgtma: 0,
@@ -117,9 +131,11 @@ router.post("/import/performance", requireAuth, async (req, res): Promise<void> 
       entry.tSustain += tSustain; entry.rSustain += rSustain;
       entry.tScaling += tScaling; entry.rScaling += rScaling;
       entry.tNgtma += tNgtma; entry.rNgtma += rNgtma;
-      if (pelanggan) {
+      if (pelanggan || nip) {
         entry.customers.push({
           nip, pelanggan, proporsi,
+          group, industri, lsegmen, ssegmen,
+          witelCc, telda, regional, divisiCc, kawasan,
           Reguler: { target: tReg, real: rReg },
           Sustain: { target: tSustain, real: rSustain },
           Scaling: { target: tScaling, real: rScaling },
@@ -137,6 +153,8 @@ router.post("/import/performance", requireAuth, async (req, res): Promise<void> 
         nik: entry.nik,
         namaAm: entry.namaAm,
         divisi: entry.divisi,
+        witelAm: entry.witel || null,
+        levelAm: entry.levelAm || null,
         tahun: year,
         bulan: month,
         targetRevenue: entry.target,

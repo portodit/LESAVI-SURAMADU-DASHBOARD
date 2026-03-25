@@ -4,7 +4,7 @@ import { useListImportHistory } from "@workspace/api-client-react";
 import { cn, formatRupiah } from "@/lib/utils";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
-import { ArrowLeft, Loader2, Database, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, Loader2, Database, Search, ChevronLeft, ChevronRight, ChevronDown, ChevronRight as ChevronRightIcon } from "lucide-react";
 
 async function apiFetch(path: string, opts?: RequestInit) {
   const base = (import.meta.env.BASE_URL || "").replace(/\/$/, "");
@@ -32,58 +32,153 @@ function formatPeriod(period: string) {
 // ─── Performance Table ─────────────────────────────────────────────────────────
 function PerformanceTable({ rows, search }: { rows: any[]; search: string }) {
   const [page, setPage] = useState(1);
+  const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
   const filtered = rows.filter(r =>
     !search || r.namaAm?.toLowerCase().includes(search.toLowerCase()) ||
-    r.nik?.includes(search) || r.divisi?.toLowerCase().includes(search.toLowerCase())
+    r.nik?.includes(search) || r.divisi?.toLowerCase().includes(search.toLowerCase()) ||
+    r.witelAm?.toLowerCase().includes(search.toLowerCase())
   );
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
+  function toggleRow(idx: number) {
+    setExpandedRows(prev => { const n = new Set(prev); if (n.has(idx)) n.delete(idx); else n.add(idx); return n; });
+  }
+
   return (
     <div>
-      <div className="text-xs text-muted-foreground mb-2">{filtered.length} AM ditemukan</div>
+      <div className="text-xs text-muted-foreground mb-2">{filtered.length} baris AM ditemukan · Klik baris untuk lihat detail pelanggan</div>
       <div className="overflow-x-auto border border-border rounded-xl">
         <table className="w-full text-left text-xs">
           <thead>
             <tr className="bg-secondary/50 text-muted-foreground font-semibold text-[10px] uppercase tracking-wide">
-              <th className="px-4 py-2.5">NIK</th>
+              <th className="px-2 py-2.5 w-5"></th>
+              <th className="px-3 py-2.5">NIK</th>
               <th className="px-4 py-2.5">Nama AM</th>
-              <th className="px-4 py-2.5">Divisi</th>
-              <th className="px-3 py-2.5 text-center">Bulan</th>
+              <th className="px-3 py-2.5">Level AM</th>
+              <th className="px-3 py-2.5">Witel AM</th>
+              <th className="px-3 py-2.5">Divisi</th>
+              <th className="px-3 py-2.5 text-center">Periode</th>
               <th className="px-4 py-2.5 text-right">Target Revenue</th>
               <th className="px-4 py-2.5 text-right">Real Revenue</th>
+              <th className="px-3 py-2.5 text-right">Target Sustain</th>
+              <th className="px-3 py-2.5 text-right">Real Sustain</th>
+              <th className="px-3 py-2.5 text-right">Target Scaling</th>
+              <th className="px-3 py-2.5 text-right">Real Scaling</th>
+              <th className="px-3 py-2.5 text-right">Target NGTMA</th>
+              <th className="px-3 py-2.5 text-right">Real NGTMA</th>
               <th className="px-3 py-2.5 text-right">Ach %</th>
               <th className="px-3 py-2.5 text-center">Status</th>
-              <th className="px-4 py-2.5 text-center">Corporate Customers</th>
+              <th className="px-4 py-2.5 text-center">CC</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border/50">
             {paged.map((r, i) => {
-              const customers = (() => {
+              const absIdx = (page - 1) * PAGE_SIZE + i;
+              const customers: any[] = (() => {
                 try { return r.komponenDetail ? JSON.parse(r.komponenDetail) : []; } catch { return []; }
               })();
+              const isExpanded = expandedRows.has(absIdx);
               return (
-                <tr key={i} className="hover:bg-secondary/10">
-                  <td className="px-4 py-2.5 font-mono text-muted-foreground">{r.nik}</td>
-                  <td className="px-4 py-2.5 font-medium text-foreground">{r.namaAm}</td>
-                  <td className="px-4 py-2.5 text-muted-foreground">{r.divisi}</td>
-                  <td className="px-3 py-2.5 text-center font-mono">{r.tahun}/{String(r.bulan).padStart(2,"0")}</td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">{formatRupiah(r.targetRevenue)}</td>
-                  <td className="px-4 py-2.5 text-right tabular-nums font-medium">{formatRupiah(r.realRevenue)}</td>
-                  <td className={cn("px-3 py-2.5 text-right font-bold tabular-nums", r.achRate >= 1 ? "text-green-600" : r.achRate >= 0.8 ? "text-orange-500" : "text-red-600")}>
-                    {(r.achRate * 100).toFixed(1)}%
-                  </td>
-                  <td className="px-3 py-2.5 text-center">
-                    <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-bold border",
-                      r.statusWarna === "hijau" ? "text-green-700 bg-green-50 border-green-200" :
-                      r.statusWarna === "oranye" ? "text-orange-700 bg-orange-50 border-orange-200" :
-                      "text-red-700 bg-red-50 border-red-200"
-                    )}>
-                      {r.statusWarna?.toUpperCase()}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2.5 text-center text-muted-foreground">{customers.length > 0 ? `${customers.length} CC` : "–"}</td>
-                </tr>
+                <React.Fragment key={i}>
+                  <tr
+                    className={cn("transition-colors", customers.length > 0 ? "cursor-pointer hover:bg-secondary/20" : "hover:bg-secondary/10", isExpanded && "bg-secondary/10")}
+                    onClick={() => customers.length > 0 && toggleRow(absIdx)}
+                  >
+                    <td className="px-2 py-2 text-muted-foreground">
+                      {customers.length > 0 ? (isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRightIcon className="w-3.5 h-3.5" />) : null}
+                    </td>
+                    <td className="px-3 py-2 font-mono text-muted-foreground text-[10px]">{r.nik}</td>
+                    <td className="px-4 py-2 font-medium text-foreground whitespace-nowrap">{r.namaAm}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{r.levelAm || "–"}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{r.witelAm || "–"}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{r.divisi}</td>
+                    <td className="px-3 py-2 text-center font-mono text-[10px]">{r.tahun}/{String(r.bulan).padStart(2,"0")}</td>
+                    <td className="px-4 py-2 text-right tabular-nums text-muted-foreground">{formatRupiah(r.targetRevenue)}</td>
+                    <td className="px-4 py-2 text-right tabular-nums font-medium">{formatRupiah(r.realRevenue)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{formatRupiah(r.targetSustain ?? 0)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{formatRupiah(r.realSustain ?? 0)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{formatRupiah(r.targetScaling ?? 0)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{formatRupiah(r.realScaling ?? 0)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{formatRupiah(r.targetNgtma ?? 0)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{formatRupiah(r.realNgtma ?? 0)}</td>
+                    <td className={cn("px-3 py-2 text-right font-bold tabular-nums", r.achRate >= 1 ? "text-green-600" : r.achRate >= 0.8 ? "text-orange-500" : "text-red-600")}>
+                      {(r.achRate * 100).toFixed(1)}%
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-bold border",
+                        r.statusWarna === "hijau" ? "text-green-700 bg-green-50 border-green-200" :
+                        r.statusWarna === "oranye" ? "text-orange-700 bg-orange-50 border-orange-200" :
+                        "text-red-700 bg-red-50 border-red-200"
+                      )}>
+                        {r.statusWarna?.toUpperCase()}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2 text-center text-muted-foreground font-mono">{customers.length > 0 ? customers.length : "–"}</td>
+                  </tr>
+
+                  {/* Customer detail rows */}
+                  {isExpanded && customers.length > 0 && (
+                    <tr>
+                      <td colSpan={18} className="px-0 py-0 bg-secondary/5">
+                        <div className="mx-3 my-1.5 border border-border/60 rounded-lg overflow-x-auto">
+                          <table className="w-full text-[10px] text-left">
+                            <thead>
+                              <tr className="bg-secondary/60 text-muted-foreground font-semibold uppercase tracking-wide">
+                                <th className="px-3 py-1.5">NIP NAS</th>
+                                <th className="px-3 py-1.5">Standard Name</th>
+                                <th className="px-3 py-1.5">Group</th>
+                                <th className="px-3 py-1.5">Industri</th>
+                                <th className="px-3 py-1.5">L.Segmen</th>
+                                <th className="px-3 py-1.5">S.Segmen</th>
+                                <th className="px-3 py-1.5">Witel CC</th>
+                                <th className="px-3 py-1.5">Telda</th>
+                                <th className="px-3 py-1.5">Regional</th>
+                                <th className="px-3 py-1.5">Divisi CC</th>
+                                <th className="px-3 py-1.5">Kawasan</th>
+                                <th className="px-3 py-1.5 text-right">Proporsi</th>
+                                <th className="px-3 py-1.5 text-right">T.Revenue</th>
+                                <th className="px-3 py-1.5 text-right">R.Revenue</th>
+                                <th className="px-3 py-1.5 text-right">T.Sustain</th>
+                                <th className="px-3 py-1.5 text-right">R.Sustain</th>
+                                <th className="px-3 py-1.5 text-right">T.Scaling</th>
+                                <th className="px-3 py-1.5 text-right">R.Scaling</th>
+                                <th className="px-3 py-1.5 text-right">T.NGTMA</th>
+                                <th className="px-3 py-1.5 text-right">R.NGTMA</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-border/40">
+                              {customers.map((c: any, ci: number) => (
+                                <tr key={ci} className="hover:bg-secondary/30">
+                                  <td className="px-3 py-1.5 font-mono text-muted-foreground">{c.nip || "–"}</td>
+                                  <td className="px-3 py-1.5 font-medium max-w-[160px] truncate" title={c.pelanggan}>{c.pelanggan || "–"}</td>
+                                  <td className="px-3 py-1.5 text-muted-foreground">{c.group || "–"}</td>
+                                  <td className="px-3 py-1.5 text-muted-foreground">{c.industri || "–"}</td>
+                                  <td className="px-3 py-1.5 text-muted-foreground">{c.lsegmen || "–"}</td>
+                                  <td className="px-3 py-1.5 text-muted-foreground">{c.ssegmen || "–"}</td>
+                                  <td className="px-3 py-1.5 text-muted-foreground">{c.witelCc || "–"}</td>
+                                  <td className="px-3 py-1.5 text-muted-foreground">{c.telda || "–"}</td>
+                                  <td className="px-3 py-1.5 text-muted-foreground">{c.regional || "–"}</td>
+                                  <td className="px-3 py-1.5 text-muted-foreground">{c.divisiCc || "–"}</td>
+                                  <td className="px-3 py-1.5 text-muted-foreground">{c.kawasan || "–"}</td>
+                                  <td className="px-3 py-1.5 text-right tabular-nums">{c.proporsi?.toFixed(2) ?? "–"}</td>
+                                  <td className="px-3 py-1.5 text-right tabular-nums text-muted-foreground">{formatRupiah(c.targetTotal ?? 0)}</td>
+                                  <td className="px-3 py-1.5 text-right tabular-nums font-medium">{formatRupiah(c.realTotal ?? 0)}</td>
+                                  <td className="px-3 py-1.5 text-right tabular-nums text-muted-foreground">{formatRupiah(c.Sustain?.target ?? 0)}</td>
+                                  <td className="px-3 py-1.5 text-right tabular-nums">{formatRupiah(c.Sustain?.real ?? 0)}</td>
+                                  <td className="px-3 py-1.5 text-right tabular-nums text-muted-foreground">{formatRupiah(c.Scaling?.target ?? 0)}</td>
+                                  <td className="px-3 py-1.5 text-right tabular-nums">{formatRupiah(c.Scaling?.real ?? 0)}</td>
+                                  <td className="px-3 py-1.5 text-right tabular-nums text-muted-foreground">{formatRupiah(c.NGTMA?.target ?? 0)}</td>
+                                  <td className="px-3 py-1.5 text-right tabular-nums">{formatRupiah(c.NGTMA?.real ?? 0)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
               );
             })}
           </tbody>

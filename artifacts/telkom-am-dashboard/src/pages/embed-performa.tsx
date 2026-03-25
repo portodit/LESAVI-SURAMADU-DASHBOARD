@@ -136,10 +136,10 @@ function CheckboxDropdown({ label, options, selected, onChange, placeholder, lab
       : selected.size === 1 ? lFn([...selected][0]) : `${selected.size} ${summaryLabel || label} dipilih`;
   return (
     <div className={cn("flex flex-col gap-0.5", className)} ref={triggerRef}>
-      <label className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wide">{label}</label>
+      <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{label}</label>
       <button
         onClick={toggle}
-        className="h-7 px-1.5 bg-secondary/50 border border-border rounded-md text-[10px] flex items-center gap-1 focus:ring-2 focus:ring-primary/20 focus:border-primary w-full whitespace-nowrap"
+        className="h-9 px-2 bg-secondary/50 border border-border rounded-md text-xs flex items-center gap-1 focus:ring-2 focus:ring-primary/20 focus:border-primary w-full whitespace-nowrap"
       >
         <span className="flex-1 text-left truncate">{displayLabel}</span>
         <ChevronDown className="w-3 h-3 shrink-0 text-muted-foreground" />
@@ -205,12 +205,12 @@ function SelectDropdown({ label, value, onChange, options, className, disabled }
   const current = options.find(o => o.value === value);
   return (
     <div className={cn("flex flex-col gap-0.5", className)} ref={triggerRef}>
-      {label && <label className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wide">{label}</label>}
+      {label && <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{label}</label>}
       <button
         onClick={toggle}
         disabled={disabled}
         className={cn(
-          "h-7 px-1.5 bg-secondary/50 border border-border rounded-md text-[10px] flex items-center gap-1 w-full disabled:opacity-40 transition-colors",
+          "h-9 px-2 bg-secondary/50 border border-border rounded-md text-xs flex items-center gap-1 w-full disabled:opacity-40 transition-colors",
           open && "border-primary/50 bg-secondary/70"
         )}
       >
@@ -468,10 +468,10 @@ export default function EmbedPerforma() {
       {/* ─── Top Navbar ───────────── */}
       <div className="bg-card border-b border-border shrink-0 z-30">
         {/* Main row — always visible */}
-        <div className="flex items-center gap-2 px-3 py-2.5">
+        <div className="flex items-center gap-2 px-4 py-4">
           {/* Logo + Brand */}
           <div className="flex items-center gap-2 shrink-0">
-            <img src={`${import.meta.env.BASE_URL}logo-tr3.png`} alt="Logo TR3" className="h-8 object-contain" />
+            <img src={`${import.meta.env.BASE_URL}logo-tr3.png`} alt="Logo TR3" className="h-10 object-contain" />
             <div className="leading-tight">
               <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest leading-none">LESA VI WITEL SURAMADU</p>
               <p className="text-sm font-bold text-foreground">AM Performance Report</p>
@@ -480,7 +480,7 @@ export default function EmbedPerforma() {
           {/* Desktop-only divider + filters */}
           {currentSlide === 0 && (
             <>
-              <div className="hidden sm:block w-px h-7 bg-border/60 shrink-0 mx-0.5" />
+              <div className="hidden sm:block w-px h-9 bg-border/60 shrink-0 mx-0.5" />
               <div className="hidden sm:flex items-end gap-2 flex-1 min-w-0">
                 <SelectDropdown
                   label="📷 Snapshot"

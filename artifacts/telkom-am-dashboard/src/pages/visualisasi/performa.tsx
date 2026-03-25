@@ -88,84 +88,35 @@ function TrophyCard({ title, period, am, value, realValue, targetValue, colorSch
   realValue: string; targetValue: string; colorScheme: 'gold' | 'blue';
 }) {
   const scheme = colorScheme === 'gold'
-    ? {
-        icon: "🏆",
-        bg: "from-amber-500 to-orange-500",
-        card: "bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/30",
-        border: "border-amber-300 dark:border-amber-700",
-        accent: "text-amber-600 dark:text-amber-400",
-        badge: "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700",
-        valueClr: "text-amber-600 dark:text-amber-400",
-        labelLine: "border-amber-200 dark:border-amber-800",
-      }
-    : {
-        icon: "🎖️",
-        bg: "from-blue-500 to-indigo-500",
-        card: "bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/30",
-        border: "border-blue-300 dark:border-blue-700",
-        accent: "text-blue-600 dark:text-blue-400",
-        badge: "bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-700",
-        valueClr: "text-blue-600 dark:text-blue-400",
-        labelLine: "border-blue-200 dark:border-blue-800",
-      };
+    ? { icon: "🥇", bg: "from-amber-50 via-yellow-50 to-orange-50 dark:from-amber-950/30 dark:via-yellow-950/20 dark:to-orange-950/30", border: "border-amber-300 dark:border-amber-700", accent: "text-amber-700 dark:text-amber-400", valueClr: "text-amber-600 dark:text-amber-400" }
+    : { icon: "🏅", bg: "from-blue-50 via-indigo-50 to-sky-50 dark:from-blue-950/30 dark:via-indigo-950/20 dark:to-sky-950/30", border: "border-blue-300 dark:border-blue-700", accent: "text-blue-700 dark:text-blue-400", valueClr: "text-blue-600 dark:text-blue-400" };
 
   if (!am) return (
-    <div className={`rounded-2xl ${scheme.card} border ${scheme.border} overflow-hidden`}>
-      <div className={`bg-gradient-to-r ${scheme.bg} px-5 py-3`}>
-        <p className="text-[10px] font-black uppercase tracking-widest text-white/90">{title}</p>
-        <p className="text-xs font-bold text-white">{period}</p>
-      </div>
-      <div className="p-5 flex items-center justify-center min-h-[100px]">
-        <p className="text-muted-foreground/50 text-sm">Belum ada data</p>
-      </div>
+    <div className={`rounded-xl bg-gradient-to-br ${scheme.bg} border ${scheme.border} p-5 min-h-[120px] flex flex-col justify-center`}>
+      <p className={cn("text-[10px] font-bold uppercase tracking-widest mb-0.5", scheme.accent)}>{title}</p>
+      <p className="text-[10px] text-muted-foreground mb-1">{period}</p>
+      <p className="text-muted-foreground/50 text-sm">Belum ada data</p>
     </div>
   );
 
   return (
-    <div className={`rounded-2xl ${scheme.card} border ${scheme.border} overflow-hidden`}>
-      {/* Coloured header strip */}
-      <div className={`bg-gradient-to-r ${scheme.bg} px-5 py-3 flex items-center justify-between`}>
+    <div className={`rounded-xl bg-gradient-to-br ${scheme.bg} border ${scheme.border} p-5`}>
+      <div className="flex items-start justify-between mb-2">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-white/80">{title}</p>
-          <p className="text-sm font-extrabold text-white leading-tight">{period}</p>
+          <p className={cn("text-[10px] font-bold uppercase tracking-widest", scheme.accent)}>{title}</p>
+          <p className="text-[10px] text-muted-foreground mt-0.5">Divisi {am.divisi} · {period}</p>
         </div>
-        <span className="text-3xl leading-none drop-shadow">{scheme.icon}</span>
+        <span className="text-2xl leading-none">{scheme.icon}</span>
       </div>
-
-      {/* Body */}
-      <div className="px-5 pt-4 pb-5">
-        {/* AM name */}
-        <p className="text-xl font-display font-black text-foreground leading-tight truncate" title={am.namaAm}>
-          {am.namaAm}
-        </p>
-        {/* Divisi badge */}
-        <span className={cn("inline-block mt-1.5 mb-4 text-[10px] font-bold px-2.5 py-0.5 rounded-full border", scheme.badge)}>
-          {am.divisi}
-        </span>
-
-        {/* Ach % — huge */}
-        <p className={cn("text-5xl font-display font-black tabular-nums leading-none mb-4", scheme.valueClr)}>
-          {value}
-        </p>
-
-        {/* Real & Target — both bold, dark */}
-        <div className={cn("border-t pt-3 space-y-1.5", scheme.labelLine)}>
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-foreground">Real</span>
-            <span className="text-xs font-black tabular-nums text-foreground">{realValue}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-foreground">Target</span>
-            <span className="text-xs font-bold tabular-nums text-foreground">{targetValue}</span>
-          </div>
-        </div>
-      </div>
+      <p className="font-display font-extrabold text-base text-foreground truncate mb-2" title={am.namaAm}>{am.namaAm}</p>
+      <p className={cn("text-4xl font-display font-black tabular-nums leading-none mb-1.5", scheme.valueClr)}>{value}</p>
+      <p className="text-xs text-muted-foreground">Real: {realValue} · Target: {targetValue}</p>
     </div>
   );
 }
 
 // ─── CheckboxDropdown ──────────────────────────────────────────────────────────
-function CheckboxDropdown({ label, options, selected, onChange, placeholder, labelFn, headerLabel, summaryLabel }: {
+function CheckboxDropdown({ label, options, selected, onChange, placeholder, labelFn, headerLabel, summaryLabel, className }: {
   label: string;
   options: string[];
   selected: Set<string>;
@@ -174,6 +125,7 @@ function CheckboxDropdown({ label, options, selected, onChange, placeholder, lab
   labelFn?: (value: string) => string;
   headerLabel?: string;
   summaryLabel?: string;
+  className?: string;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -206,14 +158,14 @@ function CheckboxDropdown({ label, options, selected, onChange, placeholder, lab
         : `${selected.size} ${unit} dipilih`;
 
   return (
-    <div className="flex flex-col gap-1 relative" ref={ref}>
+    <div className={cn("flex flex-col gap-1 relative", className)} ref={ref}>
       <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{label}</label>
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
         disabled={options.length === 0}
         className={cn(
-          "h-8 px-2.5 pr-2 bg-secondary/50 border border-border rounded-lg text-xs focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:opacity-40 flex items-center gap-1.5 min-w-[140px] text-left",
+          "h-8 px-2.5 pr-2 bg-secondary/50 border border-border rounded-lg text-xs focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:opacity-40 flex items-center gap-1.5 w-full text-left",
           open && "border-primary/50 ring-2 ring-primary/20"
         )}
       >
@@ -550,9 +502,9 @@ export default function PerformaVis() {
     <div className="space-y-4">
       {/* ─── Filter Bar ─────────────────────────────────── */}
       <div className="bg-card border border-border rounded-xl px-4 py-3">
-        <div className="flex items-end gap-2.5 flex-wrap">
+        <div className="flex items-end gap-2 min-w-0">
           {/* 1. Snapshot */}
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1 flex-1 min-w-0">
             <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
               <Camera className="w-3 h-3" /> Snapshot
             </label>
@@ -560,7 +512,7 @@ export default function PerformaVis() {
               value={filterSnapshotId ?? ""}
               disabled={!perfImports.length}
               onChange={e => { setFilterSnapshotId(Number(e.target.value)); setFilterPeriodes(new Set()); }}
-              className="h-8 px-2.5 bg-secondary/50 border border-border rounded-lg text-xs focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:opacity-40 min-w-[110px]"
+              className="h-8 px-2.5 bg-secondary/50 border border-border rounded-lg text-xs focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:opacity-40 w-full"
             >
               {perfImports.length === 0 && <option value="">Belum ada data</option>}
               {perfImports.map((imp: any) => (
@@ -578,16 +530,17 @@ export default function PerformaVis() {
             labelFn={periodeLabel}
             headerLabel=""
             summaryLabel="Periode"
+            className="flex-1 min-w-0"
           />
 
           {/* 3. Divisi */}
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1 flex-1 min-w-0">
             <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Divisi</label>
             <select
               value={filterDivisi}
               onChange={e => { setFilterDivisi(e.target.value); setFilterNamaAms(new Set()); }}
               disabled={!divisiOptions.length}
-              className="h-8 px-2.5 bg-secondary/50 border border-border rounded-lg text-xs focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:opacity-40 min-w-[100px]"
+              className="h-8 px-2.5 bg-secondary/50 border border-border rounded-lg text-xs focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:opacity-40 w-full"
             >
               <option value="All">Semua Divisi</option>
               {divisiOptions.map(d => <option key={d} value={d}>{d}</option>)}
@@ -603,27 +556,28 @@ export default function PerformaVis() {
             placeholder="Semua AM"
             headerLabel="Pilih AM"
             summaryLabel="AM"
+            className="flex-1 min-w-0"
           />
 
           {/* 5. Tipe Rank */}
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1 flex-1 min-w-0">
             <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Tipe Rank</label>
             <select
               value={filterTipeRank}
               onChange={e => setFilterTipeRank(e.target.value)}
-              className="h-8 px-2.5 bg-secondary/50 border border-border rounded-lg text-xs focus:ring-2 focus:ring-primary/20 focus:border-primary min-w-[100px]"
+              className="h-8 px-2.5 bg-secondary/50 border border-border rounded-lg text-xs focus:ring-2 focus:ring-primary/20 focus:border-primary w-full"
             >
               {TIPE_RANK.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
 
           {/* 6. Tipe Revenue */}
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1 flex-1 min-w-0">
             <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Tipe Revenue</label>
             <select
               value={filterTipeRevenue}
               onChange={e => setFilterTipeRevenue(e.target.value)}
-              className="h-8 px-2.5 bg-secondary/50 border border-border rounded-lg text-xs focus:ring-2 focus:ring-primary/20 focus:border-primary min-w-[90px]"
+              className="h-8 px-2.5 bg-secondary/50 border border-border rounded-lg text-xs focus:ring-2 focus:ring-primary/20 focus:border-primary w-full"
             >
               {TIPE_REVENUE.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
@@ -823,17 +777,19 @@ export default function PerformaVis() {
                     })}
                   </tbody>
                   <tfoot>
-                    <tr className="bg-secondary/50 font-bold text-xs border-t-2 border-border">
-                      <td className="px-2 py-2.5" />
-                      <td className="px-4 py-2.5 text-foreground" colSpan={2}>Total ({amTableData.length} AM)</td>
-                      <td className={cn("px-3 py-2.5 text-right tabular-nums", totals.cmAch >= 100 ? "text-green-600" : totals.cmAch >= 80 ? "text-orange-500" : "text-red-600")}>
-                        {totals.cmAch.toFixed(1).replace(".", ",")}%
+                    <tr className="bg-secondary/60 border-t-2 border-border">
+                      <td className="px-2 py-3" />
+                      <td className="px-4 py-3 font-bold text-sm text-foreground" colSpan={2}>Total ({amTableData.length} AM)</td>
+                      <td className={cn("px-3 py-3 text-right tabular-nums", totals.cmAch >= 100 ? "text-green-600" : totals.cmAch >= 80 ? "text-orange-500" : "text-red-600")}>
+                        <div className="font-black text-sm">{totals.cmAch.toFixed(1).replace(".", ",")}%</div>
+                        <div className="text-[10px] font-semibold mt-0.5">{totals.cmAch >= 100 ? "Melebihi Target" : totals.cmAch >= 80 ? "Mendekati" : "Di Bawah Target"}</div>
                       </td>
-                      <td className={cn("px-3 py-2.5 text-right tabular-nums", totals.ytdAch >= 100 ? "text-green-600" : "text-blue-600")}>
-                        {totals.ytdAch.toFixed(1).replace(".", ",")}%
+                      <td className={cn("px-3 py-3 text-right tabular-nums", totals.ytdAch >= 100 ? "text-green-600" : totals.ytdAch >= 80 ? "text-blue-600" : "text-red-500")}>
+                        <div className="font-black text-sm">{totals.ytdAch.toFixed(1).replace(".", ",")}%</div>
+                        <div className="text-[10px] font-semibold mt-0.5">{totals.ytdAch >= 100 ? "Melebihi Target" : totals.ytdAch >= 80 ? "Mendekati" : "Di Bawah Target"}</div>
                       </td>
-                      <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">{formatRupiah(totals.cmTarget)}</td>
-                      <td className="px-4 py-2.5 text-right tabular-nums text-foreground">{formatRupiah(totals.cmReal)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums text-muted-foreground font-semibold text-sm">{formatRupiah(totals.cmTarget)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums text-foreground font-bold text-sm">{formatRupiah(totals.cmReal)}</td>
                       <td />
                     </tr>
                   </tfoot>
@@ -841,22 +797,6 @@ export default function PerformaVis() {
               </div>
             </div>
 
-            {/* Summary Revenue — inline row below table */}
-            <div className="mt-2 grid grid-cols-2 lg:grid-cols-4 gap-3">
-              {[
-                { label: "CM Real", value: formatRupiah(totals.cmReal), color: "text-foreground", bold: true },
-                { label: "CM Target", value: formatRupiah(totals.cmTarget), color: "text-muted-foreground", bold: false },
-                { label: `CM Ach (${totals.cmAch.toFixed(1)}%)`, value: totals.cmAch >= 100 ? "✓ Tercapai" : totals.cmAch >= 80 ? "Mendekati" : "Di Bawah Target",
-                  color: totals.cmAch >= 100 ? "text-green-600" : totals.cmAch >= 80 ? "text-orange-500" : "text-red-600", bold: true },
-                { label: `YTD Ach (${totals.ytdAch.toFixed(1)}%)`, value: formatRupiah(totals.ytdReal),
-                  color: totals.ytdAch >= 100 ? "text-green-600" : totals.ytdAch >= 80 ? "text-blue-600" : "text-muted-foreground", bold: true },
-              ].map(item => (
-                <div key={item.label} className="bg-card border border-border rounded-xl px-4 py-3">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">{item.label}</p>
-                  <p className={cn("text-sm tabular-nums", item.bold ? "font-bold" : "font-normal", item.color)}>{item.value}</p>
-                </div>
-              ))}
-            </div>
           </div>
 
           {/* ─── Trend Chart ─────────────────────────────── */}

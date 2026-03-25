@@ -6,7 +6,13 @@ import {
 } from "recharts";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
-import { ChevronDown, ChevronRight, Camera } from "lucide-react";
+import { ChevronDown, ChevronRight, Camera, Menu, X, BarChart2, Filter, Activity, ChevronLeft } from "lucide-react";
+
+const SLIDES = [
+  { label: "Visualisasi Performa", icon: BarChart2 },
+  { label: "AM Sales Funnel", icon: Filter },
+  { label: "Sales Activity", icon: Activity },
+];
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 const MONTHS_LABEL = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
@@ -141,6 +147,17 @@ export default function EmbedPerforma() {
   const [filterTipeRevenue, setFilterTipeRevenue] = useState("Semua");
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "ArrowRight") setCurrentSlide(s => Math.min(s + 1, SLIDES.length - 1));
+      if (e.key === "ArrowLeft") setCurrentSlide(s => Math.max(s - 1, 0));
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, []);
 
   useEffect(() => {
     fetch(`${API_BASE}/api/public/import-history`)
@@ -283,48 +300,168 @@ export default function EmbedPerforma() {
 
   return (
     <div className="min-h-screen bg-background font-sans text-foreground text-sm">
-      {/* Filter Bar */}
-      <div className="bg-card border-b border-border px-4 py-2.5 sticky top-0 z-20">
-        <div className="flex items-end gap-2.5 flex-wrap">
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-              <Camera className="w-3 h-3" /> Snapshot
-            </label>
-            <select
-              value={snapshotId ?? ""}
-              disabled={!imports.length}
-              onChange={e => { setSnapshotId(Number(e.target.value)); setFilterPeriodes(new Set()); }}
-              className="h-8 px-2.5 bg-secondary/50 border border-border rounded-lg text-xs focus:outline-none disabled:opacity-40 min-w-[100px]"
-            >
-              {imports.length === 0 && <option value="">Belum ada data</option>}
-              {imports.map(imp => <option key={imp.id} value={imp.id}>{shortSnap(imp.createdAt)}</option>)}
-            </select>
-          </div>
-          <CheckboxDropdown label="Periode Bulan" options={availablePeriodes} selected={filterPeriodes} onChange={setFilterPeriodes} placeholder="Pilih Periode" labelFn={periodeLabel} headerLabel="Pilih Periode" summaryLabel="Periode" />
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Divisi</label>
-            <select value={filterDivisi} onChange={e => { setFilterDivisi(e.target.value); setFilterNamaAms(new Set()); }}
-              disabled={!divisiOptions.length} className="h-8 px-2.5 bg-secondary/50 border border-border rounded-lg text-xs focus:outline-none disabled:opacity-40 min-w-[90px]">
-              <option value="All">Semua Divisi</option>
-              {divisiOptions.map(d => <option key={d} value={d}>{d}</option>)}
-            </select>
-          </div>
-          <CheckboxDropdown label="Nama AM" options={amNames} selected={filterNamaAms} onChange={setFilterNamaAms} placeholder="Semua AM" headerLabel="Pilih AM" summaryLabel="AM" />
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Tipe Rank</label>
-            <select value={filterTipeRank} onChange={e => setFilterTipeRank(e.target.value)} className="h-8 px-2.5 bg-secondary/50 border border-border rounded-lg text-xs focus:outline-none min-w-[90px]">
-              {TIPE_RANK.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Tipe Revenue</label>
-            <select value={filterTipeRevenue} onChange={e => setFilterTipeRevenue(e.target.value)} className="h-8 px-2.5 bg-secondary/50 border border-border rounded-lg text-xs focus:outline-none min-w-[80px]">
-              {TIPE_REVENUE.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
+
+      {/* ─── Sidebar Drawer ─────────────────────────────── */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 z-50 flex">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setSidebarOpen(false)} />
+          <div className="relative w-64 bg-card border-r border-border flex flex-col shadow-2xl z-10">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+              <span className="text-xs font-bold text-foreground">Menu Slide</span>
+              <button onClick={() => setSidebarOpen(false)} className="p-1 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex-1 py-2">
+              {SLIDES.map((slide, i) => {
+                const Icon = slide.icon;
+                return (
+                  <button
+                    key={i}
+                    onClick={() => { setCurrentSlide(i); setSidebarOpen(false); }}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-4 py-3 text-left text-sm transition-colors",
+                      currentSlide === i
+                        ? "bg-primary/10 text-primary font-semibold border-r-2 border-primary"
+                        : "text-foreground hover:bg-secondary"
+                    )}
+                  >
+                    <Icon className="w-4 h-4 shrink-0" />
+                    {slide.label}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="px-4 py-3 border-t border-border text-[10px] text-muted-foreground">
+              Gunakan ← → untuk berpindah slide
+            </div>
           </div>
         </div>
+      )}
+
+      {/* ─── Top Navbar ─────────────────────────────────── */}
+      <div className="bg-card border-b border-border sticky top-0 z-30">
+        {/* Brand Row */}
+        <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border/50">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="p-1.5 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground shrink-0"
+          >
+            <Menu className="w-4 h-4" />
+          </button>
+          <img
+            src={`${import.meta.env.BASE_URL}logo-tr3.png`}
+            alt="Logo TR3"
+            className="h-6 object-contain shrink-0"
+          />
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest leading-none">LESA VI WITEL SURAMADU</p>
+            <p className="text-sm font-bold text-foreground leading-tight">AM Performance Report</p>
+          </div>
+          {/* Slide indicator + arrow nav */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              onClick={() => setCurrentSlide(s => Math.max(s - 1, 0))}
+              disabled={currentSlide === 0}
+              className="p-1 rounded-lg hover:bg-secondary transition-colors disabled:opacity-30"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <div className="flex items-center gap-1">
+              {SLIDES.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setCurrentSlide(i)}
+                  className={cn("rounded-full transition-all", i === currentSlide ? "w-4 h-2 bg-primary" : "w-2 h-2 bg-border hover:bg-muted-foreground")}
+                />
+              ))}
+            </div>
+            <button
+              onClick={() => setCurrentSlide(s => Math.min(s + 1, SLIDES.length - 1))}
+              disabled={currentSlide === SLIDES.length - 1}
+              className="p-1 rounded-lg hover:bg-secondary transition-colors disabled:opacity-30"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Filter Bar (only on Performa slide) */}
+        {currentSlide === 0 && (
+          <div className="px-4 py-2 flex items-end gap-2 min-w-0">
+            <div className="flex flex-col gap-1 flex-1 min-w-0">
+              <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                <Camera className="w-3 h-3" /> Snapshot
+              </label>
+              <select
+                value={snapshotId ?? ""}
+                disabled={!imports.length}
+                onChange={e => { setSnapshotId(Number(e.target.value)); setFilterPeriodes(new Set()); }}
+                className="h-7 px-2 bg-secondary/50 border border-border rounded-lg text-xs focus:outline-none disabled:opacity-40 w-full"
+              >
+                {imports.length === 0 && <option value="">Belum ada data</option>}
+                {imports.map(imp => <option key={imp.id} value={imp.id}>{shortSnap(imp.createdAt)}</option>)}
+              </select>
+            </div>
+            <CheckboxDropdown label="Periode Bulan" options={availablePeriodes} selected={filterPeriodes} onChange={setFilterPeriodes} labelFn={periodeLabel} headerLabel="" summaryLabel="Periode" />
+            <div className="flex flex-col gap-1 flex-1 min-w-0">
+              <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Divisi</label>
+              <select value={filterDivisi} onChange={e => { setFilterDivisi(e.target.value); setFilterNamaAms(new Set()); }}
+                disabled={!divisiOptions.length} className="h-7 px-2 bg-secondary/50 border border-border rounded-lg text-xs focus:outline-none disabled:opacity-40 w-full">
+                <option value="All">Semua Divisi</option>
+                {divisiOptions.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+            <CheckboxDropdown label="Nama AM" options={amNames} selected={filterNamaAms} onChange={setFilterNamaAms} placeholder="Semua AM" headerLabel="Pilih AM" summaryLabel="AM" />
+            <div className="flex flex-col gap-1 flex-1 min-w-0">
+              <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Tipe Rank</label>
+              <select value={filterTipeRank} onChange={e => setFilterTipeRank(e.target.value)} className="h-7 px-2 bg-secondary/50 border border-border rounded-lg text-xs focus:outline-none w-full">
+                {TIPE_RANK.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <div className="flex flex-col gap-1 flex-1 min-w-0">
+              <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Tipe Revenue</label>
+              <select value={filterTipeRevenue} onChange={e => setFilterTipeRevenue(e.target.value)} className="h-7 px-2 bg-secondary/50 border border-border rounded-lg text-xs focus:outline-none w-full">
+                {TIPE_REVENUE.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+          </div>
+        )}
       </div>
 
+      {/* ─── Slide: Sales Funnel (placeholder) ───────────── */}
+      {currentSlide === 1 && (
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center p-8">
+          <Filter className="w-16 h-16 text-muted-foreground/30" />
+          <h2 className="text-xl font-bold text-foreground">AM Sales Funnel</h2>
+          <p className="text-sm text-muted-foreground max-w-xs">Visualisasi sales funnel sedang dalam pengembangan. Gunakan ← → atau sidebar untuk berpindah slide.</p>
+          <div className="flex gap-2 mt-4">
+            <button onClick={() => setCurrentSlide(0)} className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border border-border hover:bg-secondary transition-colors">
+              <ChevronLeft className="w-3.5 h-3.5" /> Performa
+            </button>
+            <button onClick={() => setCurrentSlide(2)} className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border border-border hover:bg-secondary transition-colors">
+              Sales Activity <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Slide: Sales Activity (placeholder) ─────────── */}
+      {currentSlide === 2 && (
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center p-8">
+          <Activity className="w-16 h-16 text-muted-foreground/30" />
+          <h2 className="text-xl font-bold text-foreground">Sales Activity</h2>
+          <p className="text-sm text-muted-foreground max-w-xs">Visualisasi sales activity sedang dalam pengembangan. Gunakan ← → atau sidebar untuk berpindah slide.</p>
+          <div className="flex gap-2 mt-4">
+            <button onClick={() => setCurrentSlide(1)} className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border border-border hover:bg-secondary transition-colors">
+              <ChevronLeft className="w-3.5 h-3.5" /> Sales Funnel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Slide: Visualisasi Performa ─────────────────── */}
+      {currentSlide === 0 && (
       <div className="p-4 space-y-4">
         {loading ? (
           <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">Memuat data...</div>
@@ -389,15 +526,15 @@ export default function EmbedPerforma() {
               <div className="overflow-x-auto">
                 <table className="w-full text-xs text-left">
                   <thead>
-                    <tr className="bg-secondary/40 text-muted-foreground font-semibold uppercase tracking-wide text-[10px]">
-                      <th className="px-3 py-2.5 w-5"></th>
-                      <th className="px-4 py-2.5">Nama AM</th>
-                      <th className="px-3 py-2.5 text-center">Rank</th>
-                      <th className="px-4 py-2.5 text-right">Target CM</th>
-                      <th className="px-4 py-2.5 text-right">Real CM</th>
-                      <th className="px-3 py-2.5 text-right">CM %</th>
-                      <th className="px-3 py-2.5 text-right">YTD %</th>
-                      <th className="px-3 py-2.5 text-center">Status</th>
+                    <tr className="bg-secondary/50">
+                      <th className="px-3 py-3 w-5"></th>
+                      <th className="px-4 py-3 text-left text-xs font-black text-foreground uppercase tracking-wide">Nama AM</th>
+                      <th className="px-3 py-3 text-center text-xs font-black text-foreground uppercase tracking-wide">Rank</th>
+                      <th className="px-4 py-3 text-right text-xs font-black text-foreground uppercase tracking-wide">Target CM</th>
+                      <th className="px-4 py-3 text-right text-xs font-black text-foreground uppercase tracking-wide">Real CM</th>
+                      <th className="px-3 py-3 text-right text-xs font-black text-foreground uppercase tracking-wide">CM %</th>
+                      <th className="px-3 py-3 text-right text-xs font-black text-foreground uppercase tracking-wide">YTD %</th>
+                      <th className="px-3 py-3 text-center text-xs font-black text-foreground uppercase tracking-wide">Status</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/50">
@@ -437,12 +574,12 @@ export default function EmbedPerforma() {
                                 <div className="mx-4 mb-2 mt-0.5 border border-border/60 rounded-lg overflow-hidden">
                                   <table className="w-full text-xs">
                                     <thead>
-                                      <tr className="bg-secondary/60 text-muted-foreground">
-                                        <th className="px-3 py-1.5 text-left font-medium">Pelanggan / NIP</th>
-                                        <th className="px-3 py-1.5 text-right font-medium">Target</th>
-                                        <th className="px-3 py-1.5 text-right font-medium">Real</th>
-                                        <th className="px-3 py-1.5 text-right font-medium">Ach %</th>
-                                        <th className="px-3 py-1.5 text-right font-medium">Proporsi</th>
+                                      <tr className="bg-secondary/70">
+                                        <th className="px-3 py-2 text-left text-xs font-black text-foreground uppercase tracking-wide">Pelanggan / NIP</th>
+                                        <th className="px-3 py-2 text-right text-xs font-black text-foreground uppercase tracking-wide">Proporsi</th>
+                                        <th className="px-3 py-2 text-right text-xs font-black text-foreground uppercase tracking-wide">Target</th>
+                                        <th className="px-3 py-2 text-right text-xs font-black text-foreground uppercase tracking-wide">Real</th>
+                                        <th className="px-3 py-2 text-right text-xs font-black text-foreground uppercase tracking-wide">Ach %</th>
                                       </tr>
                                     </thead>
                                     <tbody className="divide-y divide-border/40">
@@ -457,13 +594,6 @@ export default function EmbedPerforma() {
                                               <div className="truncate max-w-[180px]">{c.pelanggan || "—"}</div>
                                               {c.nip && <div className="text-[10px] text-muted-foreground">{c.nip}</div>}
                                             </td>
-                                            <td className="px-3 py-1.5 text-right tabular-nums text-muted-foreground">{formatRupiah(cTarget)}</td>
-                                            <td className="px-3 py-1.5 text-right tabular-nums font-medium">{formatRupiah(cReal)}</td>
-                                            <td className="px-3 py-1.5 text-right tabular-nums">
-                                              <span className={cn("font-semibold", cAch >= 100 ? "text-green-600" : cAch >= 80 ? "text-orange-500" : "text-red-500")}>
-                                                {cAch.toFixed(1)}%
-                                              </span>
-                                            </td>
                                             <td className="px-3 py-1.5 text-right tabular-nums">
                                               <div className="flex items-center justify-end gap-1.5">
                                                 <div className="w-12 h-1.5 bg-secondary rounded-full overflow-hidden">
@@ -471,6 +601,13 @@ export default function EmbedPerforma() {
                                                 </div>
                                                 <span className="text-muted-foreground">{prop.toFixed(1)}%</span>
                                               </div>
+                                            </td>
+                                            <td className="px-3 py-1.5 text-right tabular-nums text-muted-foreground">{formatRupiah(cTarget)}</td>
+                                            <td className="px-3 py-1.5 text-right tabular-nums font-medium">{formatRupiah(cReal)}</td>
+                                            <td className="px-3 py-1.5 text-right tabular-nums">
+                                              <span className={cn("font-semibold", cAch >= 100 ? "text-green-600" : cAch >= 80 ? "text-orange-500" : "text-red-500")}>
+                                                {cAch.toFixed(1)}%
+                                              </span>
                                             </td>
                                           </tr>
                                         );
@@ -529,6 +666,7 @@ export default function EmbedPerforma() {
           </>
         )}
       </div>
+      )}
       <div className="px-4 py-2 text-[10px] text-muted-foreground/40 text-right">Telkom AM Dashboard · Data diperbarui otomatis</div>
     </div>
   );

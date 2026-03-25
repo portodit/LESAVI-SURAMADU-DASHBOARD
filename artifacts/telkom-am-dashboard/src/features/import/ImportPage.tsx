@@ -1065,14 +1065,7 @@ export default function ImportData() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/50">
-                    {(dqData?.cleaningSteps || [
-                      { step: "Filter Witel", rule: "witel = SURAMADU", status: "applied" },
-                      { step: "Filter Divisi", rule: "divisi = DPS atau DSS", status: "applied" },
-                      { step: "Reni → Havea", rule: "NIK 850099 → 870022 (unconditional)", affected: 329, status: "applied" },
-                      { step: "Hapus NIK tidak valid", rule: "NIK harus 4-7 digit numerik", status: "applied" },
-                      { step: "Hapus AM tidak teridentifikasi", rule: "nik_am tidak ada di master_am + nama_am kosong", affected: 358, status: "applied" },
-                      { step: "Hapus AM historis", rule: "master_am source=funnel_historical + historical", affected: 38, status: "applied" },
-                    ]).map((s: any, i: number) => (
+                    {(dqData?.cleaningSteps || []).map((s: any, i: number) => (
                       <tr key={i} className={i % 2 === 0 ? "bg-background" : "bg-secondary/20"}>
                         <td className="px-4 py-2.5 text-xs font-mono text-muted-foreground">{i + 1}</td>
                         <td className="px-4 py-2.5 font-bold text-foreground text-sm">{s.step}</td>
@@ -1081,9 +1074,21 @@ export default function ImportData() {
                           {s.affected !== undefined ? s.affected.toLocaleString("id-ID") + " baris" : <span className="text-muted-foreground">semua data</span>}
                         </td>
                         <td className="px-4 py-2.5 text-center">
-                          <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                            <CheckCircle2 className="w-3 h-3" /> Applied
-                          </span>
+                          {s.status === "applied" && (
+                            <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                              <CheckCircle2 className="w-3 h-3" /> Diterapkan
+                            </span>
+                          )}
+                          {s.status === "applied_on_new_import" && (
+                            <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                              <CheckCircle2 className="w-3 h-3" /> Import Baru
+                            </span>
+                          )}
+                          {s.status === "applied_at_query" && (
+                            <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                              <CheckCircle2 className="w-3 h-3" /> Saat Query
+                            </span>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -1092,8 +1097,10 @@ export default function ImportData() {
               </div>
 
               <p className="text-[11px] text-muted-foreground">
-                Data yang ditampilkan di dashboard Sales Funnel sudah melalui seluruh langkah pembersihan di atas.
-                AM Aktif = {dqData?.activeAm ?? 19} dari master_am (source=account_managers). AM Histori = dihapus.
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 mr-1">Diterapkan</span> = berlaku untuk semua data (termasuk data lama).{" "}
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 mr-1">Import Baru</span> = berlaku saat import file berikutnya.{" "}
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 mr-1">Saat Query</span> = filter diterapkan tiap kali dashboard memuat data.{" "}
+                AM Aktif = {dqData?.activeAm ?? 12} dari master_am (source=account_managers).
               </p>
             </div>
           )}

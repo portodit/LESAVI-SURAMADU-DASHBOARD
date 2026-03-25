@@ -290,10 +290,16 @@ router.post("/import/funnel", requireAuth, async (req, res): Promise<void> => {
   // ── Apply cleaning pipeline (sesuai Power Query di Power BI)
   const cleaned = cleanFunnelRows(rows);
 
-  if (cleaned.length === 0) {
+  // ── STEP 8: Filter only LOPs belonging to active master_am (the 12 authorized AMs)
+  const activeAms = await db.select({ nik: masterAmTable.nik }).from(masterAmTable).where(eq(masterAmTable.aktif, true));
+  const activeNikSet = new Set(activeAms.map(a => a.nik));
+  const activeOnly = cleaned.filter(r => r.nikAm && activeNikSet.has(r.nikAm));
+
+  if (activeOnly.length === 0) {
     res.status(422).json({
       error: "Tidak ada data valid setelah proses cleaning. Pastikan file mengandung kolom witel=SURAMADU dan divisi=DPS/DSS.",
       rawCount: rows.length,
+      cleanedCount: cleaned.length,
     });
     return;
   }
@@ -323,51 +329,37 @@ router.post("/import/funnel", requireAuth, async (req, res): Promise<void> => {
 
   const [imp] = await db.insert(dataImportsTable).values({
     type: "funnel",
-    rowsImported: cleaned.length,
+    rowsImported: activeOnly.length,
     period: importPeriod,
     sourceUrl,
     autoTelegramSent: false,
   }).returning();
 
   const BATCH_SIZE = 200;
-  for (let i = 0; i < cleaned.length; i += BATCH_SIZE) {
-    const batch = cleaned.slice(i, i + BATCH_SIZE).map(row => ({ ...row, snapshotDate: snapshotDate || null, importId: imp.id }));
+  for (let i = 0; i < activeOnly.length; i += BATCH_SIZE) {
+    const batch = activeOnly.slice(i, i + BATCH_SIZE).map(row => ({ ...row, snapshotDate: snapshotDate || null, importId: imp.id }));
     await db.insert(salesFunnelTable).values(batch);
   }
 
-  // ── Auto-populate master_am from imported data
-  const uniqueAmMap = new Map<string, { nik: string; nama: string; divisi: string }>();
-  for (const row of cleaned) {
-    if (row.nikAm && row.namaAm && !uniqueAmMap.has(row.nikAm)) {
-      uniqueAmMap.set(row.nikAm, { nik: row.nikAm, nama: row.namaAm, divisi: row.divisi });
-    }
-  }
-  for (const am of uniqueAmMap.values()) {
-    await db.insert(masterAmTable).values({
-      nik: am.nik, nama: am.nama, divisi: am.divisi,
-      witel: "SURAMADU", aktif: false, source: "funnel",
-    }).onConflictDoNothing();
-  }
-
-  // ── Look up null/empty nama_am from master_am and back-fill in DB
-  const masterAms = await db.select().from(masterAmTable);
-  const masterAmByNik = new Map(masterAms.map(m => [m.nik, m.nama]));
-  const nullNameRows = cleaned.filter(r => !r.namaAm && r.nikAm && masterAmByNik.has(r.nikAm));
+  // ── Back-fill empty nama_am from master_am
+  const allMasterAms = await db.select().from(masterAmTable);
+  const masterNameByNik = new Map(allMasterAms.map(m => [m.nik, m.nama]));
+  const nullNameRows = activeOnly.filter(r => !r.namaAm && r.nikAm && masterNameByNik.has(r.nikAm));
   for (const row of nullNameRows) {
     await db.update(salesFunnelTable)
-      .set({ namaAm: masterAmByNik.get(row.nikAm) })
+      .set({ namaAm: masterNameByNik.get(row.nikAm) })
       .where(and(eq(salesFunnelTable.importId, imp.id), eq(salesFunnelTable.nikAm, row.nikAm)));
   }
 
   // ── Auto-populate master_customer
-  const uniqueCustomers = [...new Set(cleaned.map(r => r.pelanggan).filter(p => p && p !== "–"))];
+  const uniqueCustomers = [...new Set(activeOnly.map(r => r.pelanggan).filter(p => p && p !== "–"))];
   for (let i = 0; i < uniqueCustomers.length; i += 100) {
     await db.insert(masterCustomerTable).values(
       uniqueCustomers.slice(i, i + 100).map(nama => ({ nama, witel: "SURAMADU" }))
     ).onConflictDoNothing();
   }
 
-  const amCount = new Set(cleaned.map(r => r.nikAm)).size;
+  const amCount = new Set(activeOnly.map(r => r.nikAm)).size;
 
   const [settings] = await db.select().from(appSettingsTable);
   if (settings?.autoSendOnImport && settings.telegramBotToken) {

@@ -54,39 +54,43 @@ function toIntSafe(val) {
 }
 
 function cleanFunnelRows(rows) {
-  const cleaned = [];
+  const passed = [];
   for (const r of rows) {
-    const nikRaw = toIntSafe(r.nik_pembuat_lop);
-    if (nikRaw === null) continue;
-
+    // Step 1: Filter witel = SURAMADU
     const witel = cleanUpper(r.witel);
     if (!witel.includes("SURAMADU")) continue;
 
+    // Step 2: Filter divisi = DPS or DSS
     const divisi = clean(r.divisi).toUpperCase();
     if (divisi !== "DPS" && divisi !== "DSS") continue;
+
+    // Step 3: Fix NIK AM — 850099 (Reni) → 870022 (Havea) unconditionally
+    const nikRaw = toIntSafe(r.nik_pembuat_lop);
+    if (nikRaw === null) continue;
+
+    let nikAm = String(nikRaw);
+    if (nikAm === "850099") nikAm = "870022";
+
+    // Step 4: Reject garbage NIKs (too short or too large)
+    if (nikAm.length < 4 || Number(nikAm) > 9999999) continue;
+
+    // Step 5: Filter is_report = 'Y' (hidden Power BI filter)
+    const isReportRaw = r.is_report ?? r.IS_REPORT ?? r.isReport ?? null;
+    if (isReportRaw !== null && isReportRaw !== undefined && isReportRaw !== "") {
+      const isReportStr = String(isReportRaw).trim().toUpperCase();
+      if (isReportStr !== "Y" && isReportStr !== "1" && isReportStr !== "YES" && isReportStr !== "TRUE") continue;
+    }
 
     const lopid = clean(r.lopid);
     if (!lopid) continue;
 
-    const reportDate = parseDate(r.report_date);
-    const reportYear = reportDate ? parseInt(reportDate.slice(0, 4), 10) : 0;
-
-    // Fix NIK AM — 850099 (Reni) → 870022 (Havea) unconditionally
-    let nikAm = String(nikRaw);
-    if (nikAm === "850099") {
-      nikAm = "870022";
-    }
-
-    // Reject garbage NIKs (too short or too large)
-    if (nikAm.length < 4 || Number(nikAm) > 9999999) continue;
-
-    // Fix AM name — RENI WULANSARI → HAVEA PERTIWI (unconditional)
+    // Step 6: Fix AM name
     let namaAm = cleanUpper(r.nama_pembuat_lop);
-    if (namaAm === "RENI WULANSARI") {
-      namaAm = "HAVEA PERTIWI";
-    }
+    if (namaAm === "RENI WULANSARI") namaAm = "HAVEA PERTIWI";
 
-    cleaned.push({
+    const reportDate = parseDate(r.report_date);
+
+    passed.push({
       lopid,
       judulProyek: clean(r.judul_proyek),
       pelanggan: cleanUpper(r.pelanggan) || "–",
@@ -105,7 +109,16 @@ function cleanFunnelRows(rows) {
       createdDate: parseDate(r.created_date) || clean(r.created_date),
     });
   }
-  return cleaned;
+
+  // Step 7: Deduplicate by lopid — keep only the row with the LATEST report_date
+  const deduped = new Map();
+  for (const row of passed) {
+    const existing = deduped.get(row.lopid);
+    if (!existing || row.reportDate > existing.reportDate) {
+      deduped.set(row.lopid, row);
+    }
+  }
+  return Array.from(deduped.values());
 }
 
 function detectPeriod(rows, zipName) {

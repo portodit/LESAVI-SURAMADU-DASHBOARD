@@ -161,65 +161,75 @@ export interface CleanedFunnelRow {
 }
 
 export function cleanFunnelRows(rows: ParsedRow[]): CleanedFunnelRow[] {
-  return rows
-    .map(r => {
-      // ── STEP: Validate NIK (must be numeric)
-      const nikRaw = toIntSafe(r.nik_pembuat_lop);
-      if (nikRaw === null) return null; // skip rows with non-numeric NIK
+  const passed: CleanedFunnelRow[] = [];
 
-      // ── STEP: Filter witel = SURAMADU
-      const witel = cleanUpper(r.witel);
-      if (!witel.includes("SURAMADU")) return null;
+  for (const r of rows) {
+    // ── STEP 1: Filter witel = SURAMADU
+    const witel = cleanUpper(r.witel);
+    if (!witel.includes("SURAMADU")) continue;
 
-      // ── STEP: Filter divisi = DPS or DSS
-      const divisi = clean(r.divisi).toUpperCase();
-      if (divisi !== "DPS" && divisi !== "DSS") return null;
+    // ── STEP 2: Filter divisi = DPS or DSS
+    const divisi = clean(r.divisi).toUpperCase();
+    if (divisi !== "DPS" && divisi !== "DSS") continue;
 
-      // ── STEP: Parse report_date
-      const reportDate = parseDate(r.report_date);
-      const reportYear = reportDate ? parseInt(reportDate.slice(0, 4), 10) : 0;
+    // ── STEP 3: Fix NIK AM — 850099 (RENI WULANSARI) → 870022 (HAVEA PERTIWI) unconditionally
+    const nikRaw = toIntSafe(r.nik_pembuat_lop);
+    if (nikRaw === null) continue; // skip rows with non-numeric NIK
 
-      // ── STEP: Fix NIK AM — 850099 (RENI WULANSARI) → 870022 (HAVEA PERTIWI) unconditionally
-      // Reni left the team; Havea Pertiwi now owns all her LOPs regardless of report year
-      let nikAm = String(nikRaw);
-      if (nikAm === "850099") {
-        nikAm = "870022";
-      }
+    let nikAm = String(nikRaw);
+    if (nikAm === "850099") nikAm = "870022";
 
-      // ── STEP: Reject garbage NIKs (too short or clearly invalid)
-      if (nikAm.length < 4 || Number(nikAm) > 9999999) {
-        return null; // skip rows with invalid NIK format
-      }
+    // ── STEP 4: Reject garbage NIKs (too short or clearly invalid)
+    if (nikAm.length < 4 || Number(nikAm) > 9999999) continue;
 
-      // ── STEP: Fix AM name — RENI WULANSARI → HAVEA PERTIWI (unconditional)
-      let namaAm = cleanUpper(r.nama_pembuat_lop);
-      if (namaAm === "RENI WULANSARI") {
-        namaAm = "HAVEA PERTIWI";
-      }
+    // ── STEP 5: Filter is_report = 'Y' (hidden Power BI filter — only valid/approved LOPs)
+    // Column may be named is_report, IS_REPORT, or similar
+    const isReportRaw = r.is_report ?? r.IS_REPORT ?? r.isReport ?? null;
+    if (isReportRaw !== null && isReportRaw !== undefined && isReportRaw !== "") {
+      const isReportStr = String(isReportRaw).trim().toUpperCase();
+      if (isReportStr !== "Y" && isReportStr !== "1" && isReportStr !== "YES" && isReportStr !== "TRUE") continue;
+    }
 
-      const lopid = clean(r.lopid);
-      if (!lopid) return null; // skip rows without lopid
+    // ── STEP 6: Fix AM name — RENI WULANSARI → HAVEA PERTIWI (unconditional)
+    let namaAm = cleanUpper(r.nama_pembuat_lop);
+    if (namaAm === "RENI WULANSARI") namaAm = "HAVEA PERTIWI";
 
-      return {
-        lopid,
-        judulProyek: clean(r.judul_proyek),
-        pelanggan: cleanUpper(r.pelanggan) || "–",       // UPPER+TRIM
-        nilaiProyek: parseFloat(String(r.nilai_proyek ?? 0)) || 0,
-        divisi: divisi,
-        segmen: clean(r.segmen),
-        witel,
-        statusF: clean(r.status_f),
-        proses: clean(r.proses),
-        statusProyek: clean(r.status_proyek),
-        kategoriKontrak: clean(r.kategori_kontrak) || "–",
-        estimateBulan: parseDate(r.estimate_bulan_billcomp) || clean(r.estimate_bulan_billcomp),
-        namaAm,
-        nikAm,
-        reportDate,
-        createdDate: parseDate(r.created_date) || clean(r.created_date),
-      } as CleanedFunnelRow;
-    })
-    .filter((r): r is CleanedFunnelRow => r !== null);
+    const lopid = clean(r.lopid);
+    if (!lopid) continue; // skip rows without lopid
+
+    const reportDate = parseDate(r.report_date);
+
+    passed.push({
+      lopid,
+      judulProyek: clean(r.judul_proyek),
+      pelanggan: cleanUpper(r.pelanggan) || "–",
+      nilaiProyek: parseFloat(String(r.nilai_proyek ?? 0)) || 0,
+      divisi,
+      segmen: clean(r.segmen),
+      witel,
+      statusF: clean(r.status_f),
+      proses: clean(r.proses),
+      statusProyek: clean(r.status_proyek),
+      kategoriKontrak: clean(r.kategori_kontrak) || "–",
+      estimateBulan: parseDate(r.estimate_bulan_billcomp) || clean(r.estimate_bulan_billcomp),
+      namaAm,
+      nikAm,
+      reportDate,
+      createdDate: parseDate(r.created_date) || clean(r.created_date),
+    });
+  }
+
+  // ── STEP 7: Deduplicate by lopid — keep only the row with the LATEST report_date
+  // MYTENS export files may contain the same LOP across multiple monthly snapshots
+  const deduped = new Map<string, CleanedFunnelRow>();
+  for (const row of passed) {
+    const existing = deduped.get(row.lopid);
+    if (!existing || row.reportDate > existing.reportDate) {
+      deduped.set(row.lopid, row);
+    }
+  }
+
+  return Array.from(deduped.values());
 }
 
 // ─── Activity Data Cleaning ────────────────────────────────────────────────────

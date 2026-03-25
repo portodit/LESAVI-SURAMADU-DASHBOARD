@@ -16,14 +16,15 @@ This is a **SharePoint Bot / Telkom AM Dashboard** project — a full-stack dash
 ## Active AM List (12 AMs)
 ANA RUKMANA (402478), CAESAR RIO ANGGINA TORUAN (405690), ERVINA HANDAYANI (920064), HANDIKA DAGNA NEVANDA (980067), HAVEA PERTIWI (870022), KATATA VEKANIDYA SEKAR PUSPITASARI (405075), MOH RIZAL BIN MOH FERRY (850046), NADYA ZAHROTUL HAYATI (403613), NI MADE NOVI WIRANA (896661), NYARI KUSUMA NINGRUM (401431), VIVIN VIOLITA (910024), WILDAN ARIEF (404429)
 
-## Data Cleaning Applied
+## Data Cleaning Pipeline (8 steps)
 1. Filter witel = SURAMADU only
 2. Filter divisi = DPS + DSS only
 3. Reni→Havea: NIK 850099 → 870022 (unconditional)
 4. Reject NIK < 4 digits or > 9999999
-5. Delete rows where nik_am not in master_am AND nama_am empty (358 rows)
-6. Removed 8 inactive AMs (incl. SAFIRINA, FRISKARINE) — 211 LOPs deleted
-7. Filter by YEAR(report_date) = selected year at query time
+5. Filter is_report = 'Y' (hidden Power BI filter — only approved LOPs) [new imports only]
+6. Dedup by lopid — keep latest report_date (DISTINCTCOUNT parity) [new imports only]
+7. Filter by active master_am — only 12 authorized AMs (replaces auto-populate; removed 211 LOPs)
+8. Filter YEAR(report_date) = selected year at query time (Power BI Date slicer parity)
 
 ## Stack
 

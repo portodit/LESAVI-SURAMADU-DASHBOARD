@@ -235,12 +235,14 @@ router.get("/funnel/data-quality", requireAuth, async (req, res): Promise<void> 
     haveaLop: stats.havea_lop,
     activeAm: masterStats.active_am,
     cleaningSteps: [
-      { step: "Filter Witel", rule: "witel = SURAMADU", status: "applied" },
-      { step: "Filter Divisi", rule: "divisi = DPS atau DSS", status: "applied" },
-      { step: "Reni → Havea", rule: "NIK 850099 → 870022 (unconditional)", affected: stats.havea_lop, status: "applied" },
-      { step: "Hapus NIK tidak valid", rule: "NIK harus 4-7 digit numerik", status: "applied" },
-      { step: "Hapus AM tidak teridentifikasi", rule: "nik_am tidak ada di master_am + nama_am kosong → deleted", affected: 358, status: "applied" },
-      { step: "Hapus AM historis", rule: "master_am source=funnel_historical + historical → deleted", affected: 38, status: "applied" },
+      { step: "Step 1 — Filter Witel", rule: "witel = SURAMADU (dari ~76.580 baris TREG3)", status: "applied" },
+      { step: "Step 2 — Filter Divisi", rule: "divisi = DPS atau DSS (buang RSMES, RBS, dll)", status: "applied" },
+      { step: "Step 3 — Reni → Havea", rule: "NIK 850099 → 870022 (unconditional, nama + NIK)", affected: stats.havea_lop, status: "applied" },
+      { step: "Step 4 — Validasi NIK", rule: "NIK harus numerik, 4-7 digit (hapus error nik_pembuat_lop)", status: "applied" },
+      { step: "Step 5 — Filter is_report = Y", rule: "Hanya LOP yang sudah valid/approved yang masuk laporan (hidden filter Power BI)", status: "applied_on_new_import" },
+      { step: "Step 6 — Dedup per lopid", rule: "Tiap lopid hanya 1 baris — ambil report_date terbaru (DISTINCTCOUNT logic)", status: "applied_on_new_import" },
+      { step: "Step 7 — Filter AM aktif", rule: "Hanya 12 AM aktif Witel Suramadu, LOP AM lain dibuang", affected: 211, status: "applied" },
+      { step: "Step 8 — Filter report_date tahun", rule: "YEAR(report_date) = tahun dipilih (query time, sesuai slicer Date Power BI)", status: "applied_at_query" },
     ],
   });
 });

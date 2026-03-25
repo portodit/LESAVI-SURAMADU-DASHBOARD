@@ -35,16 +35,86 @@ const MSG_TABS: { id: MsgTab; label: string; icon: React.ReactNode; desc: string
   { id: "activity", label: "Sales Activity", icon: <Activity className="w-4 h-4" />, desc: "Kirim status KPI kunjungan AM" },
 ];
 
+// ── SnapshotPicker helper ──────────────────────────────────────────────────────
+function SnapshotPicker({
+  label, hint, imports, value, onChange, emptyMsg,
+}: {
+  label: string; hint?: string; imports: any[] | undefined;
+  value: number | null; onChange: (id: number | null, period: string) => void;
+  emptyMsg?: string;
+}) {
+  const opts = imports || [];
+  return (
+    <div>
+      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1.5">{label}</label>
+      {hint && <p className="text-[10px] text-muted-foreground mb-1.5 leading-snug">{hint}</p>}
+      {opts.length === 0 ? (
+        <div className="px-3 py-2.5 bg-secondary/30 border border-dashed border-border rounded-lg text-xs text-muted-foreground">
+          {emptyMsg || "Belum ada snapshot tersedia"}
+        </div>
+      ) : (
+        <select
+          value={value ?? ""}
+          onChange={e => {
+            const id = Number(e.target.value);
+            const found = opts.find(o => o.id === id);
+            onChange(id || null, found?.period ?? "");
+          }}
+          className="w-full px-3 py-2 bg-secondary/50 border border-border rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+        >
+          {opts.map(o => (
+            <option key={o.id} value={o.id}>
+              {format(new Date(o.createdAt), "d MMM yyyy HH:mm", { locale: idLocale })}
+              {o.period ? ` — ${o.period}` : ""}
+            </option>
+          ))}
+        </select>
+      )}
+    </div>
+  );
+}
+
+// ── KirimPesanSection ──────────────────────────────────────────────────────────
 function KirimPesanSection() {
   const { toast } = useToast();
   const qc = useQueryClient();
 
   const [msgTab, setMsgTab] = useState<MsgTab>("semua");
-  const [period, setPeriod] = useState(format(new Date(), "yyyy-MM"));
   const [customMsg, setCustomMsg] = useState("");
   const [targetNiks, setTargetNiks] = useState<string[] | null>(null);
 
+  // ── Snapshot state per tipe ──
+  const [perfSnapId, setPerfSnapId] = useState<number | null>(null);
+  const [perfPeriod, setPerfPeriod] = useState("");
+  const [funnelCurrId, setFunnelCurrId] = useState<number | null>(null);
+  const [funnelPrevId, setFunnelPrevId] = useState<number | null>(null);
+  const [activityCurrId, setActivityCurrId] = useState<number | null>(null);
+
   const { data: ams } = useQuery<any[]>({ queryKey: ["ams"], queryFn: () => apiFetch("/am") });
+
+  // ── Import lists per tipe ──
+  const { data: allImports } = useQuery<any[]>({
+    queryKey: ["import-history"],
+    queryFn: () => apiFetch("/import/history"),
+  });
+  const perfImports  = allImports?.filter(i => i.type === "performance") ?? [];
+  const funnelImports = allImports?.filter(i => i.type === "funnel")      ?? [];
+  const actImports   = allImports?.filter(i => i.type === "activity")     ?? [];
+
+  // Auto-select latest snapshot on first load
+  React.useEffect(() => {
+    if (perfImports.length > 0 && perfSnapId === null) {
+      setPerfSnapId(perfImports[0].id);
+      setPerfPeriod(perfImports[0].period ?? "");
+    }
+  }, [perfImports.length]);
+  React.useEffect(() => {
+    if (funnelImports.length > 0 && funnelCurrId === null) setFunnelCurrId(funnelImports[0].id);
+    if (funnelImports.length > 1 && funnelPrevId === null) setFunnelPrevId(funnelImports[1].id);
+  }, [funnelImports.length]);
+  React.useEffect(() => {
+    if (actImports.length > 0 && activityCurrId === null) setActivityCurrId(actImports[0].id);
+  }, [actImports.length]);
 
   const sendMut = useMutation({
     mutationFn: (body: object) => apiFetch("/telegram/send", { method: "POST", body: JSON.stringify(body) }),
@@ -55,40 +125,99 @@ function KirimPesanSection() {
     onError: (e: any) => toast({ title: "Gagal Kirim", description: e.error || "Terjadi kesalahan", variant: "destructive" }),
   });
 
-  const getIncludes = (tab: MsgTab) => ({
-    includePerformance: tab === "semua" || tab === "performa",
-    includeFunnel: tab === "semua" || tab === "funnel",
-    includeActivity: tab === "semua" || tab === "activity",
-  });
-
   const handleSend = () => {
     sendMut.mutate({
-      period,
-      ...getIncludes(msgTab),
+      period: perfPeriod,
+      includePerformance: msgTab === "semua" || msgTab === "performa",
+      includeFunnel: msgTab === "semua" || msgTab === "funnel",
+      includeActivity: msgTab === "semua" || msgTab === "activity",
+      perfSnapshotId: perfSnapId,
+      funnelCurrSnapshotId: funnelCurrId,
+      funnelPrevSnapshotId: funnelPrevId,
+      activitySnapshotId: activityCurrId,
       customMessage: customMsg || null,
       targetNiks,
     });
   };
 
   const connectedAms = ams?.filter((a: any) => a.telegramConnected) || [];
+  const needsPerf    = msgTab === "semua" || msgTab === "performa";
+  const needsFunnel  = msgTab === "semua" || msgTab === "funnel";
+  const needsAct     = msgTab === "semua" || msgTab === "activity";
 
   return (
     <div className="grid grid-cols-1 xl:grid-cols-5 gap-5">
-      {/* Left: Config */}
+      {/* ── Left: Config ── */}
       <div className="xl:col-span-2 space-y-4">
         <div className="bg-card border border-border rounded-xl p-5">
           <h3 className="font-display font-bold text-sm mb-4 text-foreground">Konfigurasi Pesan</h3>
           <div className="space-y-4">
-            <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1.5">Periode Data</label>
-              <input
-                type="month"
-                value={period}
-                onChange={e => setPeriod(e.target.value)}
-                className="w-full px-3 py-2 bg-secondary/50 border border-border rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-              />
-            </div>
 
+            {/* ── Performa / Semua: snapshot + period ── */}
+            {needsPerf && (
+              <div className="space-y-3">
+                {needsFunnel || needsAct ? (
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide border-b border-border pb-1">Performa Revenue</p>
+                ) : null}
+                <SnapshotPicker
+                  label="Snapshot Performa"
+                  hint="Data bulanan performa revenue AM"
+                  imports={perfImports}
+                  value={perfSnapId}
+                  onChange={(id, p) => { setPerfSnapId(id); setPerfPeriod(p); }}
+                  emptyMsg="Import data performa terlebih dahulu"
+                />
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1.5">Periode Laporan</label>
+                  <input
+                    type="month"
+                    value={perfPeriod}
+                    onChange={e => setPerfPeriod(e.target.value)}
+                    className="w-full px-3 py-2 bg-secondary/50 border border-border rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* ── Funnel: 2 snapshots ── */}
+            {needsFunnel && (
+              <div className="space-y-3">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide border-b border-border pb-1">Sales Funnel</p>
+                <SnapshotPicker
+                  label="Snapshot Minggu Ini"
+                  hint="Digunakan untuk cek LOP yang belum diperbarui"
+                  imports={funnelImports}
+                  value={funnelCurrId}
+                  onChange={(id) => setFunnelCurrId(id)}
+                  emptyMsg="Import data funnel minggu ini terlebih dahulu"
+                />
+                <SnapshotPicker
+                  label="Snapshot Minggu Lalu"
+                  hint="Dibandingkan dengan minggu ini — LOP dengan status F sama = belum update"
+                  imports={funnelImports}
+                  value={funnelPrevId}
+                  onChange={(id) => setFunnelPrevId(id)}
+                  emptyMsg="Belum ada snapshot minggu lalu"
+                />
+              </div>
+            )}
+
+            {/* ── Activity: 1 snapshot ── */}
+            {needsAct && (
+              <div className="space-y-3">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide border-b border-border pb-1">Sales Activity</p>
+                <SnapshotPicker
+                  label="Snapshot Minggu Ini"
+                  hint="Rekap jumlah aktivitas dan status pencapaian KPI minggu berjalan"
+                  imports={actImports}
+                  value={activityCurrId}
+                  onChange={(id) => setActivityCurrId(id)}
+                  emptyMsg="Import data activity minggu ini terlebih dahulu"
+                />
+              </div>
+            )}
+
+            {/* ── Target Penerima ── */}
             <div>
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1.5">Target Penerima</label>
               <select
@@ -121,6 +250,7 @@ function KirimPesanSection() {
               )}
             </div>
 
+            {/* ── Pesan Tambahan ── */}
             <div>
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1.5">Pesan Tambahan (Opsional)</label>
               <textarea
@@ -142,9 +272,8 @@ function KirimPesanSection() {
         </div>
       </div>
 
-      {/* Right: Message type tabs + preview */}
+      {/* ── Right: Message type tabs ── */}
       <div className="xl:col-span-3 space-y-4">
-        {/* Message type selector */}
         <div className="bg-card border border-border rounded-xl p-5">
           <h3 className="font-display font-bold text-sm mb-3 text-foreground">Tipe Pesan</h3>
           <div className="grid grid-cols-2 gap-2 mb-4">
@@ -168,27 +297,41 @@ function KirimPesanSection() {
             ))}
           </div>
 
-          {/* Preview what's included */}
+          {/* Preview konten */}
           <div className="bg-secondary/40 rounded-lg p-3 mb-4">
             <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">Konten yang dikirim:</p>
             <div className="flex flex-wrap gap-1.5">
-              {(msgTab === "semua" || msgTab === "performa") && (
+              {needsPerf && (
                 <span className="inline-flex items-center gap-1 text-[11px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
                   <BarChart2 className="w-3 h-3" /> Performa Revenue
                 </span>
               )}
-              {(msgTab === "semua" || msgTab === "funnel") && (
+              {needsFunnel && (
                 <span className="inline-flex items-center gap-1 text-[11px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
                   <GitBranch className="w-3 h-3" /> Sales Funnel
                 </span>
               )}
-              {(msgTab === "semua" || msgTab === "activity") && (
+              {needsAct && (
                 <span className="inline-flex items-center gap-1 text-[11px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium">
                   <Activity className="w-3 h-3" /> Sales Activity
                 </span>
               )}
             </div>
           </div>
+
+          {/* Info tujuan per tipe */}
+          {msgTab === "funnel" && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800">
+              <p className="font-semibold mb-1">ℹ️ Tujuan Reminder Funnel</p>
+              <p className="text-blue-700 leading-relaxed">Membandingkan status F (Funnel) dua snapshot minggu — LOP yang <strong>tidak ada perubahan status</strong> antara minggu lalu dan minggu ini akan ditandai sebagai belum diperbarui.</p>
+            </div>
+          )}
+          {msgTab === "activity" && (
+            <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-lg text-xs text-purple-800">
+              <p className="font-semibold mb-1">ℹ️ Tujuan Reminder Activity</p>
+              <p className="text-purple-700 leading-relaxed">Melacak jumlah aktivitas kunjungan minggu berjalan dan menginformasikan apakah KPI aktivitas sudah tercapai atau belum.</p>
+            </div>
+          )}
 
           <button
             onClick={handleSend}

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, telegramLogsTable, accountManagersTable, appSettingsTable, telegramBotUsersTable } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, inArray } from "drizzle-orm";
 import { requireAuth } from "../lib/auth";
 import { sendReminderToAllAMs, sendToTelegram } from "../lib/telegram";
 import { getBotUsers, pollOnce } from "../lib/telegramPoller";
@@ -173,6 +173,48 @@ router.delete("/telegram/unlink-am/:id", requireAuth, async (req, res): Promise<
     .returning();
   if (!am) { res.status(404).json({ error: "AM tidak ditemukan" }); return; }
   res.json({ ok: true });
+});
+
+// DELETE /api/telegram/unlink-all — Bulk unlink selected or all AMs
+router.delete("/telegram/unlink-all", requireAuth, async (req, res): Promise<void> => {
+  const { amIds } = req.body;
+  if (Array.isArray(amIds) && amIds.length > 0) {
+    await db.update(accountManagersTable)
+      .set({ telegramChatId: null })
+      .where(inArray(accountManagersTable.id, amIds.map(Number)));
+  } else {
+    await db.update(accountManagersTable).set({ telegramChatId: null });
+  }
+  res.json({ ok: true });
+});
+
+// POST /api/telegram/gen-link/:amId — Generate magic deeplink for an AM
+router.post("/telegram/gen-link/:amId", requireAuth, async (req, res): Promise<void> => {
+  const amId = parseInt(req.params.amId as string, 10);
+  if (!amId) { res.status(400).json({ error: "amId tidak valid" }); return; }
+
+  const code = crypto.randomInt(100000, 999999).toString();
+  const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 jam
+
+  const [am] = await db.update(accountManagersTable)
+    .set({ telegramCode: code, telegramCodeExpiry: expiry })
+    .where(eq(accountManagersTable.id, amId))
+    .returning();
+
+  if (!am) { res.status(404).json({ error: "AM tidak ditemukan" }); return; }
+
+  const [settings] = await db.select().from(appSettingsTable);
+  let botUsername: string | null = null;
+  if (settings?.telegramBotToken) {
+    try {
+      const r = await fetch(`https://api.telegram.org/bot${settings.telegramBotToken}/getMe`);
+      const d = await r.json() as { ok: boolean; result?: { username: string } };
+      botUsername = d.result?.username ?? null;
+    } catch { /* ignore */ }
+  }
+
+  const link = botUsername ? `https://t.me/${botUsername}?start=${code}` : null;
+  res.json({ code, link, expiresAt: expiry.toISOString(), botUsername });
 });
 
 // GET /api/telegram/bot-status — Check if bot token is valid

@@ -83,6 +83,7 @@ router.post("/import/performance", requireAuth, async (req, res): Promise<void> 
       const divisiRaw = String(r.DIVISI_AM || r.divisi || "").trim();
       const periodeStr = String(r.PERIODE || "").trim(); // "202601"
       if (!nik || !namaAm || !periodeStr || periodeStr.length < 6) continue;
+      if (divisiRaw.toUpperCase() === "DGS") continue; // Skip DGS rows
 
       const key = `${nik}__${periodeStr}`;
 
@@ -180,7 +181,10 @@ router.post("/import/performance", requireAuth, async (req, res): Promise<void> 
     const importPeriodOrig = req.body.period || detectPeriod(rows, sourceUrl || undefined);
     const [y, m] = importPeriodOrig.split("-").map(Number);
 
-    toInsert = rows.map((r: any) => ({
+    toInsert = rows.filter((r: any) => {
+      const div = String(r.DIVISI_AM || r.divisi || "").trim().toUpperCase();
+      return div !== "DGS";
+    }).map((r: any) => ({
       nik: String(r.NIK || r.nik || ""),
       namaAm: String(r.NAMA_AM || r.nama_am || r.STANDARD_NAME || "").trim(),
       divisi: String(r.DIVISI_AM || r.divisi || "").trim(),

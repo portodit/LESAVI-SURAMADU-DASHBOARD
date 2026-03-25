@@ -6,7 +6,7 @@ import { id as idLocale } from "date-fns/locale";
 import {
   Send, History, CheckCircle2, XCircle, Users, RefreshCw,
   Link2, Unlink, BarChart2, GitBranch, Activity, MessageSquare,
-  Copy, Clock, ChevronRight, Download
+  Copy, Clock, ChevronRight, Download, ExternalLink, Trash2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -143,7 +143,7 @@ function KirimPesanSection() {
     });
   };
 
-  const connectedAms = ams?.filter((a: any) => a.telegramConnected) || [];
+  const connectedAms = ams?.filter((a: any) => a.telegramConnected && a.divisi !== "DGS") || [];
   const needsPerf    = msgTab === "semua" || msgTab === "performa";
   const needsFunnel  = msgTab === "semua" || msgTab === "funnel";
   const needsAct     = msgTab === "semua" || msgTab === "activity";
@@ -171,16 +171,16 @@ function KirimPesanSection() {
 
             {/* ── Mini tabs — only when "Semua Data" is selected ── */}
             {msgTab === "semua" && (
-              <div className="flex gap-1 p-1 bg-secondary/40 rounded-lg">
+              <div className="flex border-b border-border -mx-5 px-5">
                 {CONFIG_TABS.map(t => (
                   <button
                     key={t.id}
                     onClick={() => setConfigTab(t.id)}
                     className={cn(
-                      "flex-1 py-1.5 text-xs font-semibold rounded-md transition-all",
+                      "py-2 px-4 text-xs font-semibold transition-all border-b-2 -mb-px",
                       configTab === t.id
-                        ? "bg-foreground text-background shadow-sm"
-                        : "text-foreground hover:bg-secondary"
+                        ? "border-primary text-primary"
+                        : "border-transparent text-muted-foreground hover:text-foreground"
                     )}
                   >
                     {t.label}
@@ -393,8 +393,10 @@ function KirimPesanSection() {
 
 function KoneksiAmSection() {
   const { toast } = useToast();
+  const qc = useQueryClient();
   const [linkTarget, setLinkTarget] = useState<string | null>(null);
   const [selectedAmId, setSelectedAmId] = useState<string>("");
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
   const { data: ams, refetch: refetchAms } = useQuery<any[]>({
     queryKey: ["ams"],
@@ -407,10 +409,17 @@ function KoneksiAmSection() {
     enabled: false,
     retry: false,
   });
+  const { data: botStatus } = useQuery<any>({
+    queryKey: ["bot-status"],
+    queryFn: () => apiFetch("/telegram/bot-status"),
+    staleTime: 60000,
+  });
+  const botUsername: string | null = botStatus?.botUsername ?? null;
+
+  const nonDgsAms = ams?.filter((a: any) => a.divisi !== "DGS") || [];
+  const connectedAms = nonDgsAms.filter((a: any) => a.telegramConnected);
 
   const syncAll = async () => {
-    // Trigger an immediate on-demand poll of Telegram's getUpdates
-    // so that any messages sent in the last few seconds are captured now
     try { await apiFetch("/telegram/sync-now", { method: "POST" }); } catch { /* non-fatal */ }
     await refetchUpdates();
     await refetchAms();
@@ -442,8 +451,32 @@ function KoneksiAmSection() {
     },
   });
 
+  const unlinkAllMut = useMutation({
+    mutationFn: (amIds?: number[]) => apiFetch("/telegram/unlink-all", {
+      method: "DELETE",
+      body: JSON.stringify(amIds ? { amIds } : {}),
+    }),
+    onSuccess: async (_, amIds) => {
+      const count = amIds ? amIds.length : connectedAms.length;
+      toast({ title: `${count} koneksi dilepas` });
+      setSelectedIds(new Set());
+      await refetchAms();
+      qc.invalidateQueries({ queryKey: ["tg-updates"] });
+    },
+    onError: () => toast({ title: "Gagal unlink", variant: "destructive" }),
+  });
+
   const subscribers: any[] = updates?.subscribers || [];
   const unlinkedSubscribers = subscribers.filter(s => !s.linked);
+
+  const allConnectedSelected = connectedAms.length > 0 && connectedAms.every(a => selectedIds.has(a.id));
+  const toggleSelectAll = () => {
+    if (allConnectedSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(connectedAms.map((a: any) => a.id)));
+    }
+  };
 
   return (
     <div className="space-y-5">
@@ -464,23 +497,23 @@ function KoneksiAmSection() {
           </button>
         </div>
 
-        {/* Warning box about historical message limitation */}
-        <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
-          <p className="font-semibold mb-0.5">⚠️ Mengapa daftar masih kosong?</p>
-          <p className="text-amber-700 leading-relaxed">
-            Telegram <strong>tidak menyimpan riwayat pesan lama</strong> — pesan /start yang dikirim sebelum sistem ini aktif sudah hilang dari antrian bot dan tidak dapat diambil kembali.
-            Minta semua AM untuk kirim <code className="bg-amber-100 px-1 rounded">/start</code> atau <code className="bg-amber-100 px-1 rounded">/myid</code> ke bot lagi. Setelah itu, data mereka akan otomatis tersimpan di sini.
+        {/* Info: magic link */}
+        <div className="mb-3 p-3 bg-primary/5 border border-primary/20 rounded-lg text-xs text-foreground">
+          <p className="font-semibold mb-0.5 text-primary">🔗 Cara termudah: Generate Link</p>
+          <p className="text-muted-foreground leading-relaxed">
+            Klik <strong>"Generate Link"</strong> di tabel bawah → salin link → bagikan ke AM.
+            AM cukup klik link tersebut, otomatis terhubung ke bot tanpa perlu ketik kode verifikasi.
+            Link berlaku <strong>24 jam</strong>.
           </p>
         </div>
 
-        {/* Info box: how to get Chat ID */}
-        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800">
-          <p className="font-semibold mb-0.5">💡 Cara menghubungkan akun Telegram AM:</p>
-          <ol className="list-decimal list-inside space-y-0.5 text-blue-700">
-            <li>AM kirim <code className="bg-blue-100 px-1 rounded">/start</code> atau <code className="bg-blue-100 px-1 rounded">/myid</code> ke bot → bot balas dengan <strong>Chat ID</strong> mereka</li>
-            <li>Admin generate kode verifikasi (klik "Generate Kode" di tabel bawah) → AM kirim kode ke bot → terhubung otomatis</li>
-            <li><strong>Atau:</strong> klik "Manual" di tabel bawah → masukkan Chat ID secara langsung</li>
-          </ol>
+        {/* Warning box */}
+        <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+          <p className="font-semibold mb-0.5">⚠️ Mengapa daftar masih kosong?</p>
+          <p className="text-amber-700 leading-relaxed">
+            Telegram <strong>tidak menyimpan riwayat pesan lama</strong> — pesan /start yang dikirim sebelum sistem ini aktif sudah hilang.
+            Minta AM untuk kirim <code className="bg-amber-100 px-1 rounded">/start</code> ke bot, atau gunakan link di bawah.
+          </p>
         </div>
 
         {pollError && (
@@ -545,7 +578,7 @@ function KoneksiAmSection() {
                           className="text-xs px-2 py-1 border border-border rounded bg-background"
                         >
                           <option value="">Pilih AM...</option>
-                          {ams?.filter((a: any) => !a.telegramConnected).map((a: any) => (
+                          {nonDgsAms.filter((a: any) => !a.telegramConnected).map((a: any) => (
                             <option key={a.id} value={a.id}>{a.nama}</option>
                           ))}
                         </select>
@@ -576,30 +609,80 @@ function KoneksiAmSection() {
 
       {/* Bottom: AM list with connection status */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
-        <div className="p-5 border-b border-border flex items-center justify-between">
+        <div className="p-5 border-b border-border flex items-center justify-between gap-3 flex-wrap">
           <div>
             <h3 className="font-display font-bold text-sm text-foreground">Status Koneksi per AM</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">Kelola koneksi Telegram masing-masing AM</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {connectedAms.length} dari {nonDgsAms.length} AM terhubung
+            </p>
           </div>
-          <BulkDownloadButton onRefresh={refetchAms} />
+          <div className="flex items-center gap-2 flex-wrap">
+            {selectedIds.size > 0 && (
+              <button
+                onClick={() => unlinkAllMut.mutate([...selectedIds])}
+                disabled={unlinkAllMut.isPending}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-destructive text-white rounded-lg hover:bg-destructive/90 disabled:opacity-50 transition-colors"
+              >
+                <Unlink className="w-3.5 h-3.5" />
+                Unlink Terpilih ({selectedIds.size})
+              </button>
+            )}
+            {connectedAms.length > 0 && selectedIds.size === 0 && (
+              <button
+                onClick={() => {
+                  if (confirm(`Putuskan koneksi semua ${connectedAms.length} AM yang terhubung?`))
+                    unlinkAllMut.mutate(undefined);
+                }}
+                disabled={unlinkAllMut.isPending}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-destructive/50 text-destructive rounded-lg hover:bg-destructive/5 disabled:opacity-50 transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Unlink Semua
+              </button>
+            )}
+            <BulkDownloadButton onRefresh={refetchAms} />
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-secondary/50 text-muted-foreground font-medium">
               <tr>
-                <th className="px-5 py-3 text-left text-xs">Nama AM</th>
-                <th className="px-5 py-3 text-left text-xs">NIK</th>
-                <th className="px-5 py-3 text-left text-xs">Divisi</th>
-                <th className="px-5 py-3 text-left text-xs">Status</th>
-                <th className="px-5 py-3 text-left text-xs">Kode Verifikasi</th>
-                <th className="px-5 py-3 text-left text-xs">Aksi</th>
+                <th className="px-4 py-3 text-left w-8">
+                  {connectedAms.length > 0 && (
+                    <input
+                      type="checkbox"
+                      checked={allConnectedSelected}
+                      onChange={toggleSelectAll}
+                      className="w-3.5 h-3.5 accent-primary"
+                      title="Pilih semua yang terhubung"
+                    />
+                  )}
+                </th>
+                <th className="px-4 py-3 text-left text-xs">Nama AM</th>
+                <th className="px-4 py-3 text-left text-xs">NIK</th>
+                <th className="px-4 py-3 text-left text-xs">Divisi</th>
+                <th className="px-4 py-3 text-left text-xs">Status</th>
+                <th className="px-4 py-3 text-left text-xs">Aksi / Link</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {ams?.map((am: any) => (
-                <AmRow key={am.id} am={am} genCodeMut={genCodeMut} unlinkMut={unlinkMut} linkMut={linkMut} />
+              {nonDgsAms.map((am: any) => (
+                <AmRow
+                  key={am.id}
+                  am={am}
+                  genCodeMut={genCodeMut}
+                  unlinkMut={unlinkMut}
+                  linkMut={linkMut}
+                  botUsername={botUsername}
+                  selected={selectedIds.has(am.id)}
+                  onSelect={checked => {
+                    const s = new Set(selectedIds);
+                    if (checked) s.add(am.id); else s.delete(am.id);
+                    setSelectedIds(s);
+                  }}
+                />
               ))}
-              {!ams?.length && (
+              {!nonDgsAms.length && (
                 <tr><td colSpan={6} className="px-5 py-10 text-center text-muted-foreground text-xs">Belum ada data AM</td></tr>
               )}
             </tbody>
@@ -658,71 +741,124 @@ function BulkDownloadButton({ onRefresh }: { onRefresh: () => void }) {
   );
 }
 
-function AmRow({ am, genCodeMut, unlinkMut, linkMut }: any) {
+function AmRow({ am, genCodeMut, unlinkMut, linkMut, botUsername, selected, onSelect }: any) {
+  const { toast } = useToast();
   const [copied, setCopied] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
   const [showManual, setShowManual] = useState(false);
   const [manualChatId, setManualChatId] = useState("");
+  const [magicLink, setMagicLink] = useState<string | null>(null);
+  const [genLinkLoading, setGenLinkLoading] = useState(false);
 
-  const copy = (text: string) => {
+  const copy = (text: string, isLink = false) => {
     navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    if (isLink) { setCopiedLink(true); setTimeout(() => setCopiedLink(false), 2000); }
+    else { setCopied(true); setTimeout(() => setCopied(false), 2000); }
+  };
+
+  const handleGenLink = async () => {
+    setGenLinkLoading(true);
+    try {
+      const data = await apiFetch(`/telegram/gen-link/${am.id}`, { method: "POST" });
+      if (data.link) {
+        setMagicLink(data.link);
+      } else {
+        toast({ title: "Bot belum dikonfigurasi", description: "Atur token bot Telegram di halaman Pengaturan terlebih dahulu.", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Gagal generate link", variant: "destructive" });
+    } finally {
+      setGenLinkLoading(false);
+    }
   };
 
   const isExpired = am.telegramCodeExpiry && new Date(am.telegramCodeExpiry) < new Date();
+  const effectiveMagicLink = magicLink ?? (am.telegramCode && !isExpired && botUsername ? `https://t.me/${botUsername}?start=${am.telegramCode}` : null);
 
   return (
     <tr className="hover:bg-secondary/20">
-      <td className="px-5 py-3 font-semibold text-foreground">{am.nama}</td>
-      <td className="px-5 py-3 text-muted-foreground font-mono text-xs">{am.nik}</td>
-      <td className="px-5 py-3 text-muted-foreground text-xs">{am.divisi}</td>
-      <td className="px-5 py-3">
+      <td className="px-4 py-3">
+        {am.telegramConnected && (
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={e => onSelect(e.target.checked)}
+            className="w-3.5 h-3.5 accent-primary"
+          />
+        )}
+      </td>
+      <td className="px-4 py-3 font-semibold text-foreground">{am.nama}</td>
+      <td className="px-4 py-3 text-muted-foreground font-mono text-xs">{am.nik}</td>
+      <td className="px-4 py-3 text-muted-foreground text-xs">{am.divisi}</td>
+      <td className="px-4 py-3">
         {am.telegramConnected ? (
-          <span className="inline-flex items-center gap-1 text-[11px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">
-            <CheckCircle2 className="w-3 h-3" /> Terhubung
-          </span>
+          <div>
+            <span className="inline-flex items-center gap-1 text-[11px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">
+              <CheckCircle2 className="w-3 h-3" /> Terhubung
+            </span>
+            <p className="text-[10px] text-muted-foreground mt-0.5 font-mono">ID: {am.telegramChatId}</p>
+          </div>
         ) : (
           <span className="inline-flex items-center gap-1 text-[11px] bg-secondary text-muted-foreground px-2 py-0.5 rounded-full font-medium">
             <XCircle className="w-3 h-3" /> Belum
           </span>
         )}
       </td>
-      <td className="px-5 py-3">
-        {am.telegramConnected ? (
-          <span className="text-xs text-muted-foreground">Chat ID: {am.telegramChatId}</span>
-        ) : am.telegramCode && !isExpired ? (
-          <div className="flex items-center gap-1.5">
-            <code className="text-xs font-bold bg-secondary px-2 py-0.5 rounded tracking-widest">{am.telegramCode}</code>
-            <button onClick={() => copy(am.telegramCode)} className="text-muted-foreground hover:text-foreground">
-              {copied ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
-            </button>
-            <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
-              <Clock className="w-2.5 h-2.5" />
-              {format(new Date(am.telegramCodeExpiry), "HH:mm", { locale: idLocale })}
-            </span>
-          </div>
-        ) : (
-          <span className="text-xs text-muted-foreground">—</span>
-        )}
-      </td>
-      <td className="px-5 py-3">
-        <div className="flex items-center gap-2 flex-wrap">
+      <td className="px-4 py-3">
+        <div className="flex flex-col gap-1.5">
           {am.telegramConnected ? (
             <button
               onClick={() => unlinkMut.mutate(am.id)}
-              className="flex items-center gap-1 text-xs text-destructive/70 hover:text-destructive font-medium"
+              className="flex items-center gap-1 text-xs text-destructive/70 hover:text-destructive font-medium w-fit"
             >
               <Unlink className="w-3 h-3" /> Putuskan
             </button>
           ) : (
             <>
-              <button
-                onClick={() => genCodeMut.mutate(am.id)}
-                disabled={genCodeMut.isPending}
-                className="flex items-center gap-1 text-xs text-primary font-semibold hover:text-primary/80 disabled:opacity-50"
-              >
-                <ChevronRight className="w-3 h-3" /> Generate Kode
-              </button>
+              {/* Magic link row */}
+              {effectiveMagicLink ? (
+                <div className="flex items-center gap-1 max-w-[260px]">
+                  <input
+                    readOnly
+                    value={effectiveMagicLink}
+                    className="flex-1 text-[10px] font-mono px-1.5 py-1 border border-border rounded bg-secondary/50 truncate min-w-0"
+                  />
+                  <button
+                    onClick={() => copy(effectiveMagicLink, true)}
+                    className="shrink-0 text-primary hover:text-primary/80"
+                    title="Salin link"
+                  >
+                    {copiedLink ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+                  </button>
+                  <a href={effectiveMagicLink} target="_blank" rel="noreferrer" className="shrink-0 text-muted-foreground hover:text-foreground" title="Buka Telegram">
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+              ) : (
+                <button
+                  onClick={handleGenLink}
+                  disabled={genLinkLoading}
+                  className="flex items-center gap-1 text-xs text-primary font-semibold hover:text-primary/80 disabled:opacity-50 w-fit"
+                >
+                  <Link2 className="w-3 h-3" /> {genLinkLoading ? "..." : "Generate Link"}
+                </button>
+              )}
+
+              {/* Code row */}
+              {am.telegramCode && !isExpired && (
+                <div className="flex items-center gap-1">
+                  <code className="text-[10px] font-bold bg-secondary px-1.5 py-0.5 rounded tracking-widest">{am.telegramCode}</code>
+                  <button onClick={() => copy(am.telegramCode)} className="text-muted-foreground hover:text-foreground">
+                    {copied ? <CheckCircle2 className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
+                  </button>
+                  <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                    <Clock className="w-2.5 h-2.5" />
+                    {format(new Date(am.telegramCodeExpiry), "HH:mm", { locale: idLocale })}
+                  </span>
+                </div>
+              )}
+
+              {/* Manual link row */}
               {showManual ? (
                 <div className="flex items-center gap-1">
                   <input
@@ -739,8 +875,8 @@ function AmRow({ am, genCodeMut, unlinkMut, linkMut }: any) {
                   <button onClick={() => setShowManual(false)} className="text-xs text-muted-foreground">Batal</button>
                 </div>
               ) : (
-                <button onClick={() => setShowManual(true)} className="text-xs text-muted-foreground hover:text-foreground">
-                  <Link2 className="w-3 h-3 inline mr-0.5" /> Manual
+                <button onClick={() => setShowManual(true)} className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-0.5 w-fit">
+                  <ChevronRight className="w-3 h-3" /> Manual Chat ID
                 </button>
               )}
             </>
@@ -838,7 +974,7 @@ export default function TelegramBot() {
             className={cn(
               "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all",
               mainTab === tab.id
-                ? "bg-background text-foreground shadow-sm"
+                ? "bg-primary text-white shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
             )}
           >

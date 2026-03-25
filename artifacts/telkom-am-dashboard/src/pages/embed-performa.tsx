@@ -468,7 +468,7 @@ export default function EmbedPerforma() {
       {/* ─── Top Navbar ───────────── */}
       <div className="bg-card border-b border-border shrink-0 z-30">
         {/* Main row — always visible */}
-        <div className="flex items-center gap-2 px-4 py-4">
+        <div className="flex items-center gap-2 px-4 h-[76px]">
           {/* Logo + Brand */}
           <div className="flex items-center gap-2 shrink-0">
             <img src={`${import.meta.env.BASE_URL}logo-tr3.png`} alt="Logo TR3" className="h-10 object-contain" />

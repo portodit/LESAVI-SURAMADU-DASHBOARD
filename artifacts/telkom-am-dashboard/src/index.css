@@ -47,7 +47,7 @@
   --color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
 
   --font-sans: 'Inter', sans-serif;
-  --font-display: 'Satoshi', 'Inter', sans-serif;
+  --font-display: 'Montserrat', 'Inter', sans-serif;
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);

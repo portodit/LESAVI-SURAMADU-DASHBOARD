@@ -103,6 +103,8 @@ export default function ImportData() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [conflictInfo, setConflictInfo] = useState<ConflictInfo | null>(null);
   const [isOverwriting, setIsOverwriting] = useState(false);
+  const [importProgress, setImportProgress] = useState<{ percent: number; stage: string } | null>(null);
+  const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { data: history, refetch } = useListImportHistory();
   const perfMut = useImportPerformance();
@@ -178,6 +180,38 @@ export default function ImportData() {
     }
   };
 
+  // ── Progress simulation ────────────────────────────────────────────────────
+  const PROGRESS_STAGES = [
+    { to: 18, step: 0.7,  label: "Membaca & encode file..." },
+    { to: 58, step: 0.35, label: "Proses cleaning data..." },
+    { to: 87, step: 0.12, label: "Menyimpan ke database..." },
+  ];
+
+  function startProgressSim() {
+    let p = 0;
+    let si = 0;
+    setImportProgress({ percent: 0, stage: PROGRESS_STAGES[0].label });
+    progressIntervalRef.current = setInterval(() => {
+      p += PROGRESS_STAGES[si].step;
+      if (p >= PROGRESS_STAGES[si].to && si < PROGRESS_STAGES.length - 1) si++;
+      const capped = Math.min(p, PROGRESS_STAGES[si].to);
+      setImportProgress({ percent: Math.round(capped), stage: PROGRESS_STAGES[si].label });
+    }, 50);
+  }
+
+  function stopProgressSim(success: boolean) {
+    if (progressIntervalRef.current) {
+      clearInterval(progressIntervalRef.current);
+      progressIntervalRef.current = null;
+    }
+    if (success) {
+      setImportProgress({ percent: 100, stage: "Selesai ✓" });
+      setTimeout(() => setImportProgress(null), 2000);
+    } else {
+      setImportProgress(null);
+    }
+  }
+
   // ── Import logic ───────────────────────────────────────────────────────────
   const buildBody = async (): Promise<any | null> => {
     if (!currentFile) {
@@ -215,9 +249,12 @@ export default function ImportData() {
   const handleSync = async () => {
     const body = await buildBody();
     if (!body) return;
+    startProgressSim();
     try {
       await runImport(body, activeTab);
+      stopProgressSim(true);
     } catch (e: any) {
+      stopProgressSim(false);
       const errData = e?.data || e?.error;
       if (e?.status === 409 || errData?.conflict) {
         const info = errData || e?.data;
@@ -240,9 +277,12 @@ export default function ImportData() {
   const handleOverwrite = async () => {
     if (!conflictInfo) return;
     setIsOverwriting(true);
+    startProgressSim();
     try {
       await runImport({ ...conflictInfo.pendingBody, forceOverwrite: true }, conflictInfo.pendingTab);
+      stopProgressSim(true);
     } catch (e: any) {
+      stopProgressSim(false);
       const errMsg = e?.data?.error || e?.message || "Gagal menimpa data";
       toast({ title: "Gagal Menimpa", description: errMsg, variant: "destructive" });
     } finally {
@@ -421,7 +461,7 @@ export default function ImportData() {
           )}
 
           {/* Snapshot date + Import button */}
-          <div className="flex items-end gap-2">
+          <div className="flex items-end gap-2 flex-wrap">
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
                 <Calendar className="w-3.5 h-3.5" /> Tanggal Snapshot
@@ -434,10 +474,31 @@ export default function ImportData() {
                 className="h-9 px-3 bg-secondary/40 border border-border rounded-lg text-sm font-sans focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary transition-all"
               />
             </div>
-            {currentSnapshotOverride && (
+            {currentSnapshotOverride && !isPending && (
               <Button size="sm" variant="outline" onClick={() => setSnapshotOverride(prev => ({ ...prev, [activeTab]: "" }))}>
                 Reset
               </Button>
+            )}
+            {/* Progress bar (inline, appears when importing) */}
+            {importProgress && (
+              <div className="flex-1 min-w-[160px] flex flex-col justify-end gap-1.5 pb-0.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-medium text-muted-foreground truncate">{importProgress.stage}</span>
+                  <span className={cn(
+                    "text-[11px] font-bold tabular-nums shrink-0",
+                    importProgress.percent === 100 ? "text-emerald-600" : "text-primary"
+                  )}>{importProgress.percent}%</span>
+                </div>
+                <div className="h-1.5 rounded-full bg-border overflow-hidden">
+                  <div
+                    className={cn(
+                      "h-full rounded-full transition-all duration-200 ease-out",
+                      importProgress.percent === 100 ? "bg-emerald-500" : "bg-primary"
+                    )}
+                    style={{ width: `${importProgress.percent}%` }}
+                  />
+                </div>
+              </div>
             )}
             <Button onClick={handleSync} disabled={isPending || !currentFile} className="h-9 px-5 gap-2">
               {isPending

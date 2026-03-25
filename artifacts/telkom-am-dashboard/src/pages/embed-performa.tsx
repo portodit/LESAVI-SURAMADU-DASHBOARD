@@ -230,8 +230,8 @@ export default function EmbedPerforma() {
       .then((data: any[]) => {
         setAllPerfs(data);
         const ps = [...new Set(data.map((p: any) => `${p.tahun}-${String(p.bulan).padStart(2, "0")}`))] as string[];
-        ps.sort().reverse();
-        if (ps.length > 0) setFilterPeriodes(new Set([ps[0]]));
+        ps.sort();
+        if (ps.length > 0) setFilterPeriodes(new Set(ps));
         setFilterDivisi("All");
         setFilterNamaAms(new Set());
       })
@@ -241,7 +241,7 @@ export default function EmbedPerforma() {
 
   const availablePeriodes = useMemo(() => {
     return [...new Set(allPerfs.map((p: any) => `${p.tahun}-${String(p.bulan).padStart(2, "0")}`))]
-      .sort().reverse();
+      .sort();
   }, [allPerfs]);
 
   // Latest selected period (for CM)
@@ -577,7 +577,6 @@ export default function EmbedPerforma() {
                       <th className={cn("px-4 py-3 text-right text-xs font-black uppercase tracking-wide", filterTipeRank === "Real Revenue" && "underline underline-offset-2")}>Real CM</th>
                       <th className={cn("px-3 py-3 text-right text-xs font-black uppercase tracking-wide", filterTipeRank === "Ach MTD" && "underline underline-offset-2")}>CM %</th>
                       <th className={cn("px-3 py-3 text-right text-xs font-black uppercase tracking-wide", filterTipeRank === "YTD" && "underline underline-offset-2")}>YTD %</th>
-                      <th className="px-3 py-3 text-center text-xs font-black uppercase tracking-wide">Status</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/50">
@@ -604,16 +603,11 @@ export default function EmbedPerforma() {
                             <td className={cn("px-3 py-2 text-right font-bold tabular-nums", row.ytdAch >= 1 ? "text-green-600" : row.ytdAch >= 0.8 ? "text-blue-600" : "text-red-600")}>
                               {(row.ytdAch * 100).toFixed(1).replace(".", ",")}%
                             </td>
-                            <td className="px-3 py-2 text-center">
-                              <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-bold border", getStatusColor(row.statusWarna))}>
-                                {row.statusWarna?.toUpperCase() ?? "–"}
-                              </span>
-                            </td>
                           </tr>
                           {isExpanded && hasCustomers && (
-                            <tr className="bg-secondary/10">
-                              <td colSpan={8} className="px-0 py-0">
-                                <div className="mx-4 mb-2 mt-0.5 border border-border/60 rounded-lg overflow-hidden">
+                            <tr className="bg-rose-50/40 dark:bg-rose-950/10">
+                              <td colSpan={7} className="px-0 pb-3 pt-0">
+                                <div className="mx-4 mt-2 mb-1 border-2 border-rose-200 dark:border-rose-800/50 rounded-xl overflow-hidden shadow-sm">
                                   <table className="w-full text-xs">
                                     <thead>
                                       <tr className="bg-rose-50 dark:bg-rose-950/30">
@@ -631,7 +625,7 @@ export default function EmbedPerforma() {
                                         const prop = c.proporsi != null ? c.proporsi * 100 : 0;
                                         const cAch = cTarget > 0 ? cReal / cTarget * 100 : 0;
                                         return (
-                                          <tr key={ci} className="hover:bg-secondary/30">
+                                          <tr key={ci} className={cn("transition-colors", ci % 2 === 0 ? "bg-white dark:bg-card" : "bg-rose-50/60 dark:bg-rose-950/20", "hover:bg-rose-100/60 dark:hover:bg-rose-900/20")}>
                                             <td className="px-3 py-1.5 font-medium text-foreground">
                                               <div>{c.pelanggan || "—"}</div>
                                               {c.nip && <div className="text-[10px] text-muted-foreground">{c.nip}</div>}

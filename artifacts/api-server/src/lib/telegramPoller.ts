@@ -49,7 +49,7 @@ async function upsertBotUser(user: BotUser) {
   }
 }
 
-async function pollOnce() {
+export async function pollOnce() {
   try {
     const [settings] = await db.select().from(appSettingsTable);
     if (!settings?.telegramBotToken) return;

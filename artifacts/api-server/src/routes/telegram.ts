@@ -3,7 +3,7 @@ import { db, telegramLogsTable, accountManagersTable, appSettingsTable, telegram
 import { eq, desc } from "drizzle-orm";
 import { requireAuth } from "../lib/auth";
 import { sendReminderToAllAMs, sendToTelegram } from "../lib/telegram";
-import { getBotUsers } from "../lib/telegramPoller";
+import { getBotUsers, pollOnce } from "../lib/telegramPoller";
 import crypto from "crypto";
 
 const router: IRouter = Router();
@@ -109,6 +109,16 @@ router.get("/telegram/updates", requireAuth, async (req, res): Promise<void> => 
     res.json({ subscribers, totalUpdates: subscribers.length });
   } catch {
     res.status(500).json({ error: "Gagal membaca data pengguna bot" });
+  }
+});
+
+// POST /api/telegram/sync-now — Trigger an immediate poll of Telegram getUpdates
+router.post("/telegram/sync-now", requireAuth, async (_req, res): Promise<void> => {
+  try {
+    await pollOnce();
+    res.json({ ok: true, message: "Sinkronisasi berhasil" });
+  } catch {
+    res.status(500).json({ error: "Gagal sinkronisasi dengan Telegram" });
   }
 });
 

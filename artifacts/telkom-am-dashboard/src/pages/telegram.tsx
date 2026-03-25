@@ -229,6 +229,9 @@ function KoneksiAmSection() {
   });
 
   const syncAll = async () => {
+    // Trigger an immediate on-demand poll of Telegram's getUpdates
+    // so that any messages sent in the last few seconds are captured now
+    try { await apiFetch("/telegram/sync-now", { method: "POST" }); } catch { /* non-fatal */ }
     await refetchUpdates();
     await refetchAms();
   };
@@ -269,7 +272,7 @@ function KoneksiAmSection() {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="font-display font-bold text-sm text-foreground">Pengguna Bot Telegram</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">Semua orang yang pernah chat ke bot (sejak server terakhir restart)</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Pengguna yang chat ke bot setelah sistem ini aktif (tersimpan di database)</p>
           </div>
           <button
             onClick={syncAll}
@@ -281,13 +284,21 @@ function KoneksiAmSection() {
           </button>
         </div>
 
+        {/* Warning box about historical message limitation */}
+        <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+          <p className="font-semibold mb-0.5">⚠️ Mengapa daftar masih kosong?</p>
+          <p className="text-amber-700 leading-relaxed">
+            Telegram <strong>tidak menyimpan riwayat pesan lama</strong> — pesan /start yang dikirim sebelum sistem ini aktif sudah hilang dari antrian bot dan tidak dapat diambil kembali.
+            Minta semua AM untuk kirim <code className="bg-amber-100 px-1 rounded">/start</code> atau <code className="bg-amber-100 px-1 rounded">/myid</code> ke bot lagi. Setelah itu, data mereka akan otomatis tersimpan di sini.
+          </p>
+        </div>
+
         {/* Info box: how to get Chat ID */}
         <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800">
           <p className="font-semibold mb-0.5">💡 Cara menghubungkan akun Telegram AM:</p>
           <ol className="list-decimal list-inside space-y-0.5 text-blue-700">
-            <li>AM start bot → bot akan membalas dengan <strong>Chat ID</strong> mereka</li>
-            <li>AM kirim perintah <code className="bg-blue-100 px-1 rounded">/myid</code> jika lupa Chat ID-nya</li>
-            <li>Admin generate kode verifikasi (klik "Generate Kode" di tabel bawah) → AM kirim kode ke bot</li>
+            <li>AM kirim <code className="bg-blue-100 px-1 rounded">/start</code> atau <code className="bg-blue-100 px-1 rounded">/myid</code> ke bot → bot balas dengan <strong>Chat ID</strong> mereka</li>
+            <li>Admin generate kode verifikasi (klik "Generate Kode" di tabel bawah) → AM kirim kode ke bot → terhubung otomatis</li>
             <li><strong>Atau:</strong> klik "Manual" di tabel bawah → masukkan Chat ID secara langsung</li>
           </ol>
         </div>

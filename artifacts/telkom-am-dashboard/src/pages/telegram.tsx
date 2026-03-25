@@ -46,7 +46,7 @@ function SnapshotPicker({
   const opts = imports || [];
   return (
     <div>
-      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1.5">{label}</label>
+      <label className="text-xs font-bold text-foreground block mb-1">{label}</label>
       {hint && <p className="text-[10px] text-muted-foreground mb-1.5 leading-snug">{hint}</p>}
       {opts.length === 0 ? (
         <div className="px-3 py-2.5 bg-secondary/30 border border-dashed border-border rounded-lg text-xs text-muted-foreground">
@@ -74,12 +74,15 @@ function SnapshotPicker({
   );
 }
 
+type ConfigTab = "performa" | "funnel" | "activity";
+
 // ── KirimPesanSection ──────────────────────────────────────────────────────────
 function KirimPesanSection() {
   const { toast } = useToast();
   const qc = useQueryClient();
 
   const [msgTab, setMsgTab] = useState<MsgTab>("semua");
+  const [configTab, setConfigTab] = useState<ConfigTab>("performa");
   const [customMsg, setCustomMsg] = useState("");
   const [targetNiks, setTargetNiks] = useState<string[] | null>(null);
 
@@ -145,6 +148,19 @@ function KirimPesanSection() {
   const needsFunnel  = msgTab === "semua" || msgTab === "funnel";
   const needsAct     = msgTab === "semua" || msgTab === "activity";
 
+  // For "semua", which config section is shown in the panel
+  const activeConfig: ConfigTab =
+    msgTab === "performa" ? "performa" :
+    msgTab === "funnel"   ? "funnel" :
+    msgTab === "activity" ? "activity" :
+    configTab;
+
+  const CONFIG_TABS: { id: ConfigTab; label: string }[] = [
+    { id: "performa", label: "Performa" },
+    { id: "funnel",   label: "Funnel" },
+    { id: "activity", label: "Activity" },
+  ];
+
   return (
     <div className="grid grid-cols-1 xl:grid-cols-5 gap-5">
       {/* ── Left: Config ── */}
@@ -153,12 +169,29 @@ function KirimPesanSection() {
           <h3 className="font-display font-bold text-sm mb-4 text-foreground">Konfigurasi Pesan</h3>
           <div className="space-y-4">
 
-            {/* ── Performa / Semua: snapshot + period ── */}
-            {needsPerf && (
+            {/* ── Mini tabs — only when "Semua Data" is selected ── */}
+            {msgTab === "semua" && (
+              <div className="flex gap-1 p-1 bg-secondary/40 rounded-lg">
+                {CONFIG_TABS.map(t => (
+                  <button
+                    key={t.id}
+                    onClick={() => setConfigTab(t.id)}
+                    className={cn(
+                      "flex-1 py-1.5 text-xs font-semibold rounded-md transition-all",
+                      configTab === t.id
+                        ? "bg-foreground text-background shadow-sm"
+                        : "text-foreground hover:bg-secondary"
+                    )}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* ── Performa section ── */}
+            {activeConfig === "performa" && (
               <div className="space-y-3">
-                {needsFunnel || needsAct ? (
-                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide border-b border-border pb-1">Performa Revenue</p>
-                ) : null}
                 <SnapshotPicker
                   label="Snapshot Performa"
                   hint="Data bulanan performa revenue AM"
@@ -168,7 +201,7 @@ function KirimPesanSection() {
                   emptyMsg="Import data performa terlebih dahulu"
                 />
                 <div>
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1.5">Periode Laporan</label>
+                  <label className="text-xs font-bold text-foreground block mb-1.5">Periode Laporan</label>
                   <input
                     type="month"
                     value={perfPeriod}
@@ -179,13 +212,15 @@ function KirimPesanSection() {
               </div>
             )}
 
-            {/* ── Funnel: 2 snapshots ── */}
-            {needsFunnel && (
+            {/* ── Funnel section ── */}
+            {activeConfig === "funnel" && (
               <div className="space-y-3">
-                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide border-b border-border pb-1">Sales Funnel</p>
+                <div className="p-2.5 bg-blue-50 border border-blue-200 rounded-lg text-[11px] text-blue-700 leading-snug">
+                  LOP dengan status F yang <strong>tidak berubah</strong> antara dua snapshot = belum diperbarui
+                </div>
                 <SnapshotPicker
                   label="Snapshot Minggu Ini"
-                  hint="Digunakan untuk cek LOP yang belum diperbarui"
+                  hint="Snapshot funnel terkini"
                   imports={funnelImports}
                   value={funnelCurrId}
                   onChange={(id) => setFunnelCurrId(id)}
@@ -193,7 +228,7 @@ function KirimPesanSection() {
                 />
                 <SnapshotPicker
                   label="Snapshot Minggu Lalu"
-                  hint="Dibandingkan dengan minggu ini — LOP dengan status F sama = belum update"
+                  hint="Dibandingkan dengan minggu ini untuk deteksi LOP stagnan"
                   imports={funnelImports}
                   value={funnelPrevId}
                   onChange={(id) => setFunnelPrevId(id)}
@@ -202,13 +237,15 @@ function KirimPesanSection() {
               </div>
             )}
 
-            {/* ── Activity: 1 snapshot ── */}
-            {needsAct && (
+            {/* ── Activity section ── */}
+            {activeConfig === "activity" && (
               <div className="space-y-3">
-                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide border-b border-border pb-1">Sales Activity</p>
+                <div className="p-2.5 bg-purple-50 border border-purple-200 rounded-lg text-[11px] text-purple-700 leading-snug">
+                  Cek jumlah aktivitas kunjungan minggu ini dan status pencapaian KPI masing-masing AM
+                </div>
                 <SnapshotPicker
                   label="Snapshot Minggu Ini"
-                  hint="Rekap jumlah aktivitas dan status pencapaian KPI minggu berjalan"
+                  hint="Data aktivitas minggu berjalan"
                   imports={actImports}
                   value={activityCurrId}
                   onChange={(id) => setActivityCurrId(id)}
@@ -219,7 +256,7 @@ function KirimPesanSection() {
 
             {/* ── Target Penerima ── */}
             <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1.5">Target Penerima</label>
+              <label className="text-xs font-bold text-foreground block mb-1.5">Target Penerima</label>
               <select
                 value={targetNiks === null ? "" : "specific"}
                 onChange={e => setTargetNiks(e.target.value === "" ? null : [])}
@@ -252,7 +289,7 @@ function KirimPesanSection() {
 
             {/* ── Pesan Tambahan ── */}
             <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1.5">Pesan Tambahan (Opsional)</label>
+              <label className="text-xs font-bold text-foreground block mb-1.5">Pesan Tambahan (Opsional)</label>
               <textarea
                 rows={3}
                 value={customMsg}

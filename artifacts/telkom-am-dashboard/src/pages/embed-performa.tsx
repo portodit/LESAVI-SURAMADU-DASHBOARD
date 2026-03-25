@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { formatRupiah, formatPercent, getStatusColor, getAchPct, cn } from "@/lib/utils";
 import {
   Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
@@ -104,30 +105,48 @@ function CheckboxDropdown({ label, options, selected, onChange, placeholder, lab
   placeholder?: string; labelFn?: (v: string) => string; headerLabel?: string; summaryLabel?: string; className?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const ref = React.useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const triggerRef = React.useRef<HTMLDivElement>(null);
+  const dropRef = React.useRef<HTMLDivElement>(null);
   const lFn = labelFn ?? ((v: string) => v);
   useEffect(() => {
-    function handler(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); }
+    function handler(e: MouseEvent) {
+      if (
+        triggerRef.current && !triggerRef.current.contains(e.target as Node) &&
+        dropRef.current && !dropRef.current.contains(e.target as Node)
+      ) setOpen(false);
+    }
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+  const toggle = () => {
+    if (triggerRef.current) {
+      const r = triggerRef.current.getBoundingClientRect();
+      setPos({ top: r.bottom + 4, left: r.left });
+    }
+    setOpen(v => !v);
+  };
   const displayLabel = selected.size === 0
     ? (placeholder || `Pilih ${label}`)
     : selected.size === options.length
       ? `Semua ${summaryLabel || label}`
       : selected.size === 1 ? lFn([...selected][0]) : `${selected.size} ${summaryLabel || label} dipilih`;
   return (
-    <div className={cn("flex flex-col gap-0.5 relative", className)} ref={ref}>
+    <div className={cn("flex flex-col gap-0.5", className)} ref={triggerRef}>
       <label className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wide">{label}</label>
       <button
-        onClick={() => setOpen(v => !v)}
+        onClick={toggle}
         className="h-6 px-1.5 bg-secondary/50 border border-border rounded-md text-[10px] flex items-center gap-1 focus:ring-2 focus:ring-primary/20 focus:border-primary w-full whitespace-nowrap"
       >
         <span className="flex-1 text-left truncate">{displayLabel}</span>
         <ChevronDown className="w-3 h-3 shrink-0 text-muted-foreground" />
       </button>
-      {open && (
-        <div className="absolute top-full mt-1 left-0 z-50 bg-popover border border-border rounded-xl shadow-lg min-w-[180px] max-h-60 overflow-y-auto p-1.5">
+      {open && createPortal(
+        <div
+          ref={dropRef}
+          style={{ position: "fixed", top: pos.top, left: pos.left, zIndex: 9999 }}
+          className="bg-popover border border-border rounded-xl shadow-lg min-w-[180px] max-h-60 overflow-y-auto p-1.5"
+        >
           <div className="px-2 py-1.5 font-semibold text-[11px] text-muted-foreground uppercase tracking-wider border-b border-border mb-1">{headerLabel || label}</div>
           {options.map(opt => (
             <label key={opt} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-secondary cursor-pointer text-xs">
@@ -139,7 +158,8 @@ function CheckboxDropdown({ label, options, selected, onChange, placeholder, lab
               {lFn(opt)}
             </label>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
@@ -151,18 +171,34 @@ function SelectDropdown({ label, value, onChange, options, className, disabled }
   options: { value: string; label: string }[]; className?: string; disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const ref = React.useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const triggerRef = React.useRef<HTMLDivElement>(null);
+  const dropRef = React.useRef<HTMLDivElement>(null);
   useEffect(() => {
-    function handler(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); }
+    function handler(e: MouseEvent) {
+      if (
+        triggerRef.current && !triggerRef.current.contains(e.target as Node) &&
+        dropRef.current && !dropRef.current.contains(e.target as Node)
+      ) setOpen(false);
+    }
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+  const toggle = () => {
+    if (!disabled) {
+      if (triggerRef.current) {
+        const r = triggerRef.current.getBoundingClientRect();
+        setPos({ top: r.bottom + 4, left: r.left });
+      }
+      setOpen(v => !v);
+    }
+  };
   const current = options.find(o => o.value === value);
   return (
-    <div className={cn("flex flex-col gap-0.5 relative", className)} ref={ref}>
+    <div className={cn("flex flex-col gap-0.5", className)} ref={triggerRef}>
       {label && <label className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wide">{label}</label>}
       <button
-        onClick={() => !disabled && setOpen(v => !v)}
+        onClick={toggle}
         disabled={disabled}
         className={cn(
           "h-6 px-1.5 bg-secondary/50 border border-border rounded-md text-[10px] flex items-center gap-1 w-full disabled:opacity-40 transition-colors",
@@ -172,8 +208,12 @@ function SelectDropdown({ label, value, onChange, options, className, disabled }
         <span className="flex-1 text-left truncate">{current?.label ?? value}</span>
         <ChevronDown className={cn("w-3 h-3 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} />
       </button>
-      {open && (
-        <div className="absolute top-full mt-1 left-0 z-50 bg-popover border border-border rounded-xl shadow-lg min-w-[140px] max-h-60 overflow-y-auto py-1">
+      {open && createPortal(
+        <div
+          ref={dropRef}
+          style={{ position: "fixed", top: pos.top, left: pos.left, zIndex: 9999 }}
+          className="bg-popover border border-border rounded-xl shadow-lg min-w-[140px] max-h-60 overflow-y-auto py-1"
+        >
           {options.map(opt => (
             <button key={opt.value} onClick={() => { onChange(opt.value); setOpen(false); }}
               className={cn("w-full text-left px-3 py-1.5 text-xs hover:bg-secondary transition-colors flex items-center gap-2", opt.value === value && "font-semibold text-primary")}>
@@ -181,7 +221,8 @@ function SelectDropdown({ label, value, onChange, options, className, disabled }
               {opt.label}
             </button>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

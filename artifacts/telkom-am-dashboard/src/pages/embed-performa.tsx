@@ -35,12 +35,15 @@ function sumKomponen(customers: any[], tipe: string): { target: number; real: nu
   if (tipe === "Semua") return { target: customers.reduce((s, c) => s + (c.targetTotal ?? 0), 0), real: customers.reduce((s, c) => s + (c.realTotal ?? 0), 0) };
   return { target: customers.reduce((s, c) => s + (c[tipe]?.target ?? 0), 0), real: customers.reduce((s, c) => s + (c[tipe]?.real ?? 0), 0) };
 }
+function hasTypedColumn(target: any, real: any): boolean {
+  return (target != null && target > 0) || (real != null && real > 0);
+}
 function getTypedRevenue(row: any, tipe: string): { target: number; real: number } {
   if (tipe === "Semua") return { target: row.targetRevenue ?? 0, real: row.realRevenue ?? 0 };
-  if (tipe === "Reguler" && row.targetReguler != null) return { target: row.targetReguler ?? 0, real: row.realReguler ?? 0 };
-  if (tipe === "Sustain" && row.targetSustain != null) return { target: row.targetSustain ?? 0, real: row.realSustain ?? 0 };
-  if (tipe === "Scaling" && row.targetScaling != null) return { target: row.targetScaling ?? 0, real: row.realScaling ?? 0 };
-  if (tipe === "NGTMA" && row.targetNgtma != null) return { target: row.targetNgtma ?? 0, real: row.realNgtma ?? 0 };
+  if (tipe === "Reguler" && hasTypedColumn(row.targetReguler, row.realReguler)) return { target: row.targetReguler ?? 0, real: row.realReguler ?? 0 };
+  if (tipe === "Sustain" && hasTypedColumn(row.targetSustain, row.realSustain)) return { target: row.targetSustain ?? 0, real: row.realSustain ?? 0 };
+  if (tipe === "Scaling" && hasTypedColumn(row.targetScaling, row.realScaling)) return { target: row.targetScaling ?? 0, real: row.realScaling ?? 0 };
+  if (tipe === "NGTMA" && hasTypedColumn(row.targetNgtma, row.realNgtma)) return { target: row.targetNgtma ?? 0, real: row.realNgtma ?? 0 };
   return sumKomponen(parseKomponen(row.komponenDetail), tipe);
 }
 
@@ -283,7 +286,6 @@ export default function EmbedPerforma() {
   const availablePeriodes = useMemo(() => {
     return [...new Set(
       allPerfs
-        .filter((p: any) => p.realRevenue != null && p.realRevenue > 0)
         .map((p: any) => `${p.tahun}-${String(p.bulan).padStart(2, "0")}`)
     )].sort();
   }, [allPerfs]);
@@ -397,54 +399,51 @@ export default function EmbedPerforma() {
   const hasData = amTableData.length > 0;
 
   return (
-    <div className="min-h-screen bg-background font-sans text-foreground text-sm">
+    <div className="h-screen bg-background font-sans text-foreground text-sm flex flex-col overflow-hidden">
 
-      {/* ─── Sidebar Drawer ─────────────────────────────── */}
+      {/* ─── Mobile Sidebar Overlay ─────────────────────── */}
       {sidebarOpen && (
-        <div className="fixed inset-0 z-50 flex">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setSidebarOpen(false)} />
-          <div className="relative w-64 bg-card border-r border-border flex flex-col shadow-2xl z-10">
+        <div className="fixed inset-0 z-50 flex md:hidden">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setSidebarOpen(false)} />
+          <div className="relative w-56 bg-card border-r border-border flex flex-col shadow-2xl z-10">
             <div className="flex items-center justify-between px-4 py-3 border-b border-border">
               <span className="text-xs font-bold text-foreground">Menu Slide</span>
               <button onClick={() => setSidebarOpen(false)} className="p-1 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground">
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="flex-1 py-2">
+            <div className="flex-1 py-2 space-y-1 px-2">
               {SLIDES.map((slide, i) => {
                 const Icon = slide.icon;
                 return (
-                  <button
-                    key={i}
-                    onClick={() => { setCurrentSlide(i); setSidebarOpen(false); }}
+                  <button key={i} onClick={() => { setCurrentSlide(i); setSidebarOpen(false); }}
                     className={cn(
-                      "w-full flex items-center gap-3 px-4 py-3 text-left text-sm transition-colors",
+                      "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-xs transition-colors",
                       currentSlide === i
-                        ? "bg-primary/10 text-primary font-semibold border-r-2 border-primary"
+                        ? "bg-primary text-white font-semibold shadow-sm"
                         : "text-foreground hover:bg-secondary"
                     )}
                   >
-                    <Icon className="w-4 h-4 shrink-0" />
-                    {slide.label}
+                    <span className={cn("w-5 h-5 rounded flex items-center justify-center text-[10px] font-black shrink-0", currentSlide === i ? "bg-white/20" : "bg-secondary/80")}>{i + 1}</span>
+                    <Icon className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate">{slide.label}</span>
                   </button>
                 );
               })}
             </div>
-            <div className="px-4 py-3 border-t border-border text-[10px] text-muted-foreground">
-              Gunakan ← → untuk berpindah slide
-            </div>
+            <div className="px-4 py-3 border-t border-border text-[10px] text-muted-foreground">← → untuk berpindah slide</div>
           </div>
         </div>
       )}
 
       {/* ─── Top Navbar ───────────── */}
-      <div className="bg-card border-b border-border sticky top-0 z-30">
+      <div className="bg-card border-b border-border shrink-0 z-30">
         {/* Main row — always visible */}
         <div className="flex items-center gap-2 px-3 py-2">
           {/* Hamburger */}
           <button
             onClick={() => setSidebarOpen(true)}
-            className="p-1 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground shrink-0"
+            className="md:hidden p-1 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground shrink-0"
           >
             <Menu className="w-4 h-4" />
           </button>
@@ -555,6 +554,49 @@ export default function EmbedPerforma() {
         )}
       </div>
 
+      {/* ─── Body: Permanent Sidebar + Scrollable Content ── */}
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+
+        {/* Permanent Desktop Left Panel (PowerPoint-style) */}
+        <aside className="hidden md:flex flex-col w-44 border-r border-border bg-card shrink-0">
+          <div className="px-3 pt-3 pb-2 border-b border-border">
+            <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Navigasi Slide</p>
+          </div>
+          <div className="flex-1 py-2 px-2 space-y-1 overflow-y-auto">
+            {SLIDES.map((slide, i) => {
+              const Icon = slide.icon;
+              const isActive = currentSlide === i;
+              return (
+                <button
+                  key={i}
+                  onClick={() => setCurrentSlide(i)}
+                  className={cn(
+                    "w-full flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg text-left transition-all duration-150 group",
+                    isActive
+                      ? "bg-primary text-white shadow-sm shadow-primary/20 font-semibold"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                  )}
+                >
+                  <span className={cn(
+                    "w-5 h-5 rounded text-[10px] font-black flex items-center justify-center shrink-0",
+                    isActive ? "bg-white/20 text-white" : "bg-secondary text-muted-foreground group-hover:bg-secondary/80"
+                  )}>{i + 1}</span>
+                  <div className="flex-1 min-w-0">
+                    <Icon className="w-3 h-3 mb-0.5" />
+                    <p className="text-[10px] leading-tight truncate">{slide.label}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+          <div className="px-3 py-2.5 border-t border-border">
+            <p className="text-[9px] text-muted-foreground/60 leading-tight">← → untuk berpindah slide</p>
+          </div>
+        </aside>
+
+        {/* Main scrollable content */}
+        <div className="flex-1 overflow-y-auto">
+
       {/* ─── Slide: Sales Funnel (placeholder) ───────────── */}
       {currentSlide === 1 && (
         <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center p-8">
@@ -600,14 +642,14 @@ export default function EmbedPerforma() {
               <TrophyCard colorScheme="gold"
                 title="TOP AM BY CURRENT MONTH"
                 subtitle={topCm ? `Divisi ${topCm.divisi} · ${cmPeriode ? periodeLabel(cmPeriode) : "—"}` : ""}
-                am={topCm} value={topCm ? formatPercent(topCm.cmAch) : "–"}
+                am={topCm} value={topCm ? `${(topCm.cmAch * 100).toFixed(1).replace(".", ",")}%` : "–"}
                 realValue={topCm ? formatRupiah(topCm.cmReal) : undefined}
                 targetValue={topCm ? formatRupiah(topCm.cmTarget) : undefined}
               />
               <TrophyCard colorScheme="blue"
                 title="TOP AM BY YEAR TO DATE"
                 subtitle={topYtd ? `Divisi ${topYtd.divisi} · ${filterPeriodes.size > 1 ? `${filterPeriodes.size} Periode` : cmPeriode ? periodeLabel(cmPeriode) : "—"}` : ""}
-                am={topYtd} value={topYtd ? formatPercent(topYtd.ytdAch) : "–"}
+                am={topYtd} value={topYtd ? `${(topYtd.ytdAch * 100).toFixed(1).replace(".", ",")}%` : "–"}
                 realValue={topYtd ? formatRupiah(topYtd.ytdReal) : undefined}
                 targetValue={topYtd ? formatRupiah(topYtd.ytdTarget) : undefined}
               />
@@ -793,6 +835,8 @@ export default function EmbedPerforma() {
       </div>
       )}
       <div className="px-4 py-2 text-[10px] text-muted-foreground/40 text-right">Telkom AM Dashboard · Data diperbarui otomatis</div>
+        </div>{/* end main scrollable */}
+      </div>{/* end body flex */}
     </div>
   );
 }

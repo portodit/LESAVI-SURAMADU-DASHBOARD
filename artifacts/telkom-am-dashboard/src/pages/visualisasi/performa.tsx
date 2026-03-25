@@ -314,7 +314,6 @@ export default function PerformaVis() {
     if (!allPerfs?.length) return [];
     let rows = allPerfs as any[];
     if (filterSnapshotId) rows = rows.filter(p => p.importId === filterSnapshotId);
-    rows = rows.filter(p => p.realRevenue != null && p.realRevenue > 0);
     return [...new Set(rows.map(p => `${p.tahun}-${String(p.bulan).padStart(2, "0")}`))]
       .sort();
   }, [allPerfs, filterSnapshotId]);
@@ -386,12 +385,16 @@ export default function PerformaVis() {
       const cmAch = getAchPct(cmRow.achRate);
 
       // Filter by tipeRevenue — use new per-type columns if available, fallback to komponenDetail JSON
+      // Check > 0 (not just != null) because schema defaults are 0, not null
+      function hasTyped(target: any, real: any): boolean {
+        return (target != null && target > 0) || (real != null && real > 0);
+      }
       function getTyped(row: any, tipe: string): { target: number; real: number } {
         if (tipe === "Semua") return { target: row.targetRevenue, real: row.realRevenue };
-        if (row.targetReguler != null && tipe === "Reguler") return { target: row.targetReguler ?? 0, real: row.realReguler ?? 0 };
-        if (row.targetSustain != null && tipe === "Sustain") return { target: row.targetSustain ?? 0, real: row.realSustain ?? 0 };
-        if (row.targetScaling != null && tipe === "Scaling") return { target: row.targetScaling ?? 0, real: row.realScaling ?? 0 };
-        if (row.targetNgtma != null && tipe === "NGTMA") return { target: row.targetNgtma ?? 0, real: row.realNgtma ?? 0 };
+        if (tipe === "Reguler" && hasTyped(row.targetReguler, row.realReguler)) return { target: row.targetReguler ?? 0, real: row.realReguler ?? 0 };
+        if (tipe === "Sustain" && hasTyped(row.targetSustain, row.realSustain)) return { target: row.targetSustain ?? 0, real: row.realSustain ?? 0 };
+        if (tipe === "Scaling" && hasTyped(row.targetScaling, row.realScaling)) return { target: row.targetScaling ?? 0, real: row.realScaling ?? 0 };
+        if (tipe === "NGTMA" && hasTyped(row.targetNgtma, row.realNgtma)) return { target: row.targetNgtma ?? 0, real: row.realNgtma ?? 0 };
         // fallback to JSON
         return sumKomponen(parseKomponen(row.komponenDetail), tipe);
       }
@@ -637,7 +640,7 @@ export default function PerformaVis() {
               title="Top AM by Current Month"
               period={cmPeriode ? periodeLabel(cmPeriode) : "—"}
               am={topCm}
-              value={topCm ? formatPercent(topCm.cmAch) : "–"}
+              value={topCm ? `${(topCm.cmAch * 100).toFixed(1).replace(".", ",")}%` : "–"}
               realValue={topCm ? formatRupiah(topCm.cmReal) : "–"}
               targetValue={topCm ? formatRupiah(topCm.cmTarget) : "–"}
             />
@@ -645,10 +648,10 @@ export default function PerformaVis() {
             {/* Top #1 YTD */}
             <TrophyCard
               colorScheme="blue"
-              title="Top AM by YTD"
+              title="Top AM by Year to Date"
               period={filterPeriodes.size > 1 ? `${filterPeriodes.size} Periode` : cmPeriode ? periodeLabel(cmPeriode) : "—"}
               am={topYtd}
-              value={topYtd ? formatPercent(topYtd.ytdAch) : "–"}
+              value={topYtd ? `${(topYtd.ytdAch * 100).toFixed(1).replace(".", ",")}%` : "–"}
               realValue={topYtd ? formatRupiah(topYtd.ytdReal) : "–"}
               targetValue={topYtd ? formatRupiah(topYtd.ytdTarget) : "–"}
             />

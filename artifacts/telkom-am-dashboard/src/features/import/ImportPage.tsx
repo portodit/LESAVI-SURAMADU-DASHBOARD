@@ -4,18 +4,18 @@ import { useImportPerformance, useImportFunnel, useImportActivity, useListImport
 import { useToast } from "@/shared/hooks/use-toast";
 import { Button } from "@/shared/ui/button";
 import {
-  UploadCloud, CheckCircle2, History, Loader2, Calendar, BarChart2, Filter,
-  Activity, AlertCircle, ArrowRight, FolderOpen, X, FileSpreadsheet, Trash2,
-  Eye, AlertTriangle, RefreshCw
+  UploadCloud, CheckCircle2, History, Loader2, Calendar,
+  AlertCircle, ArrowRight, FolderOpen, X, FileSpreadsheet, Trash2,
+  Eye, AlertTriangle, RefreshCw, ChevronDown
 } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
 
 const TABS = [
-  { id: "performansi", label: "Performa AM", icon: BarChart2, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-200", type: "performance" },
-  { id: "funnel", label: "Sales Funnel", icon: Filter, color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-200", type: "funnel" },
-  { id: "activity", label: "Sales Activity", icon: Activity, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-200", type: "activity" },
+  { id: "performansi", label: "Performa AM", type: "performance" },
+  { id: "funnel", label: "Sales Funnel", type: "funnel" },
+  { id: "activity", label: "Sales Activity", type: "activity" },
 ];
 
 function extractDateFromFilename(source: string): { display: string; isoDate: string; period: string } | null {
@@ -233,33 +233,22 @@ export default function ImportData() {
 
       {/* Header card */}
       <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
-        {/* Tab bar */}
-        <div className="flex border-b border-border bg-secondary/20">
-          {TABS.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => { setActiveTab(tab.id); setConflictInfo(null); }}
-              className={cn(
-                "flex items-center gap-2 px-5 py-4 text-sm font-semibold transition-all relative",
-                activeTab === tab.id ? "text-primary" : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <tab.icon className="w-4 h-4" />
-              {tab.label}
-              {activeTab === tab.id && (
-                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-t-full" />
-              )}
-            </button>
-          ))}
-        </div>
-
         <div className="p-6 space-y-5">
-          {/* Title row */}
-          <div className="flex items-center gap-3">
-            <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0", activeTabData.bg, activeTabData.border, "border")}>
-              <activeTabData.icon className={cn("w-5 h-5", activeTabData.color)} />
+          {/* Title row + dropdown */}
+          <div className="flex items-center justify-between gap-4">
+            <h3 className="font-display font-bold text-base text-foreground">Import Data</h3>
+            <div className="relative">
+              <select
+                value={activeTab}
+                onChange={e => { setActiveTab(e.target.value); setConflictInfo(null); }}
+                className="appearance-none h-9 pl-3 pr-8 bg-secondary/40 border border-border rounded-lg text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary transition-all cursor-pointer"
+              >
+                {TABS.map(tab => (
+                  <option key={tab.id} value={tab.id}>{tab.label}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
             </div>
-            <h3 className="font-display font-bold text-base text-foreground">Import {activeTabData.label}</h3>
           </div>
 
           <div className="space-y-3">

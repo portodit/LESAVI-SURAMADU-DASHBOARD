@@ -24,18 +24,17 @@ router.get("/funnel/snapshots", requireAuth, async (req, res): Promise<void> => 
 
 // ── Targets CRUD ───────────────────────────────────────────────────────────────
 router.get("/funnel/targets", requireAuth, async (req, res): Promise<void> => {
-  const targets = await db.select().from(salesFunnelTargetTable).orderBy(desc(salesFunnelTargetTable.tahun), desc(salesFunnelTargetTable.bulan));
+  const targets = await db.select().from(salesFunnelTargetTable).orderBy(desc(salesFunnelTargetTable.tahun));
   res.json(targets);
 });
 
 router.post("/funnel/targets", requireAuth, async (req, res): Promise<void> => {
-  const { divisi, tahun, bulan, targetHo, targetFullHo } = req.body;
-  if (!tahun || !bulan) { res.status(400).json({ error: "tahun and bulan are required" }); return; }
+  const { divisi, tahun, targetHo, targetFullHo } = req.body;
+  if (!tahun) { res.status(400).json({ error: "tahun is required" }); return; }
 
   const existing = await db.select().from(salesFunnelTargetTable)
     .where(and(
       eq(salesFunnelTargetTable.tahun, Number(tahun)),
-      eq(salesFunnelTargetTable.bulan, Number(bulan)),
       ...(divisi ? [eq(salesFunnelTargetTable.divisi, String(divisi))] : [])
     ));
 
@@ -49,7 +48,7 @@ router.post("/funnel/targets", requireAuth, async (req, res): Promise<void> => {
     const [inserted] = await db.insert(salesFunnelTargetTable).values({
       divisi: divisi ? String(divisi) : null,
       tahun: Number(tahun),
-      bulan: Number(bulan),
+      bulan: null,
       targetHo: Number(targetHo) || 0,
       targetFullHo: Number(targetFullHo) || 0,
     }).returning();
@@ -134,10 +133,10 @@ router.get("/funnel", requireAuth, async (req, res): Promise<void> => {
     byStatus: Object.values(v.statusMap),
   }));
 
-  // Find matching target: derive year/month from import period if possible
+  // Find matching target: yearly target per divisi
   let targetHoVal = 0, targetFullHoVal = 0;
   const allTargets = await db.select().from(salesFunnelTargetTable)
-    .orderBy(desc(salesFunnelTargetTable.tahun), desc(salesFunnelTargetTable.bulan));
+    .orderBy(desc(salesFunnelTargetTable.tahun));
 
   if (allTargets.length > 0) {
     const selectedYear = tahun ? Number(tahun) : null;
@@ -145,14 +144,11 @@ router.get("/funnel", requireAuth, async (req, res): Promise<void> => {
       ? (await db.select().from(dataImportsTable).where(eq(dataImportsTable.id, Number(import_id))))[0]?.period
       : null;
     const importYear = importPeriod ? Number(importPeriod.slice(0, 4)) : null;
-    const importMonth = importPeriod ? Number(importPeriod.slice(5, 7)) : null;
     const lookupYear = selectedYear || importYear;
-    const lookupMonth = importMonth;
     const divisiFilter = divisi ? String(divisi) : null;
 
     let matched = allTargets;
     if (lookupYear) matched = matched.filter(t => t.tahun === lookupYear);
-    if (lookupMonth) matched = matched.filter(t => t.bulan === lookupMonth);
 
     if (divisiFilter && divisiFilter !== "all") {
       const divMatch = matched.filter(t => t.divisi === divisiFilter);

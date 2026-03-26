@@ -135,7 +135,7 @@ export default function ImportData() {
   const [tSaving, setTSaving] = useState(false);
   const [tDelConfirm, setTDelConfirm] = useState<number | null>(null);
   const [editRowId, setEditRowId] = useState<number | "new" | null>(null);
-  const [editRowData, setEditRowData] = useState({ tahun: String(curYear), bulan: String(curMonth), divisi: "DPS", targetHo: "", targetFullHo: "" });
+  const [editRowData, setEditRowData] = useState({ tahun: String(curYear), divisi: "DPS", targetHo: "", targetFullHo: "" });
   const [focusField, setFocusField] = useState<string | null>(null);
   const { data: targets = [], refetch: refetchTargets } = useQuery<any[]>({
     queryKey: ["funnel-targets"],
@@ -283,8 +283,8 @@ export default function ImportData() {
   });
 
   const handleSaveTargetRow = async () => {
-    if (!editRowData.tahun || !editRowData.bulan || !editRowData.divisi) {
-      toast({ title: "Lengkapi data", description: "Tahun, bulan, dan divisi wajib diisi", variant: "destructive" }); return;
+    if (!editRowData.tahun || !editRowData.divisi) {
+      toast({ title: "Lengkapi data", description: "Tahun dan divisi wajib diisi", variant: "destructive" }); return;
     }
     setTSaving(true);
     try {
@@ -293,13 +293,12 @@ export default function ImportData() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           tahun: Number(editRowData.tahun),
-          bulan: Number(editRowData.bulan),
           divisi: editRowData.divisi,
           targetHo: Number(editRowData.targetHo.replace(/\D/g, "") || 0),
           targetFullHo: Number(editRowData.targetFullHo.replace(/\D/g, "") || 0),
         }),
       });
-      toast({ title: "Tersimpan", description: `${editRowData.divisi} ${MONTHS_FULL[Number(editRowData.bulan)-1]} ${editRowData.tahun}` });
+      toast({ title: "Tersimpan", description: `${editRowData.divisi} ${editRowData.tahun}` });
       refetchTargets();
       qc.invalidateQueries({ queryKey: ["funnel-data"] });
       setEditRowId(null);
@@ -630,7 +629,6 @@ export default function ImportData() {
                   <thead>
                     <tr className="bg-red-700 text-white">
                       <th className="px-4 py-2.5 text-xs font-black uppercase w-24">Tahun</th>
-                      <th className="px-4 py-2.5 text-xs font-black uppercase w-32">Bulan</th>
                       <th className="px-4 py-2.5 text-xs font-black uppercase w-24">Divisi</th>
                       <th className="px-4 py-2.5 text-xs font-black uppercase text-right">Target HO</th>
                       <th className="px-4 py-2.5 text-xs font-black uppercase text-right">Target Full HO</th>
@@ -640,7 +638,7 @@ export default function ImportData() {
                   <tbody className="divide-y divide-border/60">
                     {targets.length === 0 && editRowId !== "new" && (
                       <tr>
-                        <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground text-sm">
+                        <td colSpan={5} className="px-4 py-10 text-center text-muted-foreground text-sm">
                           <Target className="w-8 h-8 mx-auto mb-3 opacity-20" />
                           Belum ada data. Klik <span className="font-semibold text-primary">+ Tambah Baris</span> di bawah.
                         </td>
@@ -662,7 +660,6 @@ export default function ImportData() {
                             setEditRowId(t.id);
                             setEditRowData({
                               tahun: String(t.tahun),
-                              bulan: String(t.bulan),
                               divisi: t.divisi || "DPS",
                               targetHo: String(t.targetHo || ""),
                               targetFullHo: String(t.targetFullHo || ""),
@@ -683,21 +680,6 @@ export default function ImportData() {
                               />
                             ) : (
                               <span className="px-2 font-mono text-sm">{t.tahun}</span>
-                            )}
-                          </td>
-                          {/* BULAN */}
-                          <td className="px-2 py-1.5">
-                            {isEditing ? (
-                              <select
-                                value={editRowData.bulan}
-                                onChange={e => setEditRowData(p => ({ ...p, bulan: e.target.value }))}
-                                onKeyDown={e => { if (e.key === "Enter") handleSaveTargetRow(); if (e.key === "Escape") { setEditRowId(null); setFocusField(null); } }}
-                                className="w-full h-8 px-2 bg-white border-2 border-primary rounded text-sm focus:outline-none"
-                              >
-                                {MONTHS_FULL.map((m, i) => <option key={i+1} value={String(i+1)}>{m}</option>)}
-                              </select>
-                            ) : (
-                              <span className="px-2 text-sm">{MONTHS_FULL[(t.bulan||1)-1]}</span>
                             )}
                           </td>
                           {/* DIVISI */}
@@ -787,14 +769,6 @@ export default function ImportData() {
                           />
                         </td>
                         <td className="px-2 py-1.5">
-                          <select value={editRowData.bulan}
-                            onChange={e => setEditRowData(p => ({ ...p, bulan: e.target.value }))}
-                            onKeyDown={e => { if (e.key === "Enter") handleSaveTargetRow(); if (e.key === "Escape") { setEditRowId(null); setFocusField(null); } }}
-                            className="w-full h-8 px-2 bg-white border-2 border-primary rounded text-sm focus:outline-none">
-                            {MONTHS_FULL.map((m, i) => <option key={i+1} value={String(i+1)}>{m}</option>)}
-                          </select>
-                        </td>
-                        <td className="px-2 py-1.5">
                           <select value={editRowData.divisi}
                             onChange={e => setEditRowData(p => ({ ...p, divisi: e.target.value }))}
                             onKeyDown={e => { if (e.key === "Enter") handleSaveTargetRow(); if (e.key === "Escape") { setEditRowId(null); setFocusField(null); } }}
@@ -837,11 +811,11 @@ export default function ImportData() {
                     {/* Add row button row */}
                     {editRowId === null && (
                       <tr>
-                        <td colSpan={6} className="px-3 py-1.5">
+                        <td colSpan={5} className="px-3 py-1.5">
                           <button
                             onClick={() => {
                               setEditRowId("new");
-                              setEditRowData({ tahun: String(curYear), bulan: String(curMonth), divisi: "DPS", targetHo: "", targetFullHo: "" });
+                              setEditRowData({ tahun: String(curYear), divisi: "DPS", targetHo: "", targetFullHo: "" });
                               setFocusField(null);
                             }}
                             className="flex items-center gap-1.5 text-xs text-primary/70 hover:text-primary font-semibold py-1 px-1 rounded transition-colors"

@@ -29,7 +29,7 @@ export const salesFunnelTargetTable = pgTable("sales_funnel_target", {
   id: serial("id").primaryKey(),
   divisi: text("divisi"),
   tahun: integer("tahun").notNull(),
-  bulan: integer("bulan").notNull(),
+  bulan: integer("bulan"),
   targetFullHo: real("target_full_ho").notNull().default(0),
   targetHo: real("target_ho").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

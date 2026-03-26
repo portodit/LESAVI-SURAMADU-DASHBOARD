@@ -154,6 +154,9 @@ export default function ImportData() {
   const [uploadMode, setUploadMode] = useState<Record<string, "manual" | "drive">>({ performansi: "manual", funnel: "manual", activity: "manual" });
   // Date override for Drive mode per driveType ("performance" | "funnel" | "activity")
   const [driveSnapshotOverride, setDriveSnapshotOverride] = useState<Record<string, string>>({});
+  // Progress simulation for Drive sync
+  const [driveProgress, setDriveProgress] = useState<Record<string, { percent: number; stage: string } | null>>({});
+  const driveProgressRef = useRef<Record<string, ReturnType<typeof setInterval>>>({});
 
   // Google Sheets sync state
   const [gsForm, setGsForm] = useState<{
@@ -272,9 +275,41 @@ export default function ImportData() {
     } finally { setDriveListLoading(p => ({ ...p, [type]: false })); }
   };
 
+  const DRIVE_STAGES = [
+    { to: 15, step: 1.2, label: "Menghubungi Google Drive..." },
+    { to: 40, step: 0.5, label: "Mengunduh file Excel..." },
+    { to: 75, step: 0.3, label: "Proses cleaning & import data..." },
+    { to: 95, step: 0.04, label: "Menyimpan ke database..." },
+  ];
+
+  const startDriveProgress = (type: string) => {
+    let p = 0; let si = 0;
+    setDriveProgress(prev => ({ ...prev, [type]: { percent: 0, stage: DRIVE_STAGES[0].label } }));
+    driveProgressRef.current[type] = setInterval(() => {
+      p += DRIVE_STAGES[si].step;
+      if (p >= DRIVE_STAGES[si].to && si < DRIVE_STAGES.length - 1) si++;
+      const capped = Math.min(p, DRIVE_STAGES[si].to);
+      setDriveProgress(prev => ({ ...prev, [type]: { percent: Math.round(capped), stage: DRIVE_STAGES[si].label } }));
+    }, 50);
+  };
+
+  const stopDriveProgress = (type: string, success: boolean) => {
+    if (driveProgressRef.current[type]) {
+      clearInterval(driveProgressRef.current[type]);
+      delete driveProgressRef.current[type];
+    }
+    if (success) {
+      setDriveProgress(prev => ({ ...prev, [type]: { percent: 100, stage: "Selesai ✓" } }));
+      setTimeout(() => setDriveProgress(prev => ({ ...prev, [type]: null })), 2500);
+    } else {
+      setDriveProgress(prev => ({ ...prev, [type]: null }));
+    }
+  };
+
   const handleDriveSync = async (type: string, fileId?: string, snapshotDateDirect?: string) => {
     setDriveSyncing(p => ({ ...p, [type]: true }));
     setDriveSyncResult(p => ({ ...p, [type]: null }));
+    startDriveProgress(type);
     try {
       const snapshotDate = snapshotDateDirect ?? driveSnapshotOverride[type] ?? undefined;
       const result = await apiFetch<any>(`/api/gdrive/sync?type=${type}`, {
@@ -282,10 +317,12 @@ export default function ImportData() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fileId, snapshotDate: snapshotDate || undefined }),
       });
+      stopDriveProgress(type, true);
       setDriveSyncResult(p => ({ ...p, [type]: result }));
       qc.invalidateQueries({ queryKey: ["import-history"] });
       toast({ title: "Sync Berhasil", description: `${result.imported} baris diimport dari "${result.fileName}"` });
     } catch (e: any) {
+      stopDriveProgress(type, false);
       toast({ title: "Sync Gagal", description: e.message, variant: "destructive" });
     } finally { setDriveSyncing(p => ({ ...p, [type]: false })); }
   };
@@ -935,6 +972,7 @@ export default function ImportData() {
           const syncResult = driveSyncResult[driveType];
           const curDriveSnap = driveSnapshotOverride[driveType] || "";
           const driveDetected = driveFilesList.length > 0 ? extractDateFromFilename(driveFilesList[0].name) : null;
+          const curDriveProgress = driveProgress[driveType] || null;
 
           return (
           <div className="p-6 space-y-4">
@@ -1153,15 +1191,38 @@ export default function ImportData() {
                     </div>
 
                     {/* Drive action buttons */}
-                    <div className="flex gap-2 flex-wrap">
-                      <Button variant="outline" size="sm" onClick={() => handleDriveList(driveType)} disabled={isListing} className="gap-2 h-8 text-xs">
-                        {isListing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FolderOpen className="w-3.5 h-3.5 text-amber-500" />}
-                        {driveFilesList.length > 0 ? "Refresh Daftar File" : "Cek File di Drive"}
-                      </Button>
-                      <Button size="sm" onClick={() => handleDriveSync(driveType)} disabled={isSyncing} className="gap-2 h-8 text-xs bg-amber-600 hover:bg-amber-700 text-white">
-                        {isSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-                        Sync File Terbaru
-                      </Button>
+                    <div className="space-y-2">
+                      <div className="flex gap-2 flex-wrap">
+                        <Button variant="outline" size="sm" onClick={() => handleDriveList(driveType)} disabled={isListing || isSyncing} className="gap-2 h-8 text-xs">
+                          {isListing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FolderOpen className="w-3.5 h-3.5 text-amber-500" />}
+                          {driveFilesList.length > 0 ? "Refresh Daftar File" : "Cek File di Drive"}
+                        </Button>
+                        <Button size="sm" onClick={() => handleDriveSync(driveType)} disabled={isSyncing || isListing} className="gap-2 h-8 text-xs bg-amber-600 hover:bg-amber-700 text-white">
+                          {isSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                          {isSyncing ? "Sedang Sync..." : "Sync File Terbaru"}
+                        </Button>
+                      </div>
+                      {/* Progress bar for Drive sync */}
+                      {curDriveProgress && (
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[11px] font-medium text-muted-foreground truncate">{curDriveProgress.stage}</span>
+                            <span className={cn(
+                              "text-[11px] font-bold tabular-nums shrink-0",
+                              curDriveProgress.percent === 100 ? "text-emerald-600" : "text-amber-600"
+                            )}>{curDriveProgress.percent}%</span>
+                          </div>
+                          <div className="h-1.5 rounded-full bg-border overflow-hidden">
+                            <div
+                              className={cn(
+                                "h-full rounded-full transition-all duration-200 ease-out",
+                                curDriveProgress.percent === 100 ? "bg-emerald-500" : "bg-amber-500"
+                              )}
+                              style={{ width: `${curDriveProgress.percent}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* File list */}

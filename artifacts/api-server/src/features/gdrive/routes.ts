@@ -188,10 +188,16 @@ async function importPerformanceRows(rows: any[], sourceUrl: string, period: str
   return { imported: toInsert.length, importId: importRecord.id, period };
 }
 
+/** Ensure value is a plain string (or null) — guards against Date objects from cellDates:true */
+function safeStr(val: any): string | null {
+  if (val === null || val === undefined || val === "") return null;
+  if (val instanceof Date) return val.toISOString().slice(0, 10);
+  return String(val);
+}
+
 async function importFunnelRows(rows: any[], sourceUrl: string, period: string | null, snapshotDateFull: string, fileName: string) {
   const cleaned = cleanFunnelRows(rows);
-  const slugMap = await getAmSlugMap();
-  const allAms = await db.select({ nik: accountManagersTable.nik, nama: accountManagersTable.nama, slug: accountManagersTable.slug, divisi: accountManagersTable.divisi }).from(accountManagersTable);
+  const allAms = await db.select({ nik: accountManagersTable.nik, nama: accountManagersTable.nama, divisi: accountManagersTable.divisi }).from(accountManagersTable);
 
   function findAm(nikRaw: string, namaRaw: string) {
     const nik = String(nikRaw || "").trim();
@@ -201,42 +207,60 @@ async function importFunnelRows(rows: any[], sourceUrl: string, period: string |
     return found;
   }
 
+  const snapshotStr = snapshotDateFull || new Date().toISOString().slice(0, 10);
+  const periodStr = period || new Date().toISOString().slice(0, 7);
+
   const toInsert = cleaned.map((row: any) => {
     const am = findAm(row.nik, row.namaAm);
     return {
-      lopid: row.lopid,
-      judulProyek: row.judulProyek,
-      pelanggan: row.pelanggan,
-      nilaiProyek: row.nilaiProyek,
-      divisi: row.divisi || am?.divisi || "DPS",
-      segmen: row.segmen || null,
-      witel: row.witel || null,
-      statusF: row.statusF || null,
-      proses: row.proses || null,
-      statusProyek: row.statusProyek || null,
-      kategoriKontrak: row.kategoriKontrak || null,
-      estimateBulan: row.estimateBulan || null,
-      namaAm: am?.nama || row.namaAm,
-      nikAm: am?.nik || row.nik,
-      reportDate: row.reportDate || null,
-      snapshotDate: snapshotDateFull || new Date().toISOString().slice(0, 10),
+      lopid: safeStr(row.lopid)!,
+      judulProyek: safeStr(row.judulProyek) || "",
+      pelanggan: safeStr(row.pelanggan) || "",
+      nilaiProyek: typeof row.nilaiProyek === "number" ? row.nilaiProyek : 0,
+      divisi: safeStr(row.divisi) || safeStr(am?.divisi) || "DPS",
+      segmen: safeStr(row.segmen),
+      witel: safeStr(row.witel),
+      statusF: safeStr(row.statusF),
+      proses: safeStr(row.proses),
+      statusProyek: safeStr(row.statusProyek),
+      kategoriKontrak: safeStr(row.kategoriKontrak),
+      estimateBulan: safeStr(row.estimateBulan),
+      namaAm: safeStr(am?.nama) || safeStr(row.namaAm) || "",
+      nikAm: safeStr(am?.nik) || safeStr(row.nik),
+      reportDate: safeStr(row.reportDate),
+      snapshotDate: snapshotStr,
     };
   }).filter((r: any) => r.lopid);
 
-  const [importRecord] = await db.insert(dataImportsTable).values({
-    type: "funnel", sourceUrl, period: period || new Date().toISOString().slice(0, 7),
-    rowsImported: toInsert.length, snapshotDate: snapshotDateFull,
-  }).returning();
-
-  for (const row of toInsert) {
-    await db.insert(salesFunnelTable).values({ ...row, importId: importRecord.id })
-      .onConflictDoUpdate({ target: [salesFunnelTable.lopid], set: { ...row, importId: importRecord.id } });
-    if (row.pelanggan) {
-      await db.insert(masterCustomerTable).values({ nama: row.pelanggan, divisi: row.divisi })
-        .onConflictDoNothing();
+  // Delete any existing rows for these lopids (drive re-sync overwrites by lopid)
+  const existingLopids = toInsert.map(r => r.lopid);
+  if (existingLopids.length > 0) {
+    for (let i = 0; i < existingLopids.length; i += 200) {
+      const batch = existingLopids.slice(i, i + 200);
+      await db.delete(salesFunnelTable).where(sql`lopid = ANY(ARRAY[${sql.join(batch.map(id => sql`${id}`), sql`, `)}])`);
     }
   }
-  return { imported: toInsert.length, importId: importRecord.id, period };
+
+  const [importRecord] = await db.insert(dataImportsTable).values({
+    type: "funnel", sourceUrl, period: periodStr,
+    rowsImported: toInsert.length, snapshotDate: snapshotStr,
+  }).returning();
+
+  const BATCH = 200;
+  for (let i = 0; i < toInsert.length; i += BATCH) {
+    const batch = toInsert.slice(i, i + BATCH).map(row => ({ ...row, importId: importRecord.id }));
+    await db.insert(salesFunnelTable).values(batch).onConflictDoNothing();
+  }
+
+  // Auto-populate master_customer
+  const uniqueCustomers = [...new Set(toInsert.map(r => r.pelanggan).filter(p => p && p !== "–"))];
+  for (let i = 0; i < uniqueCustomers.length; i += 100) {
+    await db.insert(masterCustomerTable)
+      .values(uniqueCustomers.slice(i, i + 100).map(nama => ({ nama, witel: "SURAMADU" })))
+      .onConflictDoNothing();
+  }
+
+  return { imported: toInsert.length, importId: importRecord.id, period: periodStr };
 }
 
 async function importActivityRows(rows: any[], sourceUrl: string, period: string | null, snapshotDateFull: string, fileName: string) {

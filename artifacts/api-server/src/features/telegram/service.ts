@@ -250,8 +250,12 @@ async function buildFunnelMessage(nik: string): Promise<string | null> {
 
   if (funnelImports.length === 0) return null;
 
-  // All LOPs for this AM across all snapshots
-  const allLops = await db.select().from(salesFunnelTable).where(eq(salesFunnelTable.nikAm, nik));
+  // All LOPs for this AM, then filter to current year (2026) only
+  const allLopsRaw = await db.select().from(salesFunnelTable).where(eq(salesFunnelTable.nikAm, nik));
+  const REPORT_YEAR = "2026";
+  const allLops = allLopsRaw.filter(l =>
+    (l.reportDate?.startsWith(REPORT_YEAR)) || (l.snapshotDate?.startsWith(REPORT_YEAR))
+  );
 
   const latestImport = funnelImports[0];
   const latestLops = allLops.filter(l => l.importId === latestImport.id);
@@ -337,26 +341,38 @@ async function buildFunnelMessage(nik: string): Promise<string | null> {
   msg += `📅 _Data dibandingkan dengan snapshot sebelumnya_\n`;
   msg += `_tertanggal ${snapshotDatePrev}_\n`;
 
+  const MAX_LIST = 10;
+
   if (hasStagnan) {
     // ── Kondisi A: Ada LOP stagnan ─────────────────────────────────────────
     msg += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-    msg += `⚠️ *LOP Belum Bergerak:*\n`;
+    msg += `⚠️ *LOP Belum Bergerak (${lopStagnan.length}):*\n`;
     msg += `_(status sama seperti data sebelumnya)_\n\n`;
-    for (const lop of lopStagnan) {
+    const stagnanShow = lopStagnan.slice(0, MAX_LIST);
+    const stagnanRest = lopStagnan.length - stagnanShow.length;
+    for (const lop of stagnanShow) {
       msg += `• *${lop.lopid}* — ${lop.pelanggan}\n`;
       msg += `  Status masih *${lop.status}* sejak snapshot sebelumnya\n`;
+    }
+    if (stagnanRest > 0) {
+      msg += `_...dan ${stagnanRest} LOP lainnya belum bergerak (lihat detail)_\n`;
     }
     msg += `\n`;
     const motivation = await generateFunnelMotivation(am.nama, lopStagnan.length, false);
     msg += `_${motivation}_\n`;
 
     msg += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-    msg += `✅ *LOP yang Sudah Bergerak:*\n`;
+    msg += `✅ *LOP yang Sudah Bergerak (${lopBergerak.length}):*\n`;
     msg += `_(ada perubahan status dibanding data sebelumnya)_\n\n`;
     if (lopBergerak.length > 0) {
-      for (const lop of lopBergerak) {
+      const bergerakShow = lopBergerak.slice(0, MAX_LIST);
+      const bergerakRest = lopBergerak.length - bergerakShow.length;
+      for (const lop of bergerakShow) {
         msg += `• *${lop.lopid}* — ${lop.pelanggan}\n`;
         msg += `  ${lop.statusLama} → *${lop.statusBaru}* 🎯\n`;
+      }
+      if (bergerakRest > 0) {
+        msg += `_...dan ${bergerakRest} LOP lainnya (lihat detail)_\n`;
       }
     } else {
       msg += `_Belum ada pergerakan status pada periode ini._\n`;
@@ -367,11 +383,16 @@ async function buildFunnelMessage(nik: string): Promise<string | null> {
     msg += `🎉 *LOP Bergerak Semua — Keren!*\n\n`;
     const motivation = await generateFunnelMotivation(am.nama, 0, true);
     msg += `_${motivation}_\n\n`;
-    msg += `✅ *Perubahan Status LOP:*\n\n`;
+    msg += `✅ *Perubahan Status LOP (${lopBergerak.length}):*\n\n`;
     if (lopBergerak.length > 0) {
-      for (const lop of lopBergerak) {
+      const bergerakShow = lopBergerak.slice(0, MAX_LIST);
+      const bergerakRest = lopBergerak.length - bergerakShow.length;
+      for (const lop of bergerakShow) {
         msg += `• *${lop.lopid}* — ${lop.pelanggan}\n`;
         msg += `  ${lop.statusLama} → *${lop.statusBaru}* 🎯\n`;
+      }
+      if (bergerakRest > 0) {
+        msg += `_...dan ${bergerakRest} LOP lainnya (lihat detail)_\n`;
       }
     } else {
       msg += `_Belum ada pergerakan status pada periode ini._\n`;
@@ -381,6 +402,12 @@ async function buildFunnelMessage(nik: string): Promise<string | null> {
   msg += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
   msg += `📎 Detail lengkap:\n`;
   msg += getFunnelDetailUrl();
+
+  // Hard safety cap: Telegram max is 4096 chars
+  if (msg.length > 4000) {
+    const footer = `\n\n_[Pesan terpotong] Detail lengkap:\n${getFunnelDetailUrl()}_`;
+    msg = msg.slice(0, 4000 - footer.length) + footer;
+  }
 
   return msg;
 }

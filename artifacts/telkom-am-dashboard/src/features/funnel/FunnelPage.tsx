@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { cn, formatRupiah, formatRupiahFull } from "@/shared/lib/utils";
-import { ChevronRight, ChevronDown, Search, X, TrendingUp, TrendingDown, Minimize2, Expand } from "lucide-react";
+import { ChevronRight, ChevronDown, Search, X, TrendingUp, TrendingDown, Minimize2, Expand, Columns2, AlignJustify } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -589,6 +589,7 @@ export default function FunnelPage() {
   const [expandedPhase, setExpandedPhase] = useState<Record<string, boolean>>({});
   const [allExpanded, setAllExpanded] = useState(false);
   const [filterTarget, setFilterTarget] = useState<"ho" | "fullho">("fullho");
+  const [viewMode, setViewMode] = useState<"all" | "split">("all");
 
   const { data: snapshots = [] } = useQuery<FunnelSnapshot[]>({
     queryKey: ["funnel-snapshots"],
@@ -730,6 +731,29 @@ export default function FunnelPage() {
     });
   }, [filteredLops]);
 
+  // ── Split-mode per-divisi stats ──────────────────────────────────────────────
+  const dpsGrouped = useMemo(() => groupedByAm.filter(am => am.divisi === "DPS"), [groupedByAm]);
+  const dssGrouped = useMemo(() => groupedByAm.filter(am => am.divisi === "DSS"), [groupedByAm]);
+
+  function computeDivisiStats(divisiKey: string) {
+    const lops = filteredLops.filter(l => l.divisi === divisiKey);
+    const byStatusMap: Record<string, { status: string; count: number; totalNilai: number }> = {};
+    for (const l of lops) {
+      const s = l.statusF || "Unknown";
+      if (!byStatusMap[s]) byStatusMap[s] = { status: s, count: 0, totalNilai: 0 };
+      byStatusMap[s].count++;
+      byStatusMap[s].totalNilai += l.nilaiProyek || 0;
+    }
+    return {
+      totalLop: lops.length,
+      totalNilai: lops.reduce((s, l) => s + (l.nilaiProyek || 0), 0),
+      pelangganCount: new Set(lops.map(l => l.pelanggan).filter(Boolean)).size,
+      byStatus: Object.values(byStatusMap),
+    };
+  }
+  const dpsStats = useMemo(() => computeDivisiStats("DPS"), [filteredLops]);
+  const dssStats = useMemo(() => computeDivisiStats("DSS"), [filteredLops]);
+
   const lastAutoExpandId = useRef<number | null>(undefined as any);
   useEffect(() => {
     if (groupedByAm.length === 0) return;
@@ -771,6 +795,110 @@ export default function FunnelPage() {
     } else { setExpandedAm({}); setExpandedPhase({}); }
   }
 
+  // ── Reusable AM tbody renderer (used in all-mode and split-mode) ─────────────
+  function renderAmTbodyContent(ams: typeof groupedByAm, emptyMsg?: string) {
+    if (isLoading) return <tr><td colSpan={5} className="text-center py-12 text-muted-foreground text-sm">Memuat data...</td></tr>;
+    if (ams.length === 0) return <tr><td colSpan={5} className="text-center py-12 text-muted-foreground text-sm">{emptyMsg ?? "Belum ada data"}</td></tr>;
+    return <>{ams.map(am => {
+      const amKey = am.nikAm || am.namaAm;
+      const amExpanded = !!expandedAm[amKey];
+      const amTotal = Array.from(am.phases.values()).flat().reduce((s, l) => s + (l.nilaiProyek || 0), 0);
+      const amLopCount = Array.from(am.phases.values()).flat().length;
+      const orderedPhases = [...PHASES.filter(p => am.phases.has(p)), ...Array.from(am.phases.keys()).filter(p => !PHASES.includes(p))];
+      const ring = amExpanded ? "#94a3b8" : undefined;
+      const ringStyle = (extra?: React.CSSProperties): React.CSSProperties =>
+        ring ? { borderLeft: `2px solid ${ring}`, borderRight: `2px solid ${ring}`, ...extra } : {};
+      return (
+        <React.Fragment key={amKey}>
+          <tr className="cursor-pointer select-none bg-card hover:bg-secondary/30 transition-colors"
+            style={ring ? { borderTop: `2px solid ${ring}`, borderLeft: `2px solid ${ring}`, borderRight: `2px solid ${ring}`, borderBottom: amExpanded ? "none" : `2px solid ${ring}` } : { borderTop: "2px solid transparent" }}
+            onClick={() => toggleAmRow(amKey)}>
+            <td className="px-4 py-3">
+              <div className="flex items-center gap-2">
+                <ChevronRight className={cn("w-4 h-4 text-muted-foreground transition-transform shrink-0", amExpanded && "rotate-90")} />
+                <span className="font-black text-foreground text-sm uppercase tracking-wide">{am.namaAm}</span>
+                <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0", am.divisi === "DPS" ? "bg-blue-100 text-blue-700" : "bg-violet-100 text-violet-700")}>{am.divisi}</span>
+                <button type="button" onClick={e => { e.stopPropagation(); handleAmExpandIcon(amKey, orderedPhases); }}
+                  className="ml-1 p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors shrink-0"
+                  title={amExpanded ? "Collapse semua proyek" : "Expand semua proyek"}>
+                  {amExpanded ? <Minimize2 className="w-3 h-3" /> : <Expand className="w-3 h-3" />}
+                </button>
+              </div>
+            </td>
+            <td className="px-3 py-3" colSpan={amExpanded ? 4 : 3}>
+              <span className="text-xs font-black text-foreground tracking-wide">TOTAL {amLopCount} LOP</span>
+            </td>
+            {!amExpanded && (
+              <td className="px-4 py-3 text-right whitespace-nowrap">
+                <span className="font-black text-foreground tabular-nums text-sm whitespace-nowrap">{formatRupiahFull(amTotal)}</span>
+              </td>
+            )}
+          </tr>
+          {amExpanded && orderedPhases.map((phase) => {
+            const lops = am.phases.get(phase) || [];
+            const phaseKey = `${amKey}|${phase}`;
+            const phaseExpanded = !!expandedPhase[phaseKey];
+            const phaseTotal = lops.reduce((s, l) => s + (l.nilaiProyek || 0), 0);
+            const c = PHASE_COLORS[phase];
+            return (
+              <React.Fragment key={phaseKey}>
+                <tr className="cursor-pointer select-none hover:brightness-95 transition-all"
+                  style={{ background: "rgba(253,242,248,0.75)", borderLeft: `4px solid ${c?.bar || "#94a3b8"}`, ...ringStyle({}) }}
+                  onClick={() => togglePhaseRow(phaseKey)}>
+                  <td className="px-4 py-2.5 pl-10">
+                    <div className="flex items-center gap-2">
+                      <ChevronRight className={cn("w-3.5 h-3.5 text-slate-500 transition-transform shrink-0", phaseExpanded && "rotate-90")} />
+                      <span className="text-sm font-black uppercase tracking-wide" style={{ color: c?.text }}>DAFTAR PROYEK {phase}</span>
+                      <span className="text-xs font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full">{lops.length} proyek</span>
+                    </div>
+                  </td>
+                  {phaseExpanded
+                    ? <td colSpan={4} className="px-3 py-2.5" />
+                    : <>
+                        <td colSpan={3} className="px-3 py-2.5" />
+                        <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                          <span className="text-sm font-black text-foreground tabular-nums whitespace-nowrap">{formatRupiahFull(phaseTotal)}</span>
+                        </td>
+                      </>
+                  }
+                </tr>
+                {phaseExpanded && (
+                  <>
+                    {lops.map((lop, idx) => (
+                      <tr key={`${lop.lopid}-${idx}`} className="hover:bg-pink-50 transition-colors" style={ringStyle({})}>
+                        <td className="px-4 py-2 pl-16">
+                          <div className="text-sm text-foreground font-bold leading-tight line-clamp-2 max-w-[280px]" title={lop.judulProyek}>{lop.judulProyek}</div>
+                        </td>
+                        <td className="px-3 py-2"><KontrakBadge k={lop.kategoriKontrak} /></td>
+                        <td className="px-3 py-2 font-mono text-xs text-foreground whitespace-nowrap">{lop.lopid}</td>
+                        <td className="px-3 py-2 text-sm text-foreground font-bold max-w-[220px] truncate" title={lop.pelanggan}>{lop.pelanggan}</td>
+                        <td className="px-4 py-2 text-right tabular-nums text-base font-black text-foreground whitespace-nowrap">{formatRupiahFull(lop.nilaiProyek)}</td>
+                      </tr>
+                    ))}
+                    <tr className="bg-red-50 border-t border-red-200" style={ringStyle({})}>
+                      <td colSpan={4} className="px-4 py-2 pl-16">
+                        <span className="text-sm font-black text-red-800 uppercase tracking-wide">Total Nilai {phase}</span>
+                      </td>
+                      <td className="px-4 py-2 text-right tabular-nums font-black text-red-800 whitespace-nowrap text-base">{formatRupiahFull(phaseTotal)}</td>
+                    </tr>
+                  </>
+                )}
+              </React.Fragment>
+            );
+          })}
+          {amExpanded && (
+            <tr className="bg-slate-100 border-t-2 border-slate-300" style={ring ? { borderLeft: `2px solid ${ring}`, borderRight: `2px solid ${ring}`, borderBottom: `2px solid ${ring}` } : {}}>
+              <td colSpan={4} className="px-4 py-2.5 pl-10">
+                <span className="text-sm font-black text-red-700 uppercase tracking-wide">Total Nilai Proyek — {am.namaAm}</span>
+              </td>
+              <td className="px-4 py-2.5 text-right tabular-nums font-black text-red-700 whitespace-nowrap text-lg">{formatRupiahFull(amTotal)}</td>
+            </tr>
+          )}
+        </React.Fragment>
+      );
+    })}</>;
+  }
+
   const hasActiveFilter = filterStatus.size > 0 || filterDivisi !== "all" || filterMonths.size > 0 || filterKontrak.size > 0;
   const hasDetailFilter = filterAm.size > 0;
 
@@ -808,6 +936,40 @@ export default function FunnelPage() {
           <SelectDropdown label="Target" value={filterTarget} onChange={v => setFilterTarget(v as "ho" | "fullho")}
             options={[{ value: "fullho", label: "Target Full HO" }, { value: "ho", label: "Target HO" }]}
             className="w-32 shrink-0" />
+          <div className="w-px h-9 bg-border self-end shrink-0" />
+
+          {/* View Mode Toggle */}
+          <div className="flex flex-col gap-1 shrink-0">
+            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Tampilan</label>
+            <div className="flex border border-border rounded-lg overflow-hidden h-9">
+              <button
+                type="button"
+                onClick={() => setViewMode("all")}
+                title="Semua Divisi"
+                className={cn(
+                  "flex items-center gap-1.5 px-3 text-xs font-semibold transition-colors whitespace-nowrap",
+                  viewMode === "all"
+                    ? "bg-red-700 text-white"
+                    : "bg-background text-muted-foreground hover:text-foreground"
+                )}>
+                <AlignJustify className="w-3.5 h-3.5" /> Semua
+              </button>
+              <div className="w-px bg-border" />
+              <button
+                type="button"
+                onClick={() => setViewMode("split")}
+                title="Per Divisi (DPS | DSS)"
+                className={cn(
+                  "flex items-center gap-1.5 px-3 text-xs font-semibold transition-colors whitespace-nowrap",
+                  viewMode === "split"
+                    ? "bg-red-700 text-white"
+                    : "bg-background text-muted-foreground hover:text-foreground"
+                )}>
+                <Columns2 className="w-3.5 h-3.5" /> Per Divisi
+              </button>
+            </div>
+          </div>
+
           {hasActiveFilter && (
             <div className="flex flex-col gap-1 shrink-0">
               <label className="text-[10px] font-bold text-transparent uppercase">.</label>
@@ -823,8 +985,8 @@ export default function FunnelPage() {
         </div>
       </div>
 
-      {/* Overview Cards */}
-      {isLoading ? (
+      {/* ── Content Area ─────────────────────────────────────────────────────── */}
+      {viewMode !== "split" && (isLoading ? (
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {[0,1].map(i => <div key={i} className="bg-card border border-border rounded-xl h-52 animate-pulse" />)}
@@ -847,10 +1009,10 @@ export default function FunnelPage() {
           </div>
           <KpiGrid data={data ? { ...data, totalLop: periodStats.totalLop, totalNilai: periodStats.totalNilai, pelangganCount: periodStats.pelangganCount } : undefined} />
         </div>
-      )}
+      ))}
 
-      {/* Detail Table */}
-      <div className="bg-card border border-border rounded-xl shadow-sm">
+      {/* Detail Table — hanya di "all" mode */}
+      {viewMode !== "split" && <div className="bg-card border border-border rounded-xl shadow-sm">
         <div className="px-4 py-3 border-b border-border bg-secondary/30 flex items-center justify-between gap-3 flex-wrap">
           <h3 className="text-sm font-display font-semibold text-foreground flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-primary" />
@@ -894,142 +1056,97 @@ export default function FunnelPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border/50">
-              {isLoading ? (
-                <tr><td colSpan={5} className="text-center py-16 text-muted-foreground text-sm">Memuat data...</td></tr>
-              ) : groupedByAm.length === 0 ? (
-                <tr><td colSpan={5} className="text-center py-16 text-muted-foreground text-sm">
-                  {search || hasActiveFilter || hasDetailFilter ? "Tidak ada data yang cocok dengan filter" : "Belum ada data funnel"}
-                </td></tr>
-              ) : groupedByAm.map(am => {
-                const amKey = am.nikAm || am.namaAm;
-                const amExpanded = !!expandedAm[amKey];
-                const amTotal = Array.from(am.phases.values()).flat().reduce((s, l) => s + (l.nilaiProyek || 0), 0);
-                const amLopCount = Array.from(am.phases.values()).flat().length;
-                const orderedPhases = [...PHASES.filter(p => am.phases.has(p)), ...Array.from(am.phases.keys()).filter(p => !PHASES.includes(p))];
-
-                const ring = amExpanded ? "#94a3b8" : undefined;
-                const ringStyle = (extra?: React.CSSProperties): React.CSSProperties =>
-                  ring ? { borderLeft: `2px solid ${ring}`, borderRight: `2px solid ${ring}`, ...extra } : {};
-
-                return (
-                  <React.Fragment key={amKey}>
-                    {/* AM Row */}
-                    <tr
-                      className="cursor-pointer select-none bg-card hover:bg-secondary/30 transition-colors"
-                      style={ring ? { borderTop: `2px solid ${ring}`, borderLeft: `2px solid ${ring}`, borderRight: `2px solid ${ring}`, borderBottom: amExpanded ? "none" : `2px solid ${ring}` } : { borderTop: "2px solid transparent" }}
-                      onClick={() => toggleAmRow(amKey)}
-                    >
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <ChevronRight className={cn("w-4 h-4 text-muted-foreground transition-transform shrink-0", amExpanded && "rotate-90")} />
-                          <span className="font-black text-foreground text-sm uppercase tracking-wide">{am.namaAm}</span>
-                          <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0", am.divisi === "DPS" ? "bg-blue-100 text-blue-700" : "bg-violet-100 text-violet-700")}>
-                            {am.divisi}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={e => { e.stopPropagation(); handleAmExpandIcon(amKey, orderedPhases); }}
-                            className="ml-1 p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors shrink-0"
-                            title={amExpanded ? "Collapse semua proyek" : "Expand semua proyek"}
-                          >
-                            {amExpanded ? <Minimize2 className="w-3 h-3" /> : <Expand className="w-3 h-3" />}
-                          </button>
-                        </div>
-                      </td>
-                      <td className="px-3 py-3" colSpan={amExpanded ? 4 : 3}>
-                        <span className="text-xs font-black text-foreground tracking-wide">TOTAL {amLopCount} LOP</span>
-                      </td>
-                      {!amExpanded && (
-                        <td className="px-4 py-3 text-right whitespace-nowrap">
-                          <span className="font-black text-foreground tabular-nums text-sm whitespace-nowrap">{formatRupiahFull(amTotal)}</span>
-                        </td>
-                      )}
-                    </tr>
-
-                    {amExpanded && orderedPhases.map((phase) => {
-                      const lops = am.phases.get(phase) || [];
-                      const phaseKey = `${amKey}|${phase}`;
-                      const phaseExpanded = !!expandedPhase[phaseKey];
-                      const phaseTotal = lops.reduce((s, l) => s + (l.nilaiProyek || 0), 0);
-                      const c = PHASE_COLORS[phase];
-
-                      return (
-                        <React.Fragment key={phaseKey}>
-                          {/* Phase Row */}
-                          <tr
-                            className="cursor-pointer select-none hover:brightness-95 transition-all"
-                            style={{ background: "rgba(253,242,248,0.75)", borderLeft: `4px solid ${c?.bar || "#94a3b8"}`, ...ringStyle({}) }}
-                            onClick={() => togglePhaseRow(phaseKey)}
-                          >
-                            <td className="px-4 py-2.5 pl-10">
-                              <div className="flex items-center gap-2">
-                                <ChevronRight className={cn("w-3.5 h-3.5 text-slate-500 transition-transform shrink-0", phaseExpanded && "rotate-90")} />
-                                <span className="text-sm font-black uppercase tracking-wide" style={{ color: c?.text }}>DAFTAR PROYEK {phase}</span>
-                                <span className="text-xs font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full">{lops.length} proyek</span>
-                              </div>
-                            </td>
-                            {phaseExpanded
-                              ? <td colSpan={4} className="px-3 py-2.5" />
-                              : <>
-                                  <td colSpan={3} className="px-3 py-2.5" />
-                                  <td className="px-4 py-2.5 text-right whitespace-nowrap">
-                                    <span className="text-sm font-black text-foreground tabular-nums whitespace-nowrap">{formatRupiahFull(phaseTotal)}</span>
-                                  </td>
-                                </>
-                            }
-                          </tr>
-
-                          {phaseExpanded && (
-                            <>
-                              {lops.map((lop, idx) => (
-                                <tr key={`${lop.lopid}-${idx}`} className="hover:bg-pink-50 transition-colors"
-                                  style={ringStyle({})}>
-                                  <td className="px-4 py-2 pl-16">
-                                    <div className="text-sm text-foreground font-bold leading-tight line-clamp-2 max-w-[280px]" title={lop.judulProyek}>
-                                      {lop.judulProyek}
-                                    </div>
-                                  </td>
-                                  <td className="px-3 py-2"><KontrakBadge k={lop.kategoriKontrak} /></td>
-                                  <td className="px-3 py-2 font-mono text-xs text-foreground whitespace-nowrap">{lop.lopid}</td>
-                                  <td className="px-3 py-2 text-sm text-foreground font-bold max-w-[220px] truncate" title={lop.pelanggan}>{lop.pelanggan}</td>
-                                  <td className="px-4 py-2 text-right tabular-nums text-base font-black text-foreground whitespace-nowrap">{formatRupiahFull(lop.nilaiProyek)}</td>
-                                </tr>
-                              ))}
-                              {/* Phase total row — shown below all LOPs */}
-                              <tr className="bg-red-50 border-t border-red-200" style={ringStyle({})}>
-                                <td colSpan={4} className="px-4 py-2 pl-16">
-                                  <span className="text-sm font-black text-red-800 uppercase tracking-wide">Total Nilai {phase}</span>
-                                </td>
-                                <td className="px-4 py-2 text-right tabular-nums font-black text-red-800 whitespace-nowrap text-base">
-                                  {formatRupiahFull(phaseTotal)}
-                                </td>
-                              </tr>
-                            </>
-                          )}
-                        </React.Fragment>
-                      );
-                    })}
-
-                    {/* AM total row — shown below all phases when expanded */}
-                    {amExpanded && (
-                      <tr className="bg-slate-100 border-t-2 border-slate-300" style={ring ? { borderLeft: `2px solid ${ring}`, borderRight: `2px solid ${ring}`, borderBottom: `2px solid ${ring}` } : {}}>
-                        <td colSpan={4} className="px-4 py-2.5 pl-10">
-                          <span className="text-sm font-black text-red-700 uppercase tracking-wide">Total Nilai Proyek — {am.namaAm}</span>
-                        </td>
-                        <td className="px-4 py-2.5 text-right tabular-nums font-black text-red-700 whitespace-nowrap text-lg">
-                          {formatRupiahFull(amTotal)}
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
-                );
-              })}
+              {renderAmTbodyContent(groupedByAm, search || hasActiveFilter || hasDetailFilter ? "Tidak ada data yang cocok dengan filter" : "Belum ada data funnel")}
             </tbody>
           </table>
           </div>
           </div>
         </div>
-      </div>
+      </div>}
+
+      {/* ── SPLIT MODE: DPS | DSS per-divisi panels ─────────────────────────── */}
+      {viewMode === "split" && (
+        <div className="grid grid-cols-2 gap-4">
+          {(["DPS", "DSS"] as const).map(div => {
+            const st = div === "DPS" ? dpsStats : dssStats;
+            const grp = div === "DPS" ? dpsGrouped : dssGrouped;
+            const isDps = div === "DPS";
+            const accent = isDps ? "#3b82f6" : "#10b981";
+            const headerBg = isDps ? "bg-blue-700" : "bg-emerald-700";
+            const textAccent = isDps ? "text-blue-700" : "text-emerald-700";
+            const bgAccent = isDps ? "bg-blue-50/60" : "bg-emerald-50/60";
+            const borderTop = isDps ? "border-t-[3px] border-blue-500" : "border-t-[3px] border-emerald-500";
+            return (
+              <div key={div} className={`bg-card border border-border rounded-xl shadow-sm overflow-hidden ${borderTop}`}>
+                {/* Panel Header */}
+                <div className={`px-4 py-3 border-b border-border ${bgAccent} flex items-center justify-between gap-3 flex-wrap`}>
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-3 h-3 rounded-full shadow-sm" style={{ background: accent }} />
+                    <span className={`text-base font-black uppercase tracking-wide ${textAccent}`}>{div}</span>
+                    <span className="text-xs text-muted-foreground font-medium">{isDps ? "Enterprise Service" : "Solution & System"}</span>
+                  </div>
+                  <div className="flex items-center gap-5">
+                    <div className="text-right">
+                      <div className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">Total LOP</div>
+                      <div className={`text-2xl font-black tabular-nums leading-tight ${textAccent}`}>{st.totalLop}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">Total Nilai</div>
+                      <div className={`text-sm font-black tabular-nums ${textAccent}`}>{formatRupiah(st.totalNilai)}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">Pelanggan</div>
+                      <div className="text-sm font-black tabular-nums text-foreground">{st.pelangganCount}</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Phase Bar Chart */}
+                <div className="px-4 py-3 border-b border-border">
+                  <FaseBarChart data={data ? { ...data, byStatus: st.byStatus } : undefined} />
+                </div>
+
+                {/* Table Toolbar */}
+                <div className="px-3 py-2 border-b border-border bg-secondary/20 flex items-center justify-between gap-2">
+                  <span className="text-xs font-semibold text-muted-foreground">{grp.length} AM</span>
+                  <div className="flex items-center gap-2">
+                    <div className="relative">
+                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
+                      <input type="text" placeholder="Cari…" value={search} onChange={e => setSearch(e.target.value)}
+                        className="pl-6 pr-5 py-1 text-xs bg-background border border-border rounded-md w-36 focus:outline-none focus:ring-1 focus:ring-primary/40 placeholder:text-muted-foreground/60" />
+                      {search && <button onClick={() => setSearch("")} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"><X className="w-3 h-3" /></button>}
+                    </div>
+                    <button onClick={handleToggleAll}
+                      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground border border-border rounded-md px-2.5 py-1 transition-colors whitespace-nowrap">
+                      {allExpanded ? <Minimize2 className="w-3 h-3" /> : <Expand className="w-3 h-3" />}
+                      {allExpanded ? "Collapse" : "Expand"} Semua
+                    </button>
+                  </div>
+                </div>
+
+                {/* AM Tree Table */}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm border-collapse">
+                    <thead>
+                      <tr className={`${headerBg} text-white font-black uppercase tracking-wide text-xs`}>
+                        <th className="px-4 py-2.5 min-w-[200px]">AM / Fase / Proyek</th>
+                        <th className="px-3 py-2.5 whitespace-nowrap w-20">KATEGORI</th>
+                        <th className="px-3 py-2.5 font-mono whitespace-nowrap w-20">LOP ID</th>
+                        <th className="px-3 py-2.5 min-w-[140px]">Pelanggan</th>
+                        <th className="px-4 py-2.5 text-right whitespace-nowrap min-w-[140px]">Nilai Proyek</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/50">
+                      {renderAmTbodyContent(grp, `Tidak ada AM ${div}`)}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
     </div>
   );
 }

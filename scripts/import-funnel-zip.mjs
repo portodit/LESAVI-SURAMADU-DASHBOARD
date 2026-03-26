@@ -241,17 +241,17 @@ async function main() {
   for (let i = 0; i < activeOnly.length; i += BATCH) {
     const batch = activeOnly.slice(i, i + BATCH);
     const values = batch.map((r, idx) => {
-      const base = idx * 16;
-      return `($${base+1},$${base+2},$${base+3},$${base+4},$${base+5},$${base+6},$${base+7},$${base+8},$${base+9},$${base+10},$${base+11},$${base+12},$${base+13},$${base+14},$${base+15},$${base+16})`;
+      const base = idx * 17;
+      return `($${base+1},$${base+2},$${base+3},$${base+4},$${base+5},$${base+6},$${base+7},$${base+8},$${base+9},$${base+10},$${base+11},$${base+12},$${base+13},$${base+14},$${base+15},$${base+16},$${base+17})`;
     }).join(",");
     const params = batch.flatMap(r => [
       r.lopid, r.judulProyek, r.pelanggan, r.nilaiProyek, r.divisi, r.segmen,
       r.witel, r.statusF, r.proses, r.statusProyek, r.kategoriKontrak,
       r.estimateBulan || null, r.namaAm, r.nikAm, r.reportDate || null,
-      r.createdDate || null,
+      r.createdDate || null, imp.id,
     ]);
     await pool.query(
-      `INSERT INTO sales_funnel (lopid, judul_proyek, pelanggan, nilai_proyek, divisi, segmen, witel, status_f, proses, status_proyek, kategori_kontrak, estimate_bulan, nama_am, nik_am, report_date, created_date) VALUES ${values}`,
+      `INSERT INTO sales_funnel (lopid, judul_proyek, pelanggan, nilai_proyek, divisi, segmen, witel, status_f, proses, status_proyek, kategori_kontrak, estimate_bulan, nama_am, nik_am, report_date, created_date, import_id) VALUES ${values}`,
       params
     );
     inserted += batch.length;

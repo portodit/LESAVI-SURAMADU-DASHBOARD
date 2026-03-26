@@ -203,13 +203,22 @@ async function importFunnelRows(rows: any[], sourceUrl: string, period: string |
   const toInsert = cleaned.map((row: any) => {
     const am = findAm(row.nik, row.namaAm);
     return {
-      lopid: row.lopid, judulProyek: row.judulProyek, pelanggan: row.pelanggan,
-      nilaiProyek: row.nilaiProyek, status: row.status, kategoriKontrak: row.kategoriKontrak,
-      namaAm: am?.nama || row.namaAm, nikAm: am?.nik || row.nik,
-      amSlug: am?.slug || slugMap[row.nik] || slugify(row.namaAm),
-      divisi: am?.divisi || null,
-      reportDate: row.reportDate ? new Date(row.reportDate) : null,
+      lopid: row.lopid,
+      judulProyek: row.judulProyek,
+      pelanggan: row.pelanggan,
+      nilaiProyek: row.nilaiProyek,
+      divisi: row.divisi || am?.divisi || "DPS",
+      segmen: row.segmen || null,
+      witel: row.witel || null,
+      statusF: row.statusF || null,
+      proses: row.proses || null,
+      statusProyek: row.statusProyek || null,
+      kategoriKontrak: row.kategoriKontrak || null,
       estimateBulan: row.estimateBulan || null,
+      namaAm: am?.nama || row.namaAm,
+      nikAm: am?.nik || row.nik,
+      reportDate: row.reportDate || null,
+      snapshotDate: snapshotDate || new Date().toISOString().slice(0, 10),
     };
   }).filter((r: any) => r.lopid);
 

@@ -152,9 +152,13 @@ export default function ImportData() {
   const [driveSyncResult, setDriveSyncResult] = useState<Record<string, any>>({});
 
   // Google Sheets sync state
-  const [gsForm, setGsForm] = useState({
+  const [gsForm, setGsForm] = useState<{
+    spreadsheetId: string; apiKey: string; funnelPattern: string;
+    syncEnabled: boolean; syncHourWib: number; syncIntervalDays: number;
+    _mode: "sheets" | "drive";
+  }>({
     spreadsheetId: "", apiKey: "", funnelPattern: "TREG3_SALES_FUNNEL_",
-    syncEnabled: false, syncHourWib: 6, syncIntervalDays: 1,
+    syncEnabled: false, syncHourWib: 6, syncIntervalDays: 1, _mode: "sheets",
   });
   const [gsSaving, setGsSaving] = useState(false);
   const [gsSyncing, setGsSyncing] = useState(false);
@@ -178,6 +182,7 @@ export default function ImportData() {
   });
   useEffect(() => {
     if (!appSettings) return;
+    const hasDriveFolders = !!(appSettings.gDriveFolderFunnel || appSettings.gDriveFolderPerformance || appSettings.gDriveFolderActivity);
     setGsForm(p => ({
       spreadsheetId: appSettings.gSheetsSpreadsheetId || "",
       apiKey: appSettings.gSheetsApiKey?.startsWith("***") ? p.apiKey : (appSettings.gSheetsApiKey || ""),
@@ -185,6 +190,7 @@ export default function ImportData() {
       syncEnabled: appSettings.gSheetsSyncEnabled ?? false,
       syncHourWib: appSettings.gSheetsSyncHourWib ?? 6,
       syncIntervalDays: appSettings.gSheetsSyncIntervalDays ?? 1,
+      _mode: p._mode === "drive" ? "drive" : (hasDriveFolders ? "drive" : "sheets"),
     }));
     setDriveForm({
       folderPerformance: appSettings.gDriveFolderPerformance || "",
@@ -1177,333 +1183,433 @@ export default function ImportData() {
       {/* Google Sheets Tab */}
       {activeTab === "gsheets" && (
         <div className="space-y-4">
-          {/* Config Card */}
+
+          {/* ── Step 0: Google API Key (shared) ─────────────────────────────── */}
           <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
             <div className="px-6 py-4 border-b border-border flex items-center gap-3">
-              <Sheet className="w-5 h-5 text-emerald-600" />
-              <div>
-                <h2 className="font-display font-bold text-sm text-foreground">Konfigurasi Google Sheets Sync</h2>
-                <p className="text-[11px] text-muted-foreground mt-0.5">Auto-import snapshot Performa AM, Sales Funnel, &amp; Sales Activity dari Google Sheets berdasarkan nama tab sheet</p>
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <span className="text-xs font-black text-primary">1</span>
               </div>
-              {gsStatus?.syncEnabled && (
+              <div>
+                <h2 className="font-display font-bold text-sm text-foreground">Google API Key</h2>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Digunakan untuk akses Google Sheets maupun Google Drive</p>
+              </div>
+              {appSettings?.gSheetsApiKey && (
                 <span className="ml-auto text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 flex items-center gap-1.5">
-                  <Clock className="w-3 h-3" /> Jadwal Aktif
+                  <CheckCircle2 className="w-3 h-3" /> Tersimpan
                 </span>
               )}
             </div>
-            <div className="p-6 space-y-5">
-              {/* How to get API key guide */}
+            <div className="p-6 space-y-3">
               <div className="flex items-start gap-2 px-4 py-3 rounded-xl bg-blue-50 border border-blue-200 text-xs text-blue-800">
                 <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-blue-600" />
-                <div className="space-y-1">
-                  <p className="font-bold">Cara Pengaturan:</p>
-                  <ol className="list-decimal ml-4 space-y-0.5 text-blue-700">
-                    <li>Buka <strong>Google Cloud Console</strong> → APIs &amp; Services → Enable <strong>Google Sheets API</strong></li>
-                    <li>Buat <strong>API Key</strong> (Credentials → Create → API Key)</li>
-                    <li>Share spreadsheet dengan <strong>"Anyone with the link can view"</strong></li>
-                    <li>Salin <strong>URL lengkap</strong> atau hanya <strong>Spreadsheet ID</strong>-nya dari URL: <code className="font-mono bg-blue-100 px-1 rounded">...spreadsheets/d/<strong>[ID INI]</strong>/edit</code> — sistem otomatis ekstrak ID dari URL</li>
-                    <li>Nama tab sheet harus berformat: <code className="font-mono bg-blue-100 px-1 rounded">TREG3_SALES_FUNNEL_YYYYMMDD</code></li>
-                  </ol>
+                <div>
+                  Buka <strong>Google Cloud Console</strong> → APIs &amp; Services → Enable <strong>Google Sheets API</strong> + <strong>Google Drive API</strong>
+                  → Buat <strong>API Key</strong> (Credentials → Create → API Key)
                 </div>
               </div>
-
-              {/* Form */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1 md:col-span-2">
-                  <label className="text-xs font-bold text-foreground uppercase tracking-wide">Spreadsheet ID atau URL</label>
-                  <input type="text" value={gsForm.spreadsheetId} onChange={e => {
-                    const val = e.target.value.trim();
-                    const match = val.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
-                    setGsForm(p => ({ ...p, spreadsheetId: match ? match[1] : val }));
-                  }}
-                    placeholder="Paste URL atau Spreadsheet ID — contoh: 1ojCi6dbJK..."
-                    className="w-full h-9 px-3 bg-background border border-border rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/30" />
-                </div>
-                <div className="space-y-1 md:col-span-2">
-                  <label className="text-xs font-bold text-foreground uppercase tracking-wide">Google Sheets API Key</label>
+              <div className="flex gap-2 items-end">
+                <div className="flex-1 space-y-1">
+                  <label className="text-xs font-bold text-foreground uppercase tracking-wide">API Key</label>
                   <input type="password" value={gsForm.apiKey} onChange={e => setGsForm(p => ({ ...p, apiKey: e.target.value }))}
-                    placeholder={appSettings?.gSheetsApiKey?.startsWith("***") ? `Tersimpan (${appSettings.gSheetsApiKey})` : "Masukkan API Key baru"}
+                    placeholder={appSettings?.gSheetsApiKey ? `Sudah tersimpan — isi untuk mengganti` : "AIza..."}
                     className="w-full h-9 px-3 bg-background border border-border rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/30" />
                 </div>
-                <div className="space-y-1.5 md:col-span-2">
-                  <label className="text-xs font-bold text-foreground uppercase tracking-wide">Pola Sheet yang Dikenali Otomatis</label>
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      { prefix: "TREG3_SALES_FUNNEL_YYYYMMDD", label: "Sales Funnel", color: "bg-blue-100 text-blue-700 border-blue-200" },
-                      { prefix: "TREG3_ACTIVITY_YYYYMMDD", label: "Sales Activity", color: "bg-purple-100 text-purple-700 border-purple-200" },
-                      { prefix: "PERFORMANSI_YYYYMMDD", label: "Performa AM", color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
-                    ].map(p => (
-                      <span key={p.prefix} className={cn("flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full border", p.color)}>
-                        <span className="font-mono">{p.prefix}</span>
-                        <span className="opacity-60">→</span>
-                        <span>{p.label}</span>
-                      </span>
+                <Button onClick={handleSaveGsSettings} disabled={gsSaving || !gsForm.apiKey} className="gap-2 h-9">
+                  {gsSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  Simpan
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Step 2: Pilih sumber data ───────────────────────────────────── */}
+          <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
+            <div className="px-6 py-4 border-b border-border flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <span className="text-xs font-black text-primary">2</span>
+              </div>
+              <div>
+                <h2 className="font-display font-bold text-sm text-foreground">Pilih Cara Import Data</h2>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Input sekali dari Google Sheets, atau sync otomatis dari folder Google Drive</p>
+              </div>
+            </div>
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {/* Option A: Manual GSheets */}
+                <button
+                  onClick={() => setGsForm(p => ({ ...p, _mode: "sheets" as const }))}
+                  className={cn(
+                    "text-left p-4 rounded-xl border-2 transition-all space-y-2",
+                    gsForm._mode !== "drive"
+                      ? "border-primary bg-primary/5 shadow-sm"
+                      : "border-border hover:border-primary/40 hover:bg-secondary/30"
+                  )}
+                >
+                  <div className="flex items-center gap-2">
+                    <Sheet className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span className="font-bold text-sm text-foreground">Input Manual — Google Sheets</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    Paste link spreadsheet → pilih tab sheet → import data langsung. Cocok untuk import sekali atau ad-hoc.
+                  </p>
+                  <div className="flex flex-wrap gap-1 pt-1">
+                    {["Pilih sheet tertentu", "Import sekali", "Tanpa jadwal"].map(t => (
+                      <span key={t} className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">{t}</span>
                     ))}
                   </div>
-                  <p className="text-[10px] text-muted-foreground">Sheet dengan awalan di atas + tanggal (YYYYMMDD) akan otomatis terdeteksi dan diimport ke tab yang sesuai</p>
+                </button>
+
+                {/* Option B: Drive Auto-sync */}
+                <button
+                  onClick={() => setGsForm(p => ({ ...p, _mode: "drive" as const }))}
+                  className={cn(
+                    "text-left p-4 rounded-xl border-2 transition-all space-y-2",
+                    gsForm._mode === "drive"
+                      ? "border-amber-500 bg-amber-50/60 shadow-sm"
+                      : "border-border hover:border-amber-300 hover:bg-secondary/30"
+                  )}
+                >
+                  <div className="flex items-center gap-2">
+                    <FolderOpen className="w-4 h-4 text-amber-500 shrink-0" />
+                    <span className="font-bold text-sm text-foreground">Auto-sync — Google Drive Folder</span>
+                    {(appSettings?.gDriveFolderFunnel || appSettings?.gDriveFolderPerformance) && (
+                      <span className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200 shrink-0">Dikonfigurasi</span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    Tentukan folder Drive per tipe data → sistem otomatis ambil file Excel terbaru dari folder tersebut secara berkala.
+                  </p>
+                  <div className="flex flex-wrap gap-1 pt-1">
+                    {["Jadwal otomatis", "File Excel terbaru", "Per folder/tipe"].map(t => (
+                      <span key={t} className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">{t}</span>
+                    ))}
+                  </div>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Path A: Google Sheets ──────────────────────────────────────── */}
+          {gsForm._mode !== "drive" && (
+            <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
+              <div className="px-6 py-4 border-b border-border flex items-center gap-3">
+                <Sheet className="w-5 h-5 text-emerald-600" />
+                <div>
+                  <h2 className="font-display font-bold text-sm text-foreground">Import dari Google Sheets</h2>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Paste URL spreadsheet → cek daftar sheet → pilih yang ingin diimport</p>
                 </div>
               </div>
-
-              {/* Schedule settings */}
-              <div className="bg-secondary/30 border border-border rounded-xl p-4 space-y-3">
-                <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-muted-foreground" />
-                  <p className="text-xs font-bold text-foreground uppercase tracking-wide">Jadwal Otomatis</p>
+              <div className="p-6 space-y-4">
+                {/* Spreadsheet URL */}
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-foreground uppercase tracking-wide">URL atau Spreadsheet ID</label>
+                  <div className="flex gap-2">
+                    <input type="text" value={gsForm.spreadsheetId} onChange={e => {
+                      const val = e.target.value.trim();
+                      const match = val.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+                      setGsForm(p => ({ ...p, spreadsheetId: match ? match[1] : val }));
+                    }}
+                      placeholder="Paste URL Google Sheets atau Spreadsheet ID langsung..."
+                      className="flex-1 h-9 px-3 bg-background border border-border rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                    <Button variant="outline" onClick={handleSaveGsSettings} disabled={gsSaving} className="gap-1.5 h-9 text-xs shrink-0">
+                      {gsSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                      Simpan ID
+                    </Button>
+                    <Button variant="outline" onClick={handleLoadGsSheets} disabled={gsLoadingSheets || !gsForm.spreadsheetId} className="gap-1.5 h-9 text-xs shrink-0">
+                      {gsLoadingSheets ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sheet className="w-3.5 h-3.5" />}
+                      Cek Sheet
+                    </Button>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">Format sheet yang dikenali otomatis: <span className="font-mono">TREG3_SALES_FUNNEL_YYYYMMDD</span>, <span className="font-mono">TREG3_ACTIVITY_YYYYMMDD</span>, <span className="font-mono">PERFORMANSI_YYYYMMDD</span></p>
                 </div>
-                <div className="flex items-center gap-3">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <div className={cn("w-9 h-5 rounded-full transition-colors relative cursor-pointer", gsForm.syncEnabled ? "bg-emerald-500" : "bg-gray-200")}
+
+                {/* Sheet list */}
+                {gsSheets.length > 0 && (() => {
+                  const detected = gsSheets.filter((s: any) => s.detectedType);
+                  const selectedCount = gsSheets.filter((s: any) => gsSelected[s.title]).length;
+                  return (
+                    <div className="border border-border rounded-xl overflow-hidden">
+                      <div className="px-4 py-2.5 bg-secondary/40 border-b border-border flex items-center gap-2">
+                        <Sheet className="w-3.5 h-3.5 text-primary" />
+                        <p className="text-xs font-bold text-foreground">
+                          {gsSheets.length} sheet ditemukan
+                          {detected.length > 0 && <span className="ml-1 text-emerald-700">({detected.length} terdeteksi otomatis)</span>}
+                        </p>
+                        <div className="ml-auto flex items-center gap-2">
+                          <button onClick={() => {
+                            const allSel: Record<string, boolean> = {};
+                            gsSheets.forEach((s: any) => { allSel[s.title] = true; });
+                            setGsSelected(allSel);
+                          }} className="text-[11px] text-primary font-semibold hover:underline">Pilih Semua</button>
+                          <span className="text-muted-foreground text-[11px]">·</span>
+                          <button onClick={() => setGsSelected({})} className="text-[11px] text-muted-foreground font-semibold hover:underline">Batal Semua</button>
+                        </div>
+                      </div>
+                      <div className="divide-y divide-border max-h-64 overflow-y-auto">
+                        {gsSheets.map((s: any) => {
+                          const match = s.title.match(/(\d{8})$/);
+                          const dateStr = match ? `${match[1].slice(0,4)}-${match[1].slice(4,6)}-${match[1].slice(6,8)}` : null;
+                          const currentType = gsTypeOverride[s.title] || s.detectedType || "";
+                          const isChecked = !!gsSelected[s.title];
+                          return (
+                            <div key={s.sheetId} className={cn("px-3 py-2 flex items-center gap-2.5 text-sm transition-colors", isChecked ? "bg-primary/5" : "hover:bg-secondary/20")}>
+                              <input type="checkbox" checked={isChecked}
+                                onChange={e => setGsSelected(p => ({ ...p, [s.title]: e.target.checked }))}
+                                className="w-3.5 h-3.5 accent-primary shrink-0 cursor-pointer" />
+                              <Sheet className="w-3 h-3 text-muted-foreground shrink-0" />
+                              <span className="font-mono text-[11px] text-foreground flex-1 truncate" title={s.title}>{s.title}</span>
+                              {dateStr && <span className="text-[10px] text-muted-foreground bg-secondary/60 px-1.5 py-0.5 rounded-full shrink-0">{dateStr}</span>}
+                              <select
+                                value={currentType}
+                                onChange={e => setGsTypeOverride(p => ({ ...p, [s.title]: e.target.value as any }))}
+                                className={cn(
+                                  "h-6 px-1.5 text-[10px] font-semibold rounded border focus:outline-none shrink-0",
+                                  currentType === "funnel" ? "bg-blue-50 border-blue-200 text-blue-700"
+                                    : currentType === "activity" ? "bg-purple-50 border-purple-200 text-purple-700"
+                                    : currentType === "performance" ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                                    : "bg-secondary border-border text-muted-foreground"
+                                )}>
+                                <option value="">-- Pilih Tipe --</option>
+                                <option value="funnel">Sales Funnel</option>
+                                <option value="activity">Sales Activity</option>
+                                <option value="performance">Performa AM</option>
+                              </select>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="px-4 py-3 bg-secondary/20 border-t border-border flex items-center justify-between gap-3">
+                        <p className="text-[11px] text-muted-foreground">
+                          {selectedCount > 0
+                            ? <><strong className="text-foreground">{selectedCount} sheet</strong> dipilih untuk diimport</>
+                            : "Centang sheet yang ingin diimport"}
+                        </p>
+                        <Button onClick={handleSyncSelected} disabled={gsSyncingSelected || selectedCount === 0} size="sm" className="gap-2 h-8 text-xs">
+                          {gsSyncingSelected ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
+                          Import Pilihan ({selectedCount})
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Quick sync all */}
+                <div className="flex items-center gap-3 pt-1">
+                  <Button onClick={handleGsSync} disabled={gsSyncing || !gsStatus?.configured} variant="outline" className="gap-2 text-xs">
+                    {gsSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                    {gsSyncing ? "Menyinkronisasi..." : "Sync Semua Sheet (skip duplikat)"}
+                  </Button>
+                  {!gsStatus?.configured && (
+                    <p className="text-xs text-amber-600 font-medium">Simpan Spreadsheet ID terlebih dahulu</p>
+                  )}
+                </div>
+
+                {/* Sync result */}
+                {(gsSyncResult || gsStatus?.lastSyncResult) && (() => {
+                  const result = gsSyncResult || gsStatus?.lastSyncResult;
+                  return (
+                    <div className="border border-border rounded-xl overflow-hidden">
+                      <div className="px-4 py-2.5 bg-secondary/30 border-b border-border flex items-center gap-2 text-xs">
+                        <History className="w-3.5 h-3.5 text-muted-foreground" />
+                        <span className="font-bold text-foreground">Hasil Sync Terakhir</span>
+                        {result.syncedAt && <span className="ml-auto text-muted-foreground">{format(new Date(result.syncedAt), "d MMM yyyy, HH:mm", { locale: id })}</span>}
+                      </div>
+                      {result.error && (
+                        <div className="px-4 py-3 flex items-start gap-2 text-red-700 bg-red-50 text-xs">
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                          <span>{result.error}</span>
+                        </div>
+                      )}
+                      <div className="divide-y divide-border/50 max-h-56 overflow-y-auto">
+                        {(result.results || []).map((r: any, i: number) => {
+                          const typeLabel = r.type === "funnel" ? { label: "Sales Funnel", cls: "bg-blue-100 text-blue-700" }
+                            : r.type === "activity" ? { label: "Sales Activity", cls: "bg-purple-100 text-purple-700" }
+                            : r.type === "performance" ? { label: "Performa AM", cls: "bg-emerald-100 text-emerald-700" }
+                            : null;
+                          return (
+                            <div key={i} className="px-4 py-2.5 flex items-center gap-3 text-sm">
+                              {r.status === "imported" && <CircleCheck className="w-4 h-4 text-emerald-500 shrink-0" />}
+                              {r.status === "skipped" && <SkipForward className="w-4 h-4 text-amber-500 shrink-0" />}
+                              {r.status === "error" && <CircleX className="w-4 h-4 text-red-500 shrink-0" />}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 mb-0.5">
+                                  <p className="font-mono text-xs font-semibold truncate text-foreground">{r.sheetName}</p>
+                                  {typeLabel && <span className={cn("text-[10px] font-bold px-1.5 py-px rounded shrink-0", typeLabel.cls)}>{typeLabel.label}</span>}
+                                </div>
+                                <p className="text-[11px] text-muted-foreground truncate">{r.message}</p>
+                              </div>
+                              {r.status === "imported" && r.rowsImported && (
+                                <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 shrink-0">{r.rowsImported} baris</span>
+                              )}
+                              {r.date && <span className="text-[11px] text-muted-foreground shrink-0">{r.date}</span>}
+                            </div>
+                          );
+                        })}
+                        {(!result.results || result.results.length === 0) && !result.error && (
+                          <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+                            <Sheet className="w-6 h-6 mx-auto mb-2 opacity-30" />
+                            Tidak ada sheet dengan pola nama yang dikenali
+                          </div>
+                        )}
+                      </div>
+                      <div className="px-4 py-2 bg-secondary/20 border-t border-border flex items-center gap-4 text-[11px]">
+                        <span className="text-emerald-600 font-bold">{(result.results || []).filter((r: any) => r.status === "imported").length} diimport</span>
+                        <span className="text-amber-600 font-bold">{(result.results || []).filter((r: any) => r.status === "skipped").length} dilewati</span>
+                        <span className="text-red-600 font-bold">{(result.results || []).filter((r: any) => r.status === "error").length} error</span>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          )}
+
+          {/* ── Path B: Google Drive Auto-sync ─────────────────────────────── */}
+          {gsForm._mode === "drive" && (
+            <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
+              <div className="px-6 py-4 border-b border-border flex items-center gap-3">
+                <FolderOpen className="w-5 h-5 text-amber-500" />
+                <div>
+                  <h2 className="font-display font-bold text-sm text-foreground">Auto-sync dari Google Drive Folder</h2>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Setiap tipe data punya foldernya sendiri — sistem ambil file Excel terbaru secara otomatis</p>
+                </div>
+                {gsForm.syncEnabled && (
+                  <span className="ml-auto text-[11px] font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 border border-amber-200 flex items-center gap-1.5 shrink-0">
+                    <Clock className="w-3 h-3" /> Jadwal Aktif
+                  </span>
+                )}
+              </div>
+              <div className="p-6 space-y-5">
+                {/* Cara kerja */}
+                <div className="flex items-start gap-2 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-600" />
+                  <div className="space-y-0.5">
+                    <p className="font-bold">Cara kerja:</p>
+                    <ol className="list-decimal ml-4 space-y-0.5 text-amber-700">
+                      <li>Buat folder di Google Drive, atur akses <strong>"Anyone with the link can view"</strong></li>
+                      <li>Upload file Excel data ke folder yang sesuai (bisa ganti kapanpun, sistem ambil yang terbaru)</li>
+                      <li>Salin URL folder dari browser: <code className="font-mono bg-amber-100 px-1 rounded">drive.google.com/drive/folders/...</code></li>
+                      <li>Atur jadwal di bawah — sistem otomatis download dan import file terbaru sesuai interval</li>
+                    </ol>
+                  </div>
+                </div>
+
+                {/* Folder inputs */}
+                <div className="grid grid-cols-1 gap-3">
+                  {([
+                    { key: "folderPerformance", label: "Folder Performa AM", color: "text-emerald-600", icon: BarChart2, badge: appSettings?.gDriveFolderPerformance ? "✓" : null },
+                    { key: "folderFunnel", label: "Folder Sales Funnel", color: "text-blue-600", icon: Filter, badge: appSettings?.gDriveFolderFunnel ? "✓" : null },
+                    { key: "folderActivity", label: "Folder Sales Activity", color: "text-purple-600", icon: Activity, badge: appSettings?.gDriveFolderActivity ? "✓" : null },
+                    { key: "folderTarget", label: "Folder Target HO", color: "text-red-600", icon: Target, badge: appSettings?.gDriveFolderTarget ? "✓" : null },
+                  ] as { key: keyof typeof driveForm; label: string; color: string; icon: any; badge: string | null }[]).map(({ key, label, color, badge }) => (
+                    <div key={key} className="space-y-1">
+                      <div className="flex items-center gap-1.5">
+                        <label className={cn("text-xs font-bold uppercase tracking-wide", color)}>{label}</label>
+                        {badge && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">{badge} Dikonfigurasi</span>}
+                      </div>
+                      <input
+                        type="text"
+                        value={driveForm[key]}
+                        onChange={e => setDriveForm(p => ({ ...p, [key]: e.target.value }))}
+                        placeholder="https://drive.google.com/drive/folders/..."
+                        className="w-full h-9 px-3 bg-background border border-border rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      />
+                    </div>
+                  ))}
+                </div>
+                <Button onClick={handleSaveDriveFolders} disabled={driveSaving} className="gap-2 bg-amber-600 hover:bg-amber-700 text-white">
+                  {driveSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  Simpan URL Folder
+                </Button>
+
+                {/* Jadwal otomatis */}
+                <div className="bg-secondary/30 border border-border rounded-xl p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-muted-foreground" />
+                    <p className="text-xs font-bold text-foreground uppercase tracking-wide">Jadwal Sync Otomatis dari Drive</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className={cn("w-9 h-5 rounded-full transition-colors relative cursor-pointer", gsForm.syncEnabled ? "bg-amber-500" : "bg-gray-200")}
                       onClick={() => setGsForm(p => ({ ...p, syncEnabled: !p.syncEnabled }))}>
                       <div className={cn("absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all", gsForm.syncEnabled ? "left-4" : "left-0.5")} />
                     </div>
-                    <span className="text-sm font-semibold text-foreground">{gsForm.syncEnabled ? "Sinkronisasi Otomatis Aktif" : "Sinkronisasi Otomatis Nonaktif"}</span>
-                  </label>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Jam (WIB)</label>
-                    <select value={gsForm.syncHourWib} onChange={e => setGsForm(p => ({ ...p, syncHourWib: Number(e.target.value) }))}
-                      className="w-full h-9 px-3 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
-                      {Array.from({ length: 24 }, (_, i) => (
-                        <option key={i} value={i}>{String(i).padStart(2, "0")}:00 WIB</option>
-                      ))}
-                    </select>
+                    <span className="text-sm font-semibold text-foreground">{gsForm.syncEnabled ? "Jadwal Aktif" : "Jadwal Nonaktif"}</span>
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Interval</label>
-                    <select value={gsForm.syncIntervalDays} onChange={e => setGsForm(p => ({ ...p, syncIntervalDays: Number(e.target.value) }))}
-                      className="w-full h-9 px-3 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
-                      <option value={1}>Setiap hari</option>
-                      <option value={2}>Setiap 2 hari</option>
-                      <option value={3}>Setiap 3 hari</option>
-                      <option value={7}>Setiap minggu</option>
-                    </select>
-                  </div>
-                </div>
-                {gsStatus?.lastSyncAt && (
-                  <p className="text-[11px] text-muted-foreground">
-                    Sync terakhir: <strong className="text-foreground">{format(new Date(gsStatus.lastSyncAt), "d MMM yyyy, HH:mm", { locale: id })}</strong>
-                  </p>
-                )}
-              </div>
-
-              {/* Save button */}
-              <div className="flex gap-2">
-                <Button onClick={handleSaveGsSettings} disabled={gsSaving} className="gap-2 bg-primary text-white">
-                  {gsSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                  Simpan Pengaturan
-                </Button>
-                <Button variant="outline" onClick={handleLoadGsSheets} disabled={gsLoadingSheets || !gsForm.spreadsheetId} className="gap-2">
-                  {gsLoadingSheets ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sheet className="w-4 h-4" />}
-                  Cek Daftar Sheet
-                </Button>
-              </div>
-
-              {/* Available sheets — all sheets with checkbox + type selector */}
-              {gsSheets.length > 0 && (() => {
-                const detected = gsSheets.filter((s: any) => s.detectedType);
-                const selectedCount = gsSheets.filter((s: any) => gsSelected[s.title]).length;
-                return (
-                  <div className="border border-border rounded-xl overflow-hidden">
-                    <div className="px-4 py-2.5 bg-secondary/40 border-b border-border flex items-center gap-2">
-                      <Sheet className="w-3.5 h-3.5 text-primary" />
-                      <p className="text-xs font-bold text-foreground">
-                        {gsSheets.length} sheet ditemukan
-                        {detected.length > 0 && <span className="ml-1 text-emerald-700">({detected.length} terdeteksi otomatis)</span>}
-                      </p>
-                      <div className="ml-auto flex items-center gap-2">
-                        <button onClick={() => {
-                          const allSel: Record<string, boolean> = {};
-                          gsSheets.forEach((s: any) => { allSel[s.title] = true; });
-                          setGsSelected(allSel);
-                        }} className="text-[11px] text-primary font-semibold hover:underline">Pilih Semua</button>
-                        <span className="text-muted-foreground text-[11px]">·</span>
-                        <button onClick={() => setGsSelected({})} className="text-[11px] text-muted-foreground font-semibold hover:underline">Batal Semua</button>
+                  {gsForm.syncEnabled && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Jam (WIB)</label>
+                        <select value={gsForm.syncHourWib} onChange={e => setGsForm(p => ({ ...p, syncHourWib: Number(e.target.value) }))}
+                          className="w-full h-9 px-3 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
+                          {Array.from({ length: 24 }, (_, i) => (
+                            <option key={i} value={i}>{String(i).padStart(2, "0")}:00 WIB</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Interval</label>
+                        <select value={gsForm.syncIntervalDays} onChange={e => setGsForm(p => ({ ...p, syncIntervalDays: Number(e.target.value) }))}
+                          className="w-full h-9 px-3 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
+                          <option value={1}>Setiap hari</option>
+                          <option value={2}>Setiap 2 hari</option>
+                          <option value={3}>Setiap 3 hari</option>
+                          <option value={7}>Setiap minggu</option>
+                        </select>
                       </div>
                     </div>
-                    <div className="divide-y divide-border max-h-72 overflow-y-auto">
-                      {gsSheets.map((s: any) => {
-                        const match = s.title.match(/(\d{8})$/);
-                        const dateStr = match ? `${match[1].slice(0,4)}-${match[1].slice(4,6)}-${match[1].slice(6,8)}` : null;
-                        const currentType = gsTypeOverride[s.title] || s.detectedType || "";
-                        const isChecked = !!gsSelected[s.title];
-                        return (
-                          <div key={s.sheetId} className={cn("px-3 py-2 flex items-center gap-2.5 text-sm transition-colors", isChecked ? "bg-primary/5" : "hover:bg-secondary/20")}>
-                            <input type="checkbox" checked={isChecked}
-                              onChange={e => setGsSelected(p => ({ ...p, [s.title]: e.target.checked }))}
-                              className="w-3.5 h-3.5 accent-primary shrink-0 cursor-pointer" />
-                            <Sheet className="w-3 h-3 text-muted-foreground shrink-0" />
-                            <span className="font-mono text-[11px] text-foreground flex-1 truncate" title={s.title}>{s.title}</span>
-                            {dateStr && <span className="text-[10px] text-muted-foreground bg-secondary/60 px-1.5 py-0.5 rounded-full shrink-0">{dateStr}</span>}
-                            <select
-                              value={currentType}
-                              onChange={e => setGsTypeOverride(p => ({ ...p, [s.title]: e.target.value as any }))}
-                              className={cn(
-                                "h-6 px-1.5 text-[10px] font-semibold rounded border focus:outline-none shrink-0",
-                                currentType === "funnel" ? "bg-blue-50 border-blue-200 text-blue-700"
-                                  : currentType === "activity" ? "bg-purple-50 border-purple-200 text-purple-700"
-                                  : currentType === "performance" ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                                  : "bg-secondary border-border text-muted-foreground"
-                              )}>
-                              <option value="">-- Pilih Tipe --</option>
-                              <option value="funnel">Sales Funnel</option>
-                              <option value="activity">Sales Activity</option>
-                              <option value="performance">Performa AM</option>
-                            </select>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    {/* Import selected action */}
-                    <div className="px-4 py-3 bg-secondary/20 border-t border-border flex items-center justify-between gap-3">
-                      <p className="text-[11px] text-muted-foreground">
-                        {selectedCount > 0
-                          ? <><strong className="text-foreground">{selectedCount} sheet</strong> dipilih untuk diimport</>
-                          : "Centang sheet yang ingin diimport"}
-                      </p>
-                      <Button
-                        onClick={handleSyncSelected}
-                        disabled={gsSyncingSelected || selectedCount === 0}
-                        size="sm"
-                        className="gap-2 h-8 text-xs"
-                      >
-                        {gsSyncingSelected ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
-                        Import Pilihan ({selectedCount})
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-          </div>
+                  )}
+                  {gsStatus?.lastSyncAt && (
+                    <p className="text-[11px] text-muted-foreground">
+                      Sync terakhir: <strong className="text-foreground">{format(new Date(gsStatus.lastSyncAt), "d MMM yyyy, HH:mm", { locale: id })}</strong>
+                    </p>
+                  )}
+                  <Button onClick={handleSaveGsSettings} disabled={gsSaving} size="sm" className="gap-2 h-8 text-xs bg-primary text-white">
+                    {gsSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                    Simpan Jadwal
+                  </Button>
+                </div>
 
-          {/* Manual Sync Card */}
-          <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
-            <div className="px-6 py-4 border-b border-border flex items-center gap-3">
-              <Play className="w-5 h-5 text-primary" />
-              <div>
-                <h2 className="font-display font-bold text-sm text-foreground">Sinkronisasi Manual</h2>
-                <p className="text-[11px] text-muted-foreground mt-0.5">Jalankan sync sekarang — sheet yang sudah diimport akan dilewati otomatis</p>
-              </div>
-            </div>
-            <div className="p-6 space-y-4">
-              <Button onClick={handleGsSync} disabled={gsSyncing || !gsStatus?.configured} className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white">
-                {gsSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-                {gsSyncing ? "Menyinkronisasi..." : "Jalankan Sync Sekarang"}
-              </Button>
-              {!gsStatus?.configured && (
-                <p className="text-xs text-amber-600 font-medium">Simpan Spreadsheet ID dan API Key terlebih dahulu</p>
-              )}
-
-              {/* Sync result */}
-              {(gsSyncResult || gsStatus?.lastSyncResult) && (() => {
-                const result = gsSyncResult || gsStatus?.lastSyncResult;
-                return (
-                  <div className="border border-border rounded-xl overflow-hidden">
-                    <div className="px-4 py-2.5 bg-secondary/30 border-b border-border flex items-center gap-2 text-xs">
-                      <History className="w-3.5 h-3.5 text-muted-foreground" />
-                      <span className="font-bold text-foreground">Hasil Sync Terakhir</span>
-                      {result.syncedAt && <span className="ml-auto text-muted-foreground">{format(new Date(result.syncedAt), "d MMM yyyy, HH:mm", { locale: id })}</span>}
-                    </div>
-                    {result.error && (
-                      <div className="px-4 py-3 flex items-start gap-2 text-red-700 bg-red-50 text-xs">
-                        <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                        <span>{result.error}</span>
-                      </div>
-                    )}
-                    <div className="divide-y divide-border/50">
-                      {(result.results || []).map((r: any, i: number) => {
-                        const typeLabel = r.type === "funnel" ? { label: "Sales Funnel", cls: "bg-blue-100 text-blue-700" }
-                          : r.type === "activity" ? { label: "Sales Activity", cls: "bg-purple-100 text-purple-700" }
-                          : r.type === "performance" ? { label: "Performa AM", cls: "bg-emerald-100 text-emerald-700" }
-                          : null;
-                        return (
-                          <div key={i} className="px-4 py-2.5 flex items-center gap-3 text-sm">
-                            {r.status === "imported" && <CircleCheck className="w-4 h-4 text-emerald-500 shrink-0" />}
-                            {r.status === "skipped" && <SkipForward className="w-4 h-4 text-amber-500 shrink-0" />}
-                            {r.status === "error" && <CircleX className="w-4 h-4 text-red-500 shrink-0" />}
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-1.5 mb-0.5">
-                                <p className="font-mono text-xs font-semibold truncate text-foreground">{r.sheetName}</p>
-                                {typeLabel && <span className={cn("text-[10px] font-bold px-1.5 py-px rounded shrink-0", typeLabel.cls)}>{typeLabel.label}</span>}
-                              </div>
-                              <p className="text-[11px] text-muted-foreground truncate">{r.message}</p>
-                            </div>
-                            {r.status === "imported" && r.rowsImported && (
-                              <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 shrink-0">{r.rowsImported} baris</span>
-                            )}
-                            {r.status === "skipped" && (
-                              <span className="text-[11px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 shrink-0">Dilewati</span>
-                            )}
-                            {r.date && <span className="text-[11px] text-muted-foreground shrink-0">{r.date}</span>}
+                {/* Quick sync now */}
+                <div className="space-y-2">
+                  <p className="text-xs font-bold text-foreground uppercase tracking-wide">Sync Manual Sekarang</p>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {[
+                      { type: "performance", label: "Performa AM", color: "emerald", hasFolder: !!appSettings?.gDriveFolderPerformance },
+                      { type: "funnel", label: "Sales Funnel", color: "blue", hasFolder: !!appSettings?.gDriveFolderFunnel },
+                      { type: "activity", label: "Sales Activity", color: "purple", hasFolder: !!appSettings?.gDriveFolderActivity },
+                    ].map(({ type, label, color, hasFolder }) => {
+                      const isSyncing = driveSyncing[type];
+                      const result = driveSyncResult[type];
+                      return (
+                        <div key={type} className="border border-border rounded-xl p-3 space-y-2">
+                          <div className="flex items-center gap-1.5">
+                            <span className={cn("text-xs font-bold", `text-${color}-600`)}>{label}</span>
+                            {!hasFolder && <span className="text-[10px] text-muted-foreground">(folder belum diset)</span>}
                           </div>
-                        );
-                      })}
-                      {(!result.results || result.results.length === 0) && !result.error && (
-                        <div className="px-4 py-6 text-center text-sm text-muted-foreground">
-                          <Sheet className="w-6 h-6 mx-auto mb-2 opacity-30" />
-                          Tidak ada sheet dengan pola yang dikenali (TREG3_SALES_FUNNEL_, TREG3_ACTIVITY_, PERFORMANSI_)
+                          {result && (
+                            <p className={cn("text-[10px] font-semibold", result.error ? "text-red-600" : "text-emerald-600")}>
+                              {result.error ? `Error: ${result.error}` : `✓ ${result.imported} baris — ${result.fileName}`}
+                            </p>
+                          )}
+                          <Button
+                            size="sm"
+                            variant={hasFolder ? "default" : "outline"}
+                            disabled={isSyncing || !hasFolder}
+                            onClick={() => handleDriveSync(type)}
+                            className="w-full h-7 text-[11px] gap-1"
+                          >
+                            {isSyncing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+                            {isSyncing ? "Sync..." : "Sync Sekarang"}
+                          </Button>
                         </div>
-                      )}
-                    </div>
-                    <div className="px-4 py-2 bg-secondary/20 border-t border-border flex items-center gap-4 text-[11px]">
-                      <span className="text-emerald-600 font-bold">{(result.results || []).filter((r: any) => r.status === "imported").length} diimport</span>
-                      <span className="text-amber-600 font-bold">{(result.results || []).filter((r: any) => r.status === "skipped").length} dilewati</span>
-                      <span className="text-red-600 font-bold">{(result.results || []).filter((r: any) => r.status === "error").length} error</span>
-                    </div>
+                      );
+                    })}
                   </div>
-                );
-              })()}
-            </div>
-          </div>
-
-          {/* Google Drive Folder Config Card */}
-          <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
-            <div className="px-6 py-4 border-b border-border flex items-center gap-3">
-              <FolderOpen className="w-5 h-5 text-amber-500" />
-              <div>
-                <h2 className="font-display font-bold text-sm text-foreground">Konfigurasi Folder Google Drive</h2>
-                <p className="text-[11px] text-muted-foreground mt-0.5">Paste URL folder publik Google Drive — 1 folder per tipe data. API Key yang sama dengan GSheets digunakan.</p>
-              </div>
-            </div>
-            <div className="p-6 space-y-4">
-              <div className="flex items-start gap-2 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800">
-                <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-600" />
-                <div className="space-y-1">
-                  <p className="font-bold">Cara pengaturan folder Google Drive:</p>
-                  <ol className="list-decimal ml-4 space-y-0.5 text-amber-700">
-                    <li>Buat folder di Google Drive dan set <strong>"Anyone with the link can view"</strong></li>
-                    <li>Masukkan file Excel (.xlsx/.xls) ke masing-masing folder sesuai tipe data</li>
-                    <li>Salin URL folder dari browser (format: <code className="font-mono bg-amber-100 px-1 rounded">drive.google.com/drive/folders/...</code>)</li>
-                    <li>Saat sync, file Excel paling baru (berdasarkan tanggal modifikasi) yang akan digunakan</li>
-                  </ol>
                 </div>
               </div>
-              <div className="grid grid-cols-1 gap-3">
-                {([
-                  { key: "folderPerformance", label: "Folder Performa AM", color: "text-emerald-600" },
-                  { key: "folderFunnel", label: "Folder Sales Funnel", color: "text-blue-600" },
-                  { key: "folderActivity", label: "Folder Sales Activity", color: "text-purple-600" },
-                  { key: "folderTarget", label: "Folder Target HO", color: "text-red-600" },
-                ] as { key: keyof typeof driveForm; label: string; color: string }[]).map(({ key, label, color }) => (
-                  <div key={key} className="space-y-1">
-                    <label className={cn("text-xs font-bold uppercase tracking-wide", color)}>{label}</label>
-                    <input
-                      type="text"
-                      value={driveForm[key]}
-                      onChange={e => setDriveForm(p => ({ ...p, [key]: e.target.value }))}
-                      placeholder="https://drive.google.com/drive/folders/..."
-                      className="w-full h-9 px-3 bg-background border border-border rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/30"
-                    />
-                  </div>
-                ))}
-              </div>
-              <Button onClick={handleSaveDriveFolders} disabled={driveSaving} className="gap-2 bg-amber-600 hover:bg-amber-700 text-white">
-                {driveSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                Simpan URL Folder
-              </Button>
             </div>
-          </div>
+          )}
         </div>
       )}
 

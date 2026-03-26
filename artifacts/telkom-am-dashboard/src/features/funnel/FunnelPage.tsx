@@ -38,7 +38,9 @@ const PHASE_COLORS: Record<string, { pill: string; bar: string; text: string }> 
   F5: { pill: "bg-emerald-100 text-emerald-800", bar: "#10b981", text: "#065f46" },
 };
 
-const MONTHS_ID = ["","Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agt","Sep","Okt","Nov","Des"];
+const MONTHS_ID  = ["","Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agt","Sep","Okt","Nov","Des"];
+const MONTHS_FULL = ["","Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+const MONTH_NUMS  = ["01","02","03","04","05","06","07","08","09","10","11","12"];
 
 function fmtRupiah(n: number): string {
   if (!n && n !== 0) return "–";
@@ -348,6 +350,8 @@ export default function FunnelPage() {
   const [filterStatus, setFilterStatus] = useState<Set<string>>(new Set());
   const [filterKontrak, setFilterKontrak] = useState<Set<string>>(new Set());
   const [filterAm, setFilterAm] = useState<Set<string>>(new Set());
+  const [filterYear, setFilterYear] = useState<string>("2026");
+  const [filterMonths, setFilterMonths] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
   const [expandedAm, setExpandedAm] = useState<Record<string, boolean>>({});
   const [expandedPhase, setExpandedPhase] = useState<Record<string, boolean>>({});
@@ -373,10 +377,6 @@ export default function FunnelPage() {
     [snapshots]
   );
 
-  // Single period filter — value is "YYYY" (whole year) or "YYYY-MM" (specific month)
-  // mirrors Power BI Master_Kalender slicer on report_date
-  const [filterPeriod, setFilterPeriod] = useState<string>("2026");
-
   const selectedSnapshot = useMemo(() => snapshots.find(s => s.id === importId), [snapshots, importId]);
 
   // Auto-select first snapshot; reset period to snapshot's year when snapshot changes
@@ -388,13 +388,10 @@ export default function FunnelPage() {
 
   useEffect(() => {
     if (selectedSnapshot) {
-      setFilterPeriod(selectedSnapshot.period.slice(0, 4));
+      setFilterYear(selectedSnapshot.period.slice(0, 4));
+      setFilterMonths(new Set());
     }
   }, [selectedSnapshot?.id]);
-
-  // Derive year & month from filterPeriod for filtering logic
-  const filterYear = filterPeriod.length >= 4 ? filterPeriod.slice(0, 4) : "";
-  const filterMonth = filterPeriod.length === 7 ? filterPeriod.slice(5, 7) : "";
 
   const { data, isLoading } = useQuery<FunnelData>({
     queryKey: ["funnel-data", importId, filterDivisi],
@@ -408,39 +405,19 @@ export default function FunnelPage() {
     staleTime: 30_000,
   });
 
-  // Periode options: flat list derived from unique report_date values in loaded data
-  // e.g. "2026" → whole year, "2026-03" → Mar 2026 only
-  const periodeOptions = useMemo(() => {
-    if (!data) return [{ value: filterPeriod, label: filterPeriod }];
-    // Collect unique year-month pairs (robust: handle Date objects and strings)
+  // Year options derived from unique report_date years in loaded data, newest first
+  const yearOptions = useMemo(() => {
+    if (!data) return [{ value: filterYear, label: filterYear }];
     const yearSet = new Set<string>();
-    const ymSet = new Set<string>();
     for (const l of data.lops) {
       if (!l.reportDate) continue;
-      const rd = l.reportDate instanceof Date
-        ? l.reportDate.toISOString().slice(0, 10)
-        : String(l.reportDate).slice(0, 10);
-      const yr = rd.slice(0, 4);
-      const mo = rd.slice(5, 7);
-      if (/^\d{4}$/.test(yr) && /^\d{2}$/.test(mo)) {
-        yearSet.add(yr);
-        ymSet.add(`${yr}-${mo}`);
-      }
+      const yr = String(l.reportDate).slice(0, 4);
+      if (/^\d{4}$/.test(yr)) yearSet.add(yr);
     }
-    const opts: { value: string; label: string }[] = [];
-    // Sort years descending, then months descending within each year
-    const sortedYears = [...yearSet].sort().reverse();
-    for (const yr of sortedYears) {
-      opts.push({ value: yr, label: `${yr} (semua bulan)` });
-      const months = [...ymSet]
-        .filter(ym => ym.startsWith(yr + "-"))
-        .sort().reverse();
-      for (const ym of months) {
-        const mo = ym.slice(5, 7);
-        opts.push({ value: ym, label: `${MONTHS_ID[parseInt(mo)] || mo} ${yr}` });
-      }
-    }
-    return opts.length > 0 ? opts : [{ value: filterPeriod, label: filterPeriod }];
+    const sorted = [...yearSet].sort().reverse();
+    return sorted.length > 0
+      ? sorted.map(y => ({ value: y, label: y }))
+      : [{ value: filterYear, label: filterYear }];
   }, [data]);
 
   // Period-filtered LOPs (mirrors Power BI Date slicer on report_date)
@@ -448,14 +425,12 @@ export default function FunnelPage() {
     if (!data) return [];
     return data.lops.filter(l => {
       if (!l.reportDate) return false;
-      const rd = l.reportDate instanceof Date
-        ? l.reportDate.toISOString().slice(0, 10)
-        : String(l.reportDate).slice(0, 10);
+      const rd = String(l.reportDate).slice(0, 10);
       if (filterYear && rd.slice(0, 4) !== filterYear) return false;
-      if (filterMonth && rd.slice(5, 7) !== filterMonth) return false;
+      if (filterMonths.size > 0 && !filterMonths.has(rd.slice(5, 7))) return false;
       return true;
     });
-  }, [data, filterYear, filterMonth]);
+  }, [data, filterYear, filterMonths]);
 
   // Computed stats from period-filtered LOPs (used by charts/summary cards)
   const periodStats = useMemo(() => {
@@ -551,8 +526,7 @@ export default function FunnelPage() {
     } else { setExpandedAm({}); setExpandedPhase({}); }
   }
 
-  const snapshotDefaultPeriod = selectedSnapshot?.period.slice(0, 4) ?? "2026";
-  const hasActiveFilter = filterStatus.size > 0 || filterDivisi !== "all" || filterPeriod !== snapshotDefaultPeriod || filterKontrak.size > 0;
+  const hasActiveFilter = filterStatus.size > 0 || filterDivisi !== "all" || filterMonths.size > 0 || filterKontrak.size > 0;
   const hasDetailFilter = filterAm.size > 0;
   const lopBadge = filteredLops.length !== periodStats.totalLop
     ? `${filteredLops.length} / ${periodStats.totalLop}` : filteredLops.length.toLocaleString("id-ID");
@@ -567,37 +541,37 @@ export default function FunnelPage() {
 
       {/* Filter Bar */}
       <div className="bg-card border border-border rounded-xl px-4 py-3 shadow-sm">
-        <div className="flex items-end gap-2 flex-wrap">
+        <div className="flex items-end gap-2 flex-nowrap overflow-x-auto">
           {/* SNAPSHOT */}
           <SelectDropdown label="Snapshot" value={String(importId || "")}
             onChange={v => setImportId(Number(v))}
             options={snapshotOptions.length > 0 ? snapshotOptions : [{ value: "", label: "Belum ada data" }]}
-            disabled={snapshotOptions.length === 0} className="w-52 shrink-0" />
+            disabled={snapshotOptions.length === 0} className="w-36 shrink-0" />
 
-          {/* PERIODE = single dropdown derived from report_date values (mirrors Power BI Date slicer) */}
-          <div className="w-px h-9 bg-border self-end" />
-          <SelectDropdown label="Periode" value={filterPeriod}
-            onChange={setFilterPeriod}
-            options={periodeOptions}
-            className="w-40 shrink-0" />
+          {/* TAHUN + BULAN */}
+          <div className="w-px h-9 bg-border self-end shrink-0" />
+          <SelectDropdown label="Tahun" value={filterYear} onChange={v => { setFilterYear(v); setFilterMonths(new Set()); }}
+            options={yearOptions} className="w-20 shrink-0" />
+          <CheckboxDropdown label="Bulan" options={MONTH_NUMS} selected={filterMonths} onChange={setFilterMonths}
+            placeholder="Semua bulan" labelFn={mo => MONTHS_FULL[parseInt(mo)] ?? mo} summaryLabel="bulan" className="w-36 shrink-0" />
 
-          <div className="w-px h-9 bg-border self-end" />
+          <div className="w-px h-9 bg-border self-end shrink-0" />
           <SelectDropdown label="Divisi" value={filterDivisi} onChange={setFilterDivisi}
             options={[{ value: "all", label: "Semua Divisi" }, { value: "DPS", label: "DPS" }, { value: "DSS", label: "DSS" }]}
-            className="w-32 shrink-0" />
+            className="w-28 shrink-0" />
           <CheckboxDropdown label="Kategori Kontrak" options={kontrakOptions} selected={filterKontrak} onChange={setFilterKontrak}
-            placeholder="Semua kontrak" summaryLabel="kontrak" className="w-40 shrink-0" />
+            placeholder="Semua kontrak" summaryLabel="kontrak" className="w-36 shrink-0" />
           <CheckboxDropdown label="Status Funnel" options={PHASES} selected={filterStatus} onChange={setFilterStatus}
-            placeholder="Semua status" labelFn={p => `${p} – ${PHASE_LABELS[p]}`} summaryLabel="status" className="w-36 shrink-0" />
+            placeholder="Semua status" labelFn={p => `${p} – ${PHASE_LABELS[p]}`} summaryLabel="status" className="w-32 shrink-0" />
           <SelectDropdown label="Target" value={filterTarget} onChange={v => setFilterTarget(v as "ho" | "fullho")}
             options={[{ value: "fullho", label: "Target Full HO" }, { value: "ho", label: "Target HO" }]}
-            className="w-36 shrink-0" />
+            className="w-32 shrink-0" />
           {hasActiveFilter && (
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1 shrink-0">
               <label className="text-[10px] font-bold text-transparent uppercase">.</label>
               <button onClick={() => {
                 setFilterStatus(new Set()); setFilterDivisi("all");
-                setFilterPeriod(snapshotDefaultPeriod); setFilterKontrak(new Set());
+                setFilterMonths(new Set()); setFilterKontrak(new Set());
               }}
                 className="h-9 flex items-center gap-1 px-3 text-sm text-destructive border border-destructive/30 rounded-lg hover:bg-destructive/5 transition-colors whitespace-nowrap">
                 <X className="w-3.5 h-3.5" /> Reset

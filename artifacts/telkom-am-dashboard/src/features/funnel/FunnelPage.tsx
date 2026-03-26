@@ -992,7 +992,7 @@ export default function FunnelPage() {
                         <td colSpan={4} className="px-4 py-2.5 pl-10">
                           <span className="text-sm font-black text-slate-900 uppercase tracking-wide">Total Nilai Proyek — {am.namaAm}</span>
                         </td>
-                        <td className="px-4 py-2.5 text-right tabular-nums font-black text-slate-900 whitespace-nowrap text-lg">
+                        <td className="px-4 py-2.5 text-right tabular-nums font-black text-red-700 whitespace-nowrap text-lg">
                           {formatRupiahFull(amTotal)}
                         </td>
                       </tr>

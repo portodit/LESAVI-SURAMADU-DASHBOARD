@@ -15,17 +15,19 @@ This is a **SharePoint Bot / Telkom AM Dashboard** project — a full-stack dash
 ## Active AM List (13 AMs)
 ANA RUKMANA (402478), CAESAR RIO ANGGINA TORUAN (405690), ERVINA HANDAYANI (920064), HANDIKA DAGNA NEVANDA (980067, cross_witel), HAVEA PERTIWI (870022), KATATA VEKANIDYA SEKAR PUSPITASARI (405075), MOH RIZAL (850046), NADYA ZAHROTUL HAYATI (403613), NI MADE NOVI WIRANA (896661), NYARI KUSUMANINGRUM (401431, cross_witel), SAFIRINA FEBRYANTI (910017), VIVIN VIOLITA (910024), WILDAN ARIEF (404429, cross_witel)
 
-## GSheets Funnel Import Cleaning Rules (matches Power BI behaviour exactly)
-GSheets `1czGSp` = 76,808 rows nationwide SIMLOP+SIGMA dump. Import produces ~252 LOPs for 2026:
-1. Skip `divisi` filter — use master AM NIK list instead
-2. Skip `is_report` filter — Power BI shows ALL LOPs (F0-F5, approved or not)
-3. NIK extraction: **`nik_pembuat_lop` FIRST** (primary/creator AM) → else `nik_handling[0]` (first comma-separated element) — matches Power BI attribution
-4. NIK normalization: `nik_handling` is comma-separated (e.g. "870022, 810057") — take FIRST token only to avoid concatenation bug
-5. Per-NIK witel filter: `cross_witel=true` → all witels; `cross_witel=false` → witel=SURAMADU only
-6. Report date year filter: only LOPs where `report_date` year = year from sheet name (e.g. TREG3_SALES_FUNNEL_20260326 → 2026 only)
+## GSheets Funnel Import Cleaning Rules (exact Power BI Power Query match)
+GSheets `1czGSp` = 76,808 rows nationwide SIMLOP+SIGMA dump. Source mirrors local Excel "Sales_Funnel_Suramadu" that Power BI reads.
+Power Query steps (from .pbix):
+1. `witel = "SURAMADU"` — filter all rows
+2. `nik_pembuat_lop` cast to Int64, `RemoveRowsWithErrors` — discard non-numeric NIKs
+3. `divisi = "DPS" or "DSS"` — filter by division
+4. `IF report_date.Year >= 2026 AND nik_pembuat_lop = 850099 → 870022` (Reni→Havea conditional)
+5. Use **ONLY `nik_pembuat_lop`** as AM key — `nik_handling` is NOT used
+6. Import **ALL years** (no year filter at import) — 1,358 LOPs total stored
 7. Dedup by lopid — keep latest `report_date` per lopid
-8. Filter to active master AM NIKs only (13 AMs)
-9. Query-time: API `GET /api/funnel?tahun=YEAR` also filters YEAR(report_date) = tahun at display time
+8. Filter to 13 active master AM NIKs at import time
+9. Query-time: `GET /api/funnel?tahun=2026` → **exactly 250 LOPs, 13/13 AMs exact match kunci jawaban**
+Note: `cross_witel` flag on master_am is no longer used for import logic (all LOPs witel=SURAMADU)
 
 ## Stack
 

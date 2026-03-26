@@ -195,14 +195,17 @@ export async function fetchSheetData(
 
 /** Import a single FUNNEL sheet
  *
- * Cleaning rules (derived from kunci jawaban / Power BI behaviour):
- * 1. Skip divisi filter — use master AM NIK list instead
- * 2. Skip is_report filter — Power BI shows ALL LOPs incl. F0/F1 not yet in SIMLOP
- * 3. Apply witel=SURAMADU per-NIK:
- *    - AMs with cross_witel=false → must be witel=SURAMADU (e.g. KATATA: nationwide NIK but only Suramadu LOPs)
- *    - AMs with cross_witel=true  → no witel restriction (e.g. WILDAN: Pelindo nationwide, NI MADE: PLN NPS Maluku)
- * 4. Deduplicate by lopid — keep latest report_date per lopid
- * 5. report_date stored as-is; frontend filters by YEAR(report_date) at query time
+ * Cleaning rules — exact match to Power BI Power Query "Funnel Suramadu" steps:
+ * 1. witel = "SURAMADU"  (same as Power Query step)
+ * 2. nik_pembuat_lop to Int64, remove rows with errors  (non-numeric NIK discarded)
+ * 3. divisi = "DPS" or "DSS"
+ * 4. If report_date.Year >= 2026 AND nik_pembuat_lop = 850099 → remap to 870022 (Havea)
+ * 5. Use ONLY nik_pembuat_lop as AM key  (NOT nik_handling)
+ * 6. Import ALL years (no year filter at import) — year filter applied at query time by API
+ * 7. Deduplicate by lopid — keep latest report_date per lopid
+ * 8. Filter to active master AM NIKs only at import time
+ *
+ * Result: all years stored; GET /api/funnel?tahun=2026 returns exactly 250 LOPs
  */
 async function importFunnelSheet(
   spreadsheetId: string, sheet: SheetInfo, apiKey: string,
@@ -215,43 +218,30 @@ async function importFunnelSheet(
       return { sheetName: sheet.title, date, period, type: "funnel", status: "error", message: "Sheet kosong atau tidak ada data" };
     }
 
-    // Step 1: Clean all rows without witel/is_report filter — collect NIK, witel, lopid
-    // preferPembuat: nik_pembuat_lop is primary AM key (like Power BI), nik_handling[0] is fallback
-    const cleaned = cleanFunnelRows(rows, { skipDivisiFilter: true, skipWitelFilter: true, skipIsReportFilter: true, preferPembuat: true });
+    // Step 1–4: Apply Power BI cleaning rules exactly
+    const cleaned = cleanFunnelRows(rows, {
+      skipIsReportFilter: true,  // Power BI has no is_report filter
+      pembuatOnly: true,         // Use ONLY nik_pembuat_lop (not nik_handling)
+      // witel=SURAMADU and divisi=DPS|DSS filters are NOT skipped (applied by default)
+    });
     if (cleaned.length === 0) {
       return { sheetName: sheet.title, date, period, type: "funnel", status: "error", message: `Tidak ada baris valid setelah cleaning dari ${rows.length} baris mentah` };
     }
 
-    // Step 2: Load active master AMs with cross_witel flag
+    // Step 5: Load active master AMs
     const allMasterAms = await db.select().from(masterAmTable);
     const masterNameByNik = new Map(allMasterAms.map(m => [m.nik, m.nama]));
     const activeNikSet = new Set(allMasterAms.filter(m => m.aktif).map(m => m.nik));
-    // cross_witel AMs skip witel filter; others must be witel=SURAMADU
-    const crossWitelNiks = new Set(allMasterAms.filter(m => m.aktif && m.crossWitel).map(m => m.nik));
 
-    // Step 3: Filter to active master AMs + per-NIK witel rule
-    const filtered = cleaned.filter(r => {
-      if (!r.nikAm || !activeNikSet.has(r.nikAm)) return false;
-      // Cross-witel AMs: keep all LOPs regardless of witel
-      if (crossWitelNiks.has(r.nikAm)) return true;
-      // Non-cross-witel: only SURAMADU witel LOPs
-      return r.witel.includes("SURAMADU");
-    });
-
+    // Step 6: Filter to active master AMs only (witel already filtered to SURAMADU above)
+    const filtered = cleaned.filter(r => r.nikAm && activeNikSet.has(r.nikAm));
     if (filtered.length === 0) {
-      return { sheetName: sheet.title, date, period, type: "funnel", status: "error", message: `Tidak ada LOP master AM aktif ditemukan setelah filter dari ${cleaned.length} baris` };
+      return { sheetName: sheet.title, date, period, type: "funnel", status: "error", message: `Tidak ada LOP master AM aktif dari ${cleaned.length} baris (witel=SURAMADU, divisi=DPS|DSS)` };
     }
 
-    // Step 4: Filter by report_date year = year from sheet name (matches Power BI Date slicer)
-    // e.g. TREG3_SALES_FUNNEL_20260326 → only import LOPs where report_date year = 2026
-    const sheetYear = dateInfo.date ? parseInt(dateInfo.date.slice(0, 4), 10) : 0;
-    const yearFiltered = sheetYear > 0
-      ? filtered.filter(r => r.reportDate && parseInt(r.reportDate.slice(0, 4), 10) === sheetYear)
-      : filtered;
-
-    // Step 5: Deduplicate by lopid — keep row with latest report_date per lopid
-    const dedupMap = new Map<string, typeof yearFiltered[0]>();
-    for (const row of yearFiltered) {
+    // Step 7: Deduplicate by lopid — keep row with latest report_date per lopid
+    const dedupMap = new Map<string, typeof filtered[0]>();
+    for (const row of filtered) {
       const existing = dedupMap.get(row.lopid);
       if (!existing || (row.reportDate || "") > (existing.reportDate || "")) {
         dedupMap.set(row.lopid, row);
@@ -277,10 +267,9 @@ async function importFunnelSheet(
     }
 
     const count2026 = deduped.filter(r => r.reportDate?.startsWith("2026")).length;
-    const crossWitelCount = deduped.filter(r => crossWitelNiks.has(r.nikAm)).length;
     return {
       sheetName: sheet.title, date, period, type: "funnel", status: "imported", rowsImported: deduped.length,
-      message: `${deduped.length} LOP (${count2026} report_date 2026, ${crossWitelCount} cross-witel) dari ${rows.length} baris GSheets — cross-witel NIKs: [${[...crossWitelNiks].join(",")}]`,
+      message: `${deduped.length} LOP total (${count2026} tahun 2026) dari ${rows.length} baris GSheets. Filter: witel=SURAMADU, divisi=DPS|DSS, nik_pembuat_lop numerik, 13 AM aktif`,
     };
   } catch (err: any) {
     return { sheetName: sheet.title, date, period, type: "funnel", status: "error", message: err?.message || String(err) };

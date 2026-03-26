@@ -1110,7 +1110,7 @@ export default function ImportData() {
               <Sheet className="w-5 h-5 text-emerald-600" />
               <div>
                 <h2 className="font-display font-bold text-sm text-foreground">Konfigurasi Google Sheets Sync</h2>
-                <p className="text-[11px] text-muted-foreground mt-0.5">Auto-import snapshot Sales Funnel dari Google Sheets berdasarkan nama tab sheet</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Auto-import snapshot Performa AM, Sales Funnel, &amp; Sales Activity dari Google Sheets berdasarkan nama tab sheet</p>
               </div>
               {gsStatus?.syncEnabled && (
                 <span className="ml-auto text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 flex items-center gap-1.5">
@@ -1148,12 +1148,22 @@ export default function ImportData() {
                     placeholder={appSettings?.gSheetsApiKey?.startsWith("***") ? `Tersimpan (${appSettings.gSheetsApiKey})` : "Masukkan API Key baru"}
                     className="w-full h-9 px-3 bg-background border border-border rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/30" />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-foreground uppercase tracking-wide">Pola Nama Sheet Funnel</label>
-                  <input type="text" value={gsForm.funnelPattern} onChange={e => setGsForm(p => ({ ...p, funnelPattern: e.target.value }))}
-                    placeholder="TREG3_SALES_FUNNEL_"
-                    className="w-full h-9 px-3 bg-background border border-border rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/30" />
-                  <p className="text-[10px] text-muted-foreground">Sheet yang diawali pola ini + tanggal (YYYYMMDD) akan diimport</p>
+                <div className="space-y-1.5 md:col-span-2">
+                  <label className="text-xs font-bold text-foreground uppercase tracking-wide">Pola Sheet yang Dikenali Otomatis</label>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { prefix: "TREG3_SALES_FUNNEL_YYYYMMDD", label: "Sales Funnel", color: "bg-blue-100 text-blue-700 border-blue-200" },
+                      { prefix: "TREG3_ACTIVITY_YYYYMMDD", label: "Sales Activity", color: "bg-purple-100 text-purple-700 border-purple-200" },
+                      { prefix: "PERFORMANSI_YYYYMMDD", label: "Performa AM", color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+                    ].map(p => (
+                      <span key={p.prefix} className={cn("flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full border", p.color)}>
+                        <span className="font-mono">{p.prefix}</span>
+                        <span className="opacity-60">→</span>
+                        <span>{p.label}</span>
+                      </span>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">Sheet dengan awalan di atas + tanggal (YYYYMMDD) akan otomatis terdeteksi dan diimport ke tab yang sesuai</p>
                 </div>
               </div>
 
@@ -1217,16 +1227,21 @@ export default function ImportData() {
                 <div className="border border-emerald-200 rounded-xl overflow-hidden">
                   <div className="px-4 py-2.5 bg-emerald-50 border-b border-emerald-200 flex items-center gap-2">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                    <p className="text-xs font-bold text-emerald-800">{gsSheets.length} sheet funnel ditemukan di spreadsheet</p>
+                    <p className="text-xs font-bold text-emerald-800">{gsSheets.length} sheet terdeteksi di spreadsheet</p>
                   </div>
                   <div className="divide-y divide-border">
                     {gsSheets.map((s: any) => {
                       const match = s.title.match(/(\d{8})$/);
                       const dateStr = match ? `${match[1].slice(0,4)}-${match[1].slice(4,6)}-${match[1].slice(6,8)}` : null;
+                      const typeLabel = s.detectedType === "funnel" ? { label: "Sales Funnel", cls: "bg-blue-100 text-blue-700" }
+                        : s.detectedType === "activity" ? { label: "Sales Activity", cls: "bg-purple-100 text-purple-700" }
+                        : s.detectedType === "performance" ? { label: "Performa AM", cls: "bg-emerald-100 text-emerald-700" }
+                        : null;
                       return (
                         <div key={s.sheetId} className="px-4 py-2 flex items-center gap-3 text-sm hover:bg-secondary/20">
                           <Sheet className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                           <span className="font-mono text-xs text-foreground">{s.title}</span>
+                          {typeLabel && <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded", typeLabel.cls)}>{typeLabel.label}</span>}
                           {dateStr && <span className="ml-auto text-[11px] text-muted-foreground bg-secondary/50 px-2 py-0.5 rounded-full">{dateStr}</span>}
                         </div>
                       );
@@ -1272,28 +1287,37 @@ export default function ImportData() {
                       </div>
                     )}
                     <div className="divide-y divide-border/50">
-                      {(result.results || []).map((r: any, i: number) => (
-                        <div key={i} className="px-4 py-2.5 flex items-center gap-3 text-sm">
-                          {r.status === "imported" && <CircleCheck className="w-4 h-4 text-emerald-500 shrink-0" />}
-                          {r.status === "skipped" && <SkipForward className="w-4 h-4 text-amber-500 shrink-0" />}
-                          {r.status === "error" && <CircleX className="w-4 h-4 text-red-500 shrink-0" />}
-                          <div className="flex-1 min-w-0">
-                            <p className="font-mono text-xs font-semibold truncate text-foreground">{r.sheetName}</p>
-                            <p className="text-[11px] text-muted-foreground truncate">{r.message}</p>
+                      {(result.results || []).map((r: any, i: number) => {
+                        const typeLabel = r.type === "funnel" ? { label: "Sales Funnel", cls: "bg-blue-100 text-blue-700" }
+                          : r.type === "activity" ? { label: "Sales Activity", cls: "bg-purple-100 text-purple-700" }
+                          : r.type === "performance" ? { label: "Performa AM", cls: "bg-emerald-100 text-emerald-700" }
+                          : null;
+                        return (
+                          <div key={i} className="px-4 py-2.5 flex items-center gap-3 text-sm">
+                            {r.status === "imported" && <CircleCheck className="w-4 h-4 text-emerald-500 shrink-0" />}
+                            {r.status === "skipped" && <SkipForward className="w-4 h-4 text-amber-500 shrink-0" />}
+                            {r.status === "error" && <CircleX className="w-4 h-4 text-red-500 shrink-0" />}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 mb-0.5">
+                                <p className="font-mono text-xs font-semibold truncate text-foreground">{r.sheetName}</p>
+                                {typeLabel && <span className={cn("text-[10px] font-bold px-1.5 py-px rounded shrink-0", typeLabel.cls)}>{typeLabel.label}</span>}
+                              </div>
+                              <p className="text-[11px] text-muted-foreground truncate">{r.message}</p>
+                            </div>
+                            {r.status === "imported" && r.rowsImported && (
+                              <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 shrink-0">{r.rowsImported} baris</span>
+                            )}
+                            {r.status === "skipped" && (
+                              <span className="text-[11px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 shrink-0">Dilewati</span>
+                            )}
+                            {r.date && <span className="text-[11px] text-muted-foreground shrink-0">{r.date}</span>}
                           </div>
-                          {r.status === "imported" && r.rowsImported && (
-                            <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 shrink-0">{r.rowsImported} baris</span>
-                          )}
-                          {r.status === "skipped" && (
-                            <span className="text-[11px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 shrink-0">Dilewati</span>
-                          )}
-                          {r.date && <span className="text-[11px] text-muted-foreground shrink-0">{r.date}</span>}
-                        </div>
-                      ))}
+                        );
+                      })}
                       {(!result.results || result.results.length === 0) && !result.error && (
                         <div className="px-4 py-6 text-center text-sm text-muted-foreground">
                           <Sheet className="w-6 h-6 mx-auto mb-2 opacity-30" />
-                          Tidak ada sheet yang cocok dengan pola yang dikonfigurasi
+                          Tidak ada sheet dengan pola yang dikenali (TREG3_SALES_FUNNEL_, TREG3_ACTIVITY_, PERFORMANSI_)
                         </div>
                       )}
                     </div>

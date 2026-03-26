@@ -492,7 +492,8 @@ router.post("/import/powerbi-funnel", requireAuth, async (req, res): Promise<voi
   // Find CSV files
   const assetsDir = path.resolve(process.cwd(), "../../attached_assets");
   const allFiles = fs.existsSync(assetsDir) ? fs.readdirSync(assetsDir) : [];
-  const csvFile = allFiles.find(f => f.includes("Status_Funneling_AM_") && f.endsWith(".csv"));
+  const csvFiles = allFiles.filter(f => f.includes("Status_Funneling_AM_") && f.endsWith(".csv")).sort().reverse();
+  const csvFile = csvFiles[0];
   if (!csvFile) {
     res.status(404).json({ error: "File CSV Power BI tidak ditemukan di attached_assets" });
     return;

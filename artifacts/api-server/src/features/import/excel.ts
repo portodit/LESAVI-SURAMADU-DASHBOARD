@@ -168,7 +168,7 @@ export interface CleanedFunnelRow {
   createdDate: string;
 }
 
-export function cleanFunnelRows(rows: ParsedRow[], opts?: { skipDivisiFilter?: boolean }): CleanedFunnelRow[] {
+export function cleanFunnelRows(rows: ParsedRow[], opts?: { skipDivisiFilter?: boolean; strictIsReport?: boolean }): CleanedFunnelRow[] {
   const passed: CleanedFunnelRow[] = [];
 
   for (const r of rows) {
@@ -195,8 +195,13 @@ export function cleanFunnelRows(rows: ParsedRow[], opts?: { skipDivisiFilter?: b
 
     // ── STEP 5: Filter is_report = 'Y' (hidden Power BI filter — only valid/approved LOPs)
     // Column may be named is_report, IS_REPORT, or similar
+    // strictIsReport: reject rows where is_report is null/empty (treat as not-Y)
     const isReportRaw = r.is_report ?? r.IS_REPORT ?? r.isReport ?? null;
-    if (isReportRaw !== null && isReportRaw !== undefined && isReportRaw !== "") {
+    if (opts?.strictIsReport) {
+      const isReportStr = isReportRaw !== null && isReportRaw !== undefined && isReportRaw !== ""
+        ? String(isReportRaw).trim().toUpperCase() : "";
+      if (isReportStr !== "Y" && isReportStr !== "1" && isReportStr !== "YES" && isReportStr !== "TRUE") continue;
+    } else if (isReportRaw !== null && isReportRaw !== undefined && isReportRaw !== "") {
       const isReportStr = String(isReportRaw).trim().toUpperCase();
       if (isReportStr !== "Y" && isReportStr !== "1" && isReportStr !== "YES" && isReportStr !== "TRUE") continue;
     }

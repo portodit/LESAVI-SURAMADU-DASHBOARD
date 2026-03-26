@@ -202,14 +202,24 @@ async function importFunnelSheet(
       return { sheetName: sheet.title, date, period, type: "funnel", status: "error", message: "Sheet kosong atau tidak ada data" };
     }
 
-    // GSheets nationwide funnel: divisi = business segment (RSMES/DGS/DPS, not AM's org unit).
-    // nik_handling = empty for all SURAMADU rows; use nik_pembuat_lop with role=AM as fallback.
-    // Skip divisi filter and activeNikSet — filter only by witel=SURAMADU + is_report=Y.
-    const cleaned = cleanFunnelRows(rows, { skipDivisiFilter: true });
+    // GSheets nationwide funnel: witel=SURAMADU + is_report=Y filter applied in cleanFunnelRows.
+    // Then restrict to active master AMs only (aktif=true) to match Power BI's AM scope.
+    // Override reportDate with the snapshot date from the sheet name so the year filter works
+    // correctly (GSheets report_date = LOP creation date, not the reporting period).
+    const cleaned = cleanFunnelRows(rows, { skipDivisiFilter: true, strictIsReport: true });
     if (cleaned.length === 0) {
       return { sheetName: sheet.title, date, period, type: "funnel", status: "error", message: `Tidak ada baris valid setelah cleaning dari ${rows.length} baris mentah` };
     }
-    const activeOnly = cleaned;
+
+    // Load active master AMs and filter to only those NIKs
+    const allMasterAms = await db.select().from(masterAmTable);
+    const masterNameByNik = new Map(allMasterAms.map(m => [m.nik, m.nama]));
+    const activeNikSet = new Set(allMasterAms.filter(m => m.aktif).map(m => m.nik));
+    const activeOnly = cleaned.filter(r => r.nikAm && activeNikSet.has(r.nikAm));
+
+    if (activeOnly.length === 0) {
+      return { sheetName: sheet.title, date, period, type: "funnel", status: "error", message: `Tidak ada LOP master AM aktif ditemukan setelah filter dari ${cleaned.length} baris SURAMADU` };
+    }
 
     const [imp] = await db.insert(dataImportsTable).values({
       type: "funnel", rowsImported: activeOnly.length, period,
@@ -219,20 +229,19 @@ async function importFunnelSheet(
     const BATCH = 200;
     for (let i = 0; i < activeOnly.length; i += BATCH) {
       await db.insert(salesFunnelTable).values(
-        activeOnly.slice(i, i + BATCH).map(row => ({ ...row, snapshotDate: date, importId: imp.id }))
+        // Keep original report_date from GSheets (the LOP's reporting period).
+        // Power BI tahun=2026 filter matches rows where report_date year=2026.
+        activeOnly.slice(i, i + BATCH).map(row => ({
+          ...row,
+          snapshotDate: date,
+          importId: imp.id,
+          namaAm: masterNameByNik.get(row.nikAm) || row.namaAm,
+        }))
       );
     }
 
-    const allMasterAms = await db.select().from(masterAmTable);
-    const masterNameByNik = new Map(allMasterAms.map(m => [m.nik, m.nama]));
-    // Always backfill name from master data (nik_handling may differ from nik_pembuat_lop)
-    for (const row of activeOnly.filter(r => r.nikAm && masterNameByNik.has(r.nikAm))) {
-      await db.update(salesFunnelTable)
-        .set({ namaAm: masterNameByNik.get(row.nikAm) })
-        .where(and(eq(salesFunnelTable.importId, imp.id), eq(salesFunnelTable.nikAm, row.nikAm)));
-    }
-
-    return { sheetName: sheet.title, date, period, type: "funnel", status: "imported", rowsImported: activeOnly.length, message: `${activeOnly.length} baris berhasil diimport dari ${rows.length} baris mentah` };
+    const count2026 = activeOnly.filter(r => r.reportDate?.startsWith("2026")).length;
+    return { sheetName: sheet.title, date, period, type: "funnel", status: "imported", rowsImported: activeOnly.length, message: `${activeOnly.length} LOP master AM dari ${cleaned.length} baris SURAMADU (${rows.length} total) berhasil diimport — ${count2026} dengan report_date 2026` };
   } catch (err: any) {
     return { sheetName: sheet.title, date, period, type: "funnel", status: "error", message: err?.message || String(err) };
   }

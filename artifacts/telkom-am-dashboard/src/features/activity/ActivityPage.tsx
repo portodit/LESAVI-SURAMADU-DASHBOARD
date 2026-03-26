@@ -76,7 +76,7 @@ export default function ActivityVis() {
             <tbody className="divide-y divide-border">
               {data.activities.slice(0, 20).map((act, i) => (
                 <tr key={i} className="hover:bg-secondary/20">
-                  <td className="px-6 py-4 font-medium">{format(new Date(act.activityEndDate), 'dd MMM yyyy')}</td>
+                  <td className="px-6 py-4 font-medium">{act.activityEndDate ? (() => { try { return format(new Date(act.activityEndDate), 'dd MMM yyyy'); } catch { return act.activityEndDate; } })() : '–'}</td>
                   <td className="px-6 py-4">{act.fullname}</td>
                   <td className="px-6 py-4">
                     <p className="font-semibold text-foreground">{act.caName || '-'}</p>

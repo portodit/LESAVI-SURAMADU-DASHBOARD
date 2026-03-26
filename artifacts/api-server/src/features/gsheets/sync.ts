@@ -136,14 +136,14 @@ async function importFunnelSheet(
       return { sheetName: sheet.title, date, period, type: "funnel", status: "error", message: "Sheet kosong atau tidak ada data" };
     }
 
-    const cleaned = cleanFunnelRows(rows);
-    const activeAms = await db.select({ nik: masterAmTable.nik }).from(masterAmTable).where(eq(masterAmTable.aktif, true));
-    const activeNikSet = new Set(activeAms.map(a => a.nik));
-    const activeOnly = cleaned.filter(r => r.nikAm && activeNikSet.has(r.nikAm));
-
-    if (activeOnly.length === 0) {
+    // GSheets nationwide funnel: divisi = business segment (RSMES/DGS/DPS, not AM's org unit).
+    // nik_handling = empty for all SURAMADU rows; use nik_pembuat_lop with role=AM as fallback.
+    // Skip divisi filter and activeNikSet — filter only by witel=SURAMADU + is_report=Y.
+    const cleaned = cleanFunnelRows(rows, { skipDivisiFilter: true });
+    if (cleaned.length === 0) {
       return { sheetName: sheet.title, date, period, type: "funnel", status: "error", message: `Tidak ada baris valid setelah cleaning dari ${rows.length} baris mentah` };
     }
+    const activeOnly = cleaned;
 
     const [imp] = await db.insert(dataImportsTable).values({
       type: "funnel", rowsImported: activeOnly.length, period,
@@ -159,7 +159,8 @@ async function importFunnelSheet(
 
     const allMasterAms = await db.select().from(masterAmTable);
     const masterNameByNik = new Map(allMasterAms.map(m => [m.nik, m.nama]));
-    for (const row of activeOnly.filter(r => !r.namaAm && r.nikAm && masterNameByNik.has(r.nikAm))) {
+    // Always backfill name from master data (nik_handling may differ from nik_pembuat_lop)
+    for (const row of activeOnly.filter(r => r.nikAm && masterNameByNik.has(r.nikAm))) {
       await db.update(salesFunnelTable)
         .set({ namaAm: masterNameByNik.get(row.nikAm) })
         .where(and(eq(salesFunnelTable.importId, imp.id), eq(salesFunnelTable.nikAm, row.nikAm)));
@@ -228,7 +229,9 @@ async function importPerformanceSheet(
       if (!nik || !namaAm) continue;
       if (divisiRaw.toUpperCase() === "DGS") continue;
 
-      const key = nik;
+      // Group by NIK + PERIODE to get per-month rows (same as Excel import in routes.ts)
+      const periodeStr = String(r.PERIODE || "").trim();
+      const key = periodeStr ? `${nik}__${periodeStr}` : nik;
       const tReg = parseIndonesianNumber(r.TARGET_REVENUE ?? r.target_revenue);
       const rReg = parseIndonesianNumber(r.REAL_REVENUE ?? r.real_revenue);
       const tSustain = parseIndonesianNumber(r.TARGET_SUSTAIN ?? r.target_sustain ?? 0);
@@ -244,12 +247,19 @@ async function importPerformanceSheet(
       const targetTotal = tReg + tSustain + tScaling + tNgtma;
       const realTotal = rReg + rSustain + rScaling + rNgtma;
 
+      // Parse tahun/bulan from PERIODE column (e.g. "202601" → tahun=2026, bulan=1)
+      let tahun = y, bulan = m;
+      if (periodeStr && /^\d{6}$/.test(periodeStr)) {
+        tahun = parseInt(periodeStr.slice(0, 4));
+        bulan = parseInt(periodeStr.slice(4, 6));
+      }
+
       if (!amMap.has(key)) {
         amMap.set(key, {
           nik, namaAm, divisi: divisiRaw,
           witel: String(r.WITEL_AM || r.witel || "SURAMADU").trim(),
           levelAm: String(r.LEVEL_AM || r.level_am || "").trim(),
-          tahun: y, bulan: m,
+          tahun, bulan,
           target: 0, real: 0,
           tReg: 0, rReg: 0, tSustain: 0, rSustain: 0,
           tScaling: 0, rScaling: 0, tNgtma: 0, rNgtma: 0,

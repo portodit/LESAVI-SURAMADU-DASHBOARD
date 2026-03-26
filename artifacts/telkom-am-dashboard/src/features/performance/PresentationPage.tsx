@@ -665,7 +665,8 @@ function FunnelSlide() {
   });
 
   const yearOptions = useMemo(()=>{
-    const years=[...new Set(snapshots.map((s:any)=>s.period.slice(0,4)))].sort().reverse() as string[];
+    const snapsArr = Array.isArray(snapshots) ? snapshots : [];
+    const years=[...new Set(snapsArr.map((s:any)=>s.period.slice(0,4)))].sort().reverse() as string[];
     if(years.length===0) return [{value:"2026",label:"2026"}];
     return years.map(y=>({value:y,label:y}));
   },[snapshots]);
@@ -677,7 +678,7 @@ function FunnelSlide() {
   },[]);
 
   const snapshotOptions = useMemo(()=>
-    snapshots.filter((s:any)=>{
+    (Array.isArray(snapshots) ? snapshots : []).filter((s:any)=>{
       if(!s.period.startsWith(filterYear)) return false;
       if(filterMonths.size>0&&!filterMonths.has(s.period.slice(5,7))) return false;
       return true;
@@ -698,7 +699,7 @@ function FunnelSlide() {
   const {data,isLoading} = useQuery<any>({
     queryKey:["funnel-data-pres",funnelParams],
     queryFn:async()=>{const r=await fetch(`${BASE_PATH}/api/funnel?${funnelParams}`,{credentials:"include"});return r.json();},
-    enabled:importId!==null||snapshots.length===0,
+    enabled:importId!==null||(Array.isArray(snapshots)&&snapshots.length===0),
     staleTime:30_000,
   });
 

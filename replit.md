@@ -99,6 +99,15 @@ artifacts-monorepo/
 - `--font-sans`: Inter (body text, UI elements) — via Google Fonts
 - `--font-display`: Satoshi (headings, brand names, bold labels) — via Fontshare CDN
 
+## GSheets Integration Notes
+
+- Spreadsheet: `1ojCi6dbJKCSPZU_cWozEByDwzYbZ6hVaf3n9aDibiVk` (LESA VI SURAMADU)
+- Auto-detects sheet patterns: `TREG3_SALES_FUNNEL_`, `TREG3_ACTIVITY_`, `PERFORMANSI_`
+- **Funnel GSheets**: nationwide TREG3 data; `nik_handling` is EMPTY for all SURAMADU rows; `nik_pembuat_lop` uses DSO/support NIKs (not AM NIKs). Import keeps ALL `witel=SURAMADU + is_report=Y` rows (~3007). Per-AM funnel attribution only works via Excel upload.
+- **Activity GSheets**: correct AM attribution via `nik` column; divisi filter DPS/DSS applied; gives ~719 SURAMADU AM activity rows.
+- **Performance GSheets**: aggregates by NIK+PERIODE; skips DGS; gives 132 rows (11 AM × multiple months from PERFORMANSI data).
+- **parseDate**: handles dd/MM/yyyy (GSheets format), Excel serial, and ISO formats.
+
 ## Database Schema
 
 - `account_managers` — AM profiles with Telegram chat IDs
@@ -106,7 +115,7 @@ artifacts-monorepo/
 - `app_settings` — Application configuration (Telegram bot token, etc.)
 - `data_imports` — Import history log
 - `performance_data` — AM performance metrics
-- `sales_activity` — Sales activity records
+- `sales_activity` — Sales activity records (new cols: nipnas, regional, pic_role, pic_phone, createdat_activity)
 - `sales_funnel` — Sales funnel data
 - `telegram_logs` — Telegram message send logs
 

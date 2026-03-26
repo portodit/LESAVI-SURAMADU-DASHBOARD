@@ -106,8 +106,9 @@ function parseDate(val: any): string {
   if (!val) return "";
   // If it's already a Date object
   if (val instanceof Date) return val.toISOString().slice(0, 10);
-  // If it's a number (Excel serial date)
-  const num = parseFloat(String(val));
+  const s = String(val).trim();
+  // Excel serial date number
+  const num = parseFloat(s);
   if (!isNaN(num) && num > 30000 && num < 100000) {
     const jsDate = XLSX.SSF.parse_date_code(num);
     if (jsDate) {
@@ -115,10 +116,17 @@ function parseDate(val: any): string {
       return d.toISOString().slice(0, 10);
     }
   }
-  // If it's a date string (try to parse)
-  const d = new Date(String(val));
-  if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
-  return String(val);
+  // dd/MM/yyyy format (from GSheets: "07/03/2026")
+  const ddmmyyyy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (ddmmyyyy) {
+    const [, dd, mm, yyyy] = ddmmyyyy;
+    const d = new Date(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd));
+    if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+  }
+  // YYYY-MM-DD or other ISO-like formats
+  const isoDate = new Date(s);
+  if (!isNaN(isoDate.getTime())) return isoDate.toISOString().slice(0, 10);
+  return s;
 }
 
 function clean(val: any): string {
@@ -160,7 +168,7 @@ export interface CleanedFunnelRow {
   createdDate: string;
 }
 
-export function cleanFunnelRows(rows: ParsedRow[]): CleanedFunnelRow[] {
+export function cleanFunnelRows(rows: ParsedRow[], opts?: { skipDivisiFilter?: boolean }): CleanedFunnelRow[] {
   const passed: CleanedFunnelRow[] = [];
 
   for (const r of rows) {
@@ -169,11 +177,14 @@ export function cleanFunnelRows(rows: ParsedRow[]): CleanedFunnelRow[] {
     if (!witel.includes("SURAMADU")) continue;
 
     // ── STEP 2: Filter divisi = DPS or DSS
+    // NOTE: In GSheets nationwide funnel, divisi = business segment (RSMES etc), NOT AM divisi.
+    // Skip this filter when importing from GSheets — rely on activeNikSet instead.
     const divisi = clean(r.divisi).toUpperCase();
-    if (divisi !== "DPS" && divisi !== "DSS") continue;
+    if (!opts?.skipDivisiFilter && divisi !== "DPS" && divisi !== "DSS") continue;
 
     // ── STEP 3: Fix NIK AM — 850099 (RENI WULANSARI) → 870022 (HAVEA PERTIWI) unconditionally
-    const nikRaw = toIntSafe(r.nik_pembuat_lop);
+    // Use nik_handling (AM responsible) with fallback to nik_pembuat_lop (LOP creator)
+    const nikRaw = toIntSafe(r.nik_handling) ?? toIntSafe(r.nik_pembuat_lop);
     if (nikRaw === null) continue; // skip rows with non-numeric NIK
 
     let nikAm = String(nikRaw);
@@ -239,15 +250,20 @@ export interface CleanedActivityRow {
   fullname: string;
   divisi: string;
   segmen: string;
+  regional: string;
   witel: string;
+  nipnas: string;
   caName: string;
   activityType: string;
   label: string;
   lopid: string;
+  createdatActivity: string;
   activityStartDate: string;
   activityEndDate: string;
   picName: string;
   picJobtitle: string;
+  picRole: string;
+  picPhone: string;
   activityNotes: string;
 }
 
@@ -273,15 +289,20 @@ export function cleanActivityRows(rows: ParsedRow[]): CleanedActivityRow[] {
         fullname,
         divisi,
         segmen: clean(r.segmen),
+        regional: clean(r.regional),
         witel,
-        caName: cleanUpper(r.ca_name) || "",              // UPPER+TRIM
+        nipnas: clean(r.nipnas),
+        caName: cleanUpper(r.ca_name) || "",
         activityType: clean(r.activity_type),
         label: clean(r.label),
         lopid: clean(r.lopid),
+        createdatActivity: parseDate(r.createdat) || clean(r.createdat),
         activityStartDate: parseDate(r.activity_start_date) || clean(r.activity_start_date),
         activityEndDate: parseDate(r.activity_end_date) || clean(r.activity_end_date),
         picName: clean(r.pic_name),
         picJobtitle: clean(r.pic_jobtitle),
+        picRole: clean(r.pic_role),
+        picPhone: clean(r.pic_phone),
         activityNotes: clean(r.activity_notes),
       } as CleanedActivityRow;
     })

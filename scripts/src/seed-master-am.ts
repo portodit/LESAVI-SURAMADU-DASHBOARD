@@ -1,6 +1,6 @@
 /**
  * Seed script — Master data AM Telkom TR3/Suramadu
- * Mengisi tabel master_am dan account_managers sekaligus.
+ * Mengisi tabel account_managers (satu-satunya tabel master AM).
  * Aman dijalankan berulang kali (upsert by NIK).
  *
  * Jalankan:
@@ -47,45 +47,21 @@ const AM_DATA: Array<{
 // ─── Seed ──────────────────────────────────────────────────────────────────
 
 async function seedMasterAm() {
-  console.log("Menyemai data ke tabel master_am...");
-
-  for (const am of AM_DATA) {
-    await db.execute(sql`
-      INSERT INTO master_am (nik, nama, divisi, witel, cross_witel, aktif, source)
-      VALUES (
-        ${am.nik},
-        ${am.nama},
-        ${am.divisi},
-        'SURAMADU',
-        ${am.crossWitel},
-        true,
-        'seed'
-      )
-      ON CONFLICT (nik)
-      DO UPDATE SET
-        nama        = EXCLUDED.nama,
-        divisi      = EXCLUDED.divisi,
-        witel       = EXCLUDED.witel,
-        cross_witel = EXCLUDED.cross_witel,
-        aktif       = EXCLUDED.aktif,
-        updated_at  = NOW()
-    `);
-    console.log(`  OK  master_am  ${am.nik}  ${am.nama}`);
-  }
-
-  console.log("\nMenyemai data ke tabel account_managers...");
+  console.log("Menyemai data ke tabel account_managers...");
 
   for (const am of AM_DATA) {
     const slug = slugify(am.nama);
     await db.execute(sql`
-      INSERT INTO account_managers (nik, nama, slug, divisi, witel, kpi_activity)
+      INSERT INTO account_managers (nik, nama, slug, divisi, witel, kpi_activity, aktif, cross_witel)
       VALUES (
         ${am.nik},
         ${am.nama},
         ${slug},
         ${am.divisi},
         'SURAMADU',
-        ${am.kpiActivity}
+        ${am.kpiActivity},
+        true,
+        ${am.crossWitel}
       )
       ON CONFLICT (nik)
       DO UPDATE SET
@@ -93,12 +69,14 @@ async function seedMasterAm() {
         slug         = EXCLUDED.slug,
         divisi       = EXCLUDED.divisi,
         witel        = EXCLUDED.witel,
-        kpi_activity = EXCLUDED.kpi_activity
+        kpi_activity = EXCLUDED.kpi_activity,
+        aktif        = EXCLUDED.aktif,
+        cross_witel  = EXCLUDED.cross_witel
     `);
-    console.log(`  OK  account_managers  ${am.nik}  ${am.nama}  (slug: ${slug})`);
+    console.log(`  OK  ${am.nik}  ${am.nama}  (slug: ${slug})`);
   }
 
-  console.log(`\nSelesai! ${AM_DATA.length} AM berhasil di-seed ke kedua tabel.`);
+  console.log(`\nSelesai! ${AM_DATA.length} AM berhasil di-seed ke account_managers.`);
 }
 
 seedMasterAm()

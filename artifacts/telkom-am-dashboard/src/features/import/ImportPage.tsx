@@ -22,7 +22,6 @@ const TABS = [
   { id: "funnel",      label: "Sales Funnel",  icon: Filter,    type: "funnel" },
   { id: "activity",   label: "Sales Activity", icon: Activity,  type: "activity" },
   { id: "target-ho",  label: "Target HO",      icon: Target,    type: "target" },
-  { id: "master-am",  label: "Master AM",       icon: Users,     type: "master" },
   { id: "gsheets",    label: "Google Sheets",  icon: Sheet,     type: "gsheets" },
 ];
 
@@ -280,58 +279,6 @@ export default function ImportData() {
     queryFn: () => apiFetch("/api/funnel/data-quality"),
     staleTime: 60_000,
   });
-
-  // Master AM state
-  const [maForm, setMaForm] = useState({ nik: "", nama: "", divisi: "DPS", jabatan: "" });
-  const [maAdding, setMaAdding] = useState(false);
-  const [maDelConfirm, setMaDelConfirm] = useState<string | null>(null);
-  const { data: masterAms = [], refetch: refetchMasterAms } = useQuery<any[]>({
-    queryKey: ["master-am"],
-    queryFn: () => apiFetch("/api/master-am"),
-    staleTime: 30_000,
-    enabled: activeTab === "master-am",
-  });
-
-  const handleAddMasterAm = async () => {
-    if (!maForm.nik || !maForm.nama) { toast({ title: "NIK dan Nama wajib diisi", variant: "destructive" }); return; }
-    setMaAdding(true);
-    try {
-      await apiFetch("/api/master-am", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...maForm, aktif: true }),
-      });
-      toast({ title: "AM Ditambahkan", description: `${maForm.nama} berhasil ditambahkan ke master AM` });
-      setMaForm({ nik: "", nama: "", divisi: "DPS", jabatan: "" });
-      refetchMasterAms();
-    } catch (e: any) {
-      toast({ title: "Gagal", description: e.message, variant: "destructive" });
-    } finally { setMaAdding(false); }
-  };
-
-  const handleToggleMasterAmAktif = async (nik: string, aktif: boolean) => {
-    try {
-      await apiFetch(`/api/master-am/${nik}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ aktif }),
-      });
-      refetchMasterAms();
-    } catch (e: any) {
-      toast({ title: "Gagal update", description: e.message, variant: "destructive" });
-    }
-  };
-
-  const handleDeleteMasterAm = async (nik: string) => {
-    try {
-      await apiFetch(`/api/master-am/${nik}`, { method: "DELETE" });
-      toast({ title: "AM Dihapus" });
-      setMaDelConfirm(null);
-      refetchMasterAms();
-    } catch (e: any) {
-      toast({ title: "Gagal Hapus", description: e.message, variant: "destructive" });
-    }
-  };
 
   const handleSaveTarget = async () => {
     if (!tForm.tahun || !tForm.bulan || !tForm.divisi) {
@@ -824,119 +771,8 @@ export default function ImportData() {
           </div>
         )}
 
-        {/* Master AM Tab Content */}
-        {activeTab === "master-am" && (
-          <div className="p-6 space-y-5">
-            <div>
-              <h3 className="text-sm font-black text-foreground uppercase tracking-wide mb-1 flex items-center gap-2">
-                <Users className="w-4 h-4 text-violet-500" /> Master Data Account Manager
-              </h3>
-              <p className="text-xs text-muted-foreground">Daftar AM Witel Suramadu yang digunakan sebagai acuan data Sales Funnel dan Performa AM. Auto-populate saat import.</p>
-            </div>
-
-            {/* Add form */}
-            <div className="bg-secondary/30 border border-border rounded-xl p-4 space-y-3">
-              <p className="text-xs font-bold text-foreground uppercase tracking-wide">Tambah AM Baru</p>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1">NIK</label>
-                  <input type="text" className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-violet-500"
-                    placeholder="Contoh: 870022" value={maForm.nik} onChange={e => setMaForm(p => ({ ...p, nik: e.target.value }))} />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1">Nama AM</label>
-                  <input type="text" className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-violet-500"
-                    placeholder="Contoh: HAVEA PERTIWI" value={maForm.nama} onChange={e => setMaForm(p => ({ ...p, nama: e.target.value.toUpperCase() }))} />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1">Divisi</label>
-                  <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-violet-500"
-                    value={maForm.divisi} onChange={e => setMaForm(p => ({ ...p, divisi: e.target.value }))}>
-                    <option value="DPS">DPS</option>
-                    <option value="DSS">DSS</option>
-                    <option value="DGS">DGS</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1">Jabatan (opsional)</label>
-                  <input type="text" className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-violet-500"
-                    placeholder="Contoh: AM Senior" value={maForm.jabatan} onChange={e => setMaForm(p => ({ ...p, jabatan: e.target.value }))} />
-                </div>
-              </div>
-              <Button onClick={handleAddMasterAm} disabled={maAdding} size="sm"
-                className="bg-violet-700 hover:bg-violet-800 text-white font-bold uppercase tracking-wide text-xs px-4">
-                {maAdding ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Plus className="w-3 h-3 mr-1" />}
-                Tambah AM
-              </Button>
-            </div>
-
-            {/* Master AM table */}
-            <div className="border border-border rounded-xl overflow-hidden">
-              <table className="w-full border-collapse text-sm">
-                <thead>
-                  <tr className="bg-red-700 text-white">
-                    <th className="px-4 py-3 text-xs font-black uppercase tracking-wide text-left">NIK</th>
-                    <th className="px-4 py-3 text-xs font-black uppercase tracking-wide text-left">Nama AM</th>
-                    <th className="px-4 py-3 text-xs font-black uppercase tracking-wide text-left">Divisi</th>
-                    <th className="px-4 py-3 text-xs font-black uppercase tracking-wide text-left">Jabatan</th>
-                    <th className="px-4 py-3 text-xs font-black uppercase tracking-wide text-left">Status</th>
-                    <th className="px-4 py-3 text-xs font-black uppercase tracking-wide text-right">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/50">
-                  {masterAms.length === 0 && (
-                    <tr><td colSpan={6} className="px-4 py-10 text-center text-muted-foreground text-sm">
-                      <Users className="w-8 h-8 mx-auto mb-2 opacity-30" />Data master AM kosong
-                    </td></tr>
-                  )}
-                  {masterAms.map((am: any) => (
-                    <tr key={am.nik} className={cn("transition-colors", maDelConfirm === am.nik ? "bg-red-50" : am.aktif ? "hover:bg-secondary/20" : "bg-gray-50/60 opacity-70")}>
-                      <td className="px-4 py-2.5 font-mono text-xs font-semibold text-muted-foreground">{am.nik}</td>
-                      <td className="px-4 py-2.5 font-bold text-foreground text-sm">{am.nama}</td>
-                      <td className="px-4 py-2.5">
-                        <span className={cn("text-xs font-bold px-2 py-0.5 rounded-full",
-                          am.divisi === "DPS" ? "bg-blue-100 text-blue-700" :
-                          am.divisi === "DSS" ? "bg-purple-100 text-purple-700" :
-                          "bg-gray-100 text-gray-600")}>{am.divisi || "–"}</span>
-                      </td>
-                      <td className="px-4 py-2.5 text-xs text-muted-foreground">{am.jabatan || "–"}</td>
-                      <td className="px-4 py-2.5">
-                        {am.aktif
-                          ? <span className="inline-flex items-center gap-1 text-emerald-600 text-xs font-semibold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200"><UserCheck className="w-3 h-3"/>Aktif</span>
-                          : <span className="inline-flex items-center gap-1 text-gray-500 text-xs font-semibold bg-gray-100 px-2 py-0.5 rounded-full border border-gray-200"><UserX className="w-3 h-3"/>Historis</span>
-                        }
-                      </td>
-                      <td className="px-4 py-2.5 text-right">
-                        {maDelConfirm === am.nik ? (
-                          <div className="flex items-center justify-end gap-1.5">
-                            <span className="text-xs text-red-600 font-semibold">Hapus?</span>
-                            <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => handleDeleteMasterAm(am.nik)}>Ya</Button>
-                            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setMaDelConfirm(null)}>Batal</Button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-end gap-1.5">
-                            <Button size="sm" variant="ghost" className="h-7 text-xs hover:text-violet-600 hover:bg-violet-50"
-                              onClick={() => handleToggleMasterAmAktif(am.nik, !am.aktif)}>
-                              {am.aktif ? <UserX className="w-3 h-3 mr-1"/>: <UserCheck className="w-3 h-3 mr-1"/>}
-                              {am.aktif ? "Non-aktifkan" : "Aktifkan"}
-                            </Button>
-                            <Button size="sm" variant="ghost" className="h-7 text-xs hover:text-red-600 hover:bg-red-50"
-                              onClick={() => setMaDelConfirm(am.nik)}>
-                              <Trash2 className="w-3 h-3 mr-1"/>Hapus
-                            </Button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
         {/* File-based tabs content */}
-        {activeTab !== "target-ho" && activeTab !== "master-am" && activeTab !== "gsheets" && (
+        {activeTab !== "target-ho" && activeTab !== "gsheets" && (
         <div className="p-6 space-y-4">
           {/* File upload with drag & drop */}
           <div className="space-y-2">
@@ -1080,7 +916,7 @@ export default function ImportData() {
       </div>
 
       {/* History Table — only for file-import tabs (not gsheets, history appears in respective type tabs) */}
-      {activeTab !== "target-ho" && activeTab !== "master-am" && activeTab !== "gsheets" && (
+      {activeTab !== "target-ho" && activeTab !== "gsheets" && (
       <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
         <div className="px-6 py-4 border-b border-border flex items-center gap-3">
           <History className="w-4 h-4 text-muted-foreground" />
@@ -1519,7 +1355,7 @@ export default function ImportData() {
                 <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 mr-1">Diterapkan</span> = berlaku untuk semua data (termasuk data lama).{" "}
                 <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 mr-1">Import Baru</span> = berlaku saat import file berikutnya.{" "}
                 <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 mr-1">Saat Query</span> = filter diterapkan tiap kali dashboard memuat data.{" "}
-                AM Aktif = {dqData?.activeAm ?? 12} dari master_am (source=account_managers).
+                AM Aktif = {dqData?.activeAm ?? 13} dari account_managers (aktif = true).
               </p>
             </div>
           )}

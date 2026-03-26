@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, dataImportsTable, performanceDataTable, salesFunnelTable, salesActivityTable, accountManagersTable, appSettingsTable, masterAmTable, masterCustomerTable } from "@workspace/db";
+import { db, dataImportsTable, performanceDataTable, salesFunnelTable, salesActivityTable, accountManagersTable, appSettingsTable, masterCustomerTable } from "@workspace/db";
 import { desc, eq, and, sql } from "drizzle-orm";
 import { requireAuth } from "../../shared/auth";
 import {
@@ -291,8 +291,8 @@ router.post("/import/funnel", requireAuth, async (req, res): Promise<void> => {
   // ── Apply cleaning pipeline (sesuai Power Query di Power BI)
   const cleaned = cleanFunnelRows(rows);
 
-  // ── STEP 8: Filter only LOPs belonging to active master_am (the 12 authorized AMs)
-  const activeAms = await db.select({ nik: masterAmTable.nik }).from(masterAmTable).where(eq(masterAmTable.aktif, true));
+  // ── STEP 8: Filter only LOPs belonging to active account_managers (the authorized AMs)
+  const activeAms = await db.select({ nik: accountManagersTable.nik }).from(accountManagersTable).where(eq(accountManagersTable.aktif, true));
   const activeNikSet = new Set(activeAms.map(a => a.nik));
   const activeOnly = cleaned.filter(r => r.nikAm && activeNikSet.has(r.nikAm));
 
@@ -343,8 +343,8 @@ router.post("/import/funnel", requireAuth, async (req, res): Promise<void> => {
     await db.insert(salesFunnelTable).values(batch);
   }
 
-  // ── Back-fill empty nama_am from master_am
-  const allMasterAms = await db.select().from(masterAmTable);
+  // ── Back-fill empty nama_am from account_managers
+  const allMasterAms = await db.select().from(accountManagersTable);
   const masterNameByNik = new Map(allMasterAms.map(m => [m.nik, m.nama]));
   const nullNameRows = activeOnly.filter(r => !r.namaAm && r.nikAm && masterNameByNik.has(r.nikAm));
   for (const row of nullNameRows) {
@@ -507,14 +507,14 @@ router.post("/import/powerbi-funnel", requireAuth, async (req, res): Promise<voi
   const ws = wb.Sheets[wb.SheetNames[0]];
   const rawRows = XLSX.utils.sheet_to_json<Record<string, any>>(ws, { defval: null });
 
-  // Load master AM for name→NIK lookup
-  const masterAms = await db.select().from(masterAmTable).where(sql`aktif = true`);
+  // Load account_managers for name→NIK lookup
+  const masterAms = await db.select().from(accountManagersTable).where(eq(accountManagersTable.aktif, true));
   const nameToNik = new Map<string, string>();
   const nikToDivisi = new Map<string, string>();
   for (const m of masterAms) {
     const norm = m.nama.toUpperCase().replace(/\s+/g, "");
     nameToNik.set(norm, m.nik);
-    nikToDivisi.set(m.nik, m.divisi || "DPS");
+    nikToDivisi.set(m.nik, m.divisi);
   }
 
   // Dedup by lopid: skip already-imported lopids from this source

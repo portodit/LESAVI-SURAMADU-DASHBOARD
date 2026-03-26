@@ -1,7 +1,7 @@
 import {
   db, appSettingsTable, dataImportsTable,
   salesFunnelTable, salesActivityTable, performanceDataTable,
-  masterAmTable, accountManagersTable,
+  accountManagersTable,
 } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { cleanFunnelRows, cleanActivityRows, parseIndonesianNumber, slugify } from "../import/excel";
@@ -236,8 +236,8 @@ async function importFunnelSheet(
       return { sheetName: sheet.title, date, period, type: "funnel", status: "error", message: `Tidak ada baris valid setelah cleaning dari ${rows.length} baris mentah` };
     }
 
-    // Step 5: Load active master AMs
-    const allMasterAms = await db.select().from(masterAmTable);
+    // Step 5: Load active account_managers
+    const allMasterAms = await db.select().from(accountManagersTable);
     const masterNameByNik = new Map(allMasterAms.map(m => [m.nik, m.nama]));
     const activeNikSet = new Set(allMasterAms.filter(m => m.aktif).map(m => m.nik));
 

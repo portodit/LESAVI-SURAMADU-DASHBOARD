@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, salesFunnelTable, salesFunnelTargetTable, dataImportsTable, masterAmTable } from "@workspace/db";
+import { db, salesFunnelTable, salesFunnelTargetTable, dataImportsTable, accountManagersTable } from "@workspace/db";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { requireAuth } from "../../shared/auth";
 
@@ -66,8 +66,8 @@ router.delete("/funnel/targets/:id", requireAuth, async (req, res): Promise<void
 router.get("/funnel", requireAuth, async (req, res): Promise<void> => {
   const { import_id, divisi, status, nama_am, kategori_kontrak, tahun } = req.query;
 
-  // Load master_am for name resolution and AM group filtering
-  const masterAms = await db.select().from(masterAmTable);
+  // Load account_managers for name resolution and AM group filtering
+  const masterAms = await db.select().from(accountManagersTable);
   const masterAmByNik = new Map(masterAms.map(m => [m.nik, m.nama]));
   const activeNikSet = new Set(masterAms.filter(m => m.aktif).map(m => m.nik));
 
@@ -223,7 +223,7 @@ router.get("/funnel/data-quality", requireAuth, async (req, res): Promise<void> 
   const stats: any = (statsRows as any)[0] ?? (statsRows as any).rows?.[0] ?? {};
 
   const masterRows = await db.execute(sql`
-    SELECT COUNT(*)::int AS active_am FROM master_am WHERE source='account_managers'
+    SELECT COUNT(*)::int AS active_am FROM account_managers WHERE aktif = true
   `);
   const masterStats: any = (masterRows as any)[0] ?? (masterRows as any).rows?.[0] ?? {};
 
@@ -268,41 +268,44 @@ router.get("/funnel/:nik", requireAuth, async (req, res): Promise<void> => {
   });
 });
 
-// ── Master AM ────────────────────────────────────────────────────────────────
+// ── Master AM (redirect to account_managers) ─────────────────────────────────
 router.get("/master-am", requireAuth, async (_req, res): Promise<void> => {
-  const rows = await db.select().from(masterAmTable).orderBy(masterAmTable.aktif, masterAmTable.nama);
+  const rows = await db.select().from(accountManagersTable)
+    .orderBy(accountManagersTable.aktif, accountManagersTable.nama);
   res.json(rows);
 });
 
 router.post("/master-am", requireAuth, async (req, res): Promise<void> => {
   const { nik, nama, divisi, jabatan, aktif } = req.body;
   if (!nik || !nama) { res.status(400).json({ error: "nik dan nama wajib diisi" }); return; }
-  const [row] = await db.insert(masterAmTable).values({
-    nik: String(nik), nama: String(nama).toUpperCase(),
-    divisi: divisi ? String(divisi) : null,
+  const slug = String(nama).toLowerCase().replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-");
+  const [row] = await db.insert(accountManagersTable).values({
+    nik: String(nik),
+    nama: String(nama).toUpperCase(),
+    slug,
+    divisi: divisi ? String(divisi) : "DPS",
     jabatan: jabatan ? String(jabatan) : null,
     aktif: aktif !== false,
     witel: "SURAMADU",
-    source: "manual",
   }).onConflictDoNothing().returning();
   res.json(row || { error: "NIK sudah ada" });
 });
 
 router.patch("/master-am/:nik", requireAuth, async (req, res): Promise<void> => {
   const { nama, divisi, jabatan, aktif } = req.body;
-  const updates: any = { updatedAt: new Date() };
-  if (nama !== undefined) updates.nama = String(nama).toUpperCase();
+  const updates: any = {};
+  if (nama !== undefined) { updates.nama = String(nama).toUpperCase(); updates.slug = String(nama).toLowerCase().replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-"); }
   if (divisi !== undefined) updates.divisi = divisi;
   if (jabatan !== undefined) updates.jabatan = jabatan;
   if (aktif !== undefined) updates.aktif = Boolean(aktif);
-  const [row] = await db.update(masterAmTable).set(updates)
-    .where(eq(masterAmTable.nik, req.params.nik)).returning();
+  const [row] = await db.update(accountManagersTable).set(updates)
+    .where(eq(accountManagersTable.nik, req.params.nik)).returning();
   if (!row) { res.status(404).json({ error: "NIK tidak ditemukan" }); return; }
   res.json(row);
 });
 
 router.delete("/master-am/:nik", requireAuth, async (req, res): Promise<void> => {
-  await db.delete(masterAmTable).where(eq(masterAmTable.nik, req.params.nik));
+  await db.delete(accountManagersTable).where(eq(accountManagersTable.nik, req.params.nik));
   res.json({ ok: true });
 });
 

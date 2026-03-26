@@ -6,7 +6,7 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 This is a **SharePoint Bot / Telkom AM Dashboard** project — a full-stack dashboard for Account Manager (AM) performance monitoring with Telegram Bot integration.
 
 ## Key Master Tables (Data Quality)
-- **master_am**: 13 active AMs. `cross_witel` boolean added (WILDAN/HANDIKA/NYARI = true; others false). NIK 850099 (Reni Wulansari) → 870022 (Havea Pertiwi) mapping applied.
+- **account_managers** (satu-satunya tabel master AM — `master_am` dihapus). Fields: nik, nama, slug, divisi, segmen, witel, jabatan, aktif, crossWitel, telegram*, kpiActivity. 13 AM aktif dengan cross_witel flag.
 - **app_settings**: `g_sheets_funnel_spreadsheet_id` added (1czGSp = nationwide SIMLOP/SIGMA dump) separate from `g_sheets_spreadsheet_id` (1ojCi6db = activity/performance).
 - **master_customer**: 262 unique corporate customers, auto-populated from funnel imports.
 - **sales_funnel**: 252 LOPs (2026) from GSheets `TREG3_SALES_FUNNEL_20260326`. Filtered by YEAR(report_date) = tahun at query time.

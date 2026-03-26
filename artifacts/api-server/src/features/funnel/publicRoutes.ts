@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, salesFunnelTable, salesFunnelTargetTable, dataImportsTable, masterAmTable } from "@workspace/db";
+import { db, salesFunnelTable, salesFunnelTargetTable, dataImportsTable, accountManagersTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 
 const router: IRouter = Router();
@@ -32,7 +32,7 @@ router.get("/public/funnel", async (req, res): Promise<void> => {
 
   const { import_id, divisi, status, nama_am, kategori_kontrak, tahun } = req.query;
 
-  const masterAms = await db.select().from(masterAmTable);
+  const masterAms = await db.select().from(accountManagersTable);
   const masterAmByNik = new Map(masterAms.map(m => [m.nik, m.nama]));
   const activeNikSet = new Set(masterAms.filter(m => m.aktif).map(m => m.nik));
 

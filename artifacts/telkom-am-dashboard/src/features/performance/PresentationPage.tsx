@@ -529,7 +529,7 @@ function FSPeriodeTreeDropdown({ label, filterYear, filterMonths, availableYears
   );
 }
 
-function FSGauge({ pct, targetHo, targetFullHo, real, mode }: { pct:number; targetHo:number; targetFullHo:number; real:number; mode:"ho"|"fullho" }) {
+function FSGauge({ pct, targetHo, targetFullHo, real, mode, compact }: { pct:number; targetHo:number; targetFullHo:number; real:number; mode:"ho"|"fullho"; compact?:boolean }) {
   const clamp=Math.min(Math.max(pct,0),100);
   const r=54,cx=80,cy=70;
   const startAngle=-210,endAngle=30,totalDeg=endAngle-startAngle;
@@ -549,6 +549,37 @@ function FSGauge({ pct, targetHo, targetFullHo, real, mode }: { pct:number; targ
   const startY=cy+r*Math.sin(toRad(startAngle));
   const endX=cx+r*Math.cos(toRad(endAngle));
   const endY=cy+r*Math.sin(toRad(endAngle));
+  if (compact) return (
+    <div className="flex flex-col items-center gap-1.5">
+      <svg width="130" height="95" viewBox="0 0 160 115">
+        <path d={arc(startAngle,endAngle,r)} fill="none" stroke="#e5e7eb" strokeWidth="18" strokeLinecap="round"/>
+        {hasTarget&&clamp>0&&<path d={arc(startAngle,startAngle+fillDeg,r)} fill="none" stroke={color} strokeWidth="18" strokeLinecap="round"/>}
+        {hasTarget?(
+          <>
+            <text x={cx} y={cy-4} textAnchor="middle" fontSize="22" fontWeight="800" fill={color} fontFamily="ui-monospace,monospace">{clamp.toFixed(1)}%</text>
+            <text x={cx} y={cy+12} textAnchor="middle" fontSize="9" fill="#6b7280">CAPAIAN</text>
+          </>
+        ):(
+          <>
+            <text x={cx} y={cy-4} textAnchor="middle" fontSize="11" fontWeight="700" fill="#6b7280">Target</text>
+            <text x={cx} y={cy+10} textAnchor="middle" fontSize="10" fill="#9ca3af">belum diset</text>
+          </>
+        )}
+        <text x={startX} y={startY+13} textAnchor="middle" fontSize="8" fill="#9ca3af">0%</text>
+        <text x={endX} y={endY+13} textAnchor="middle" fontSize="8" fill="#9ca3af">100%</text>
+      </svg>
+      {hasTarget&&(
+        <div className="w-full space-y-0.5 text-xs">
+          <div className="flex justify-between"><span className="text-muted-foreground">Real</span><span className="font-black tabular-nums" style={{color}}>{fmtRupiahFS(real)}</span></div>
+          <div className="flex justify-between"><span className="text-muted-foreground">{mode==="ho"?"Target HO":"Full HO"}</span><span className="tabular-nums text-foreground">{fmtRupiahFS(activeTarget)}</span></div>
+          <div className="flex justify-between pt-0.5 border-t border-border">
+            <span className={cn("font-bold",real>=activeTarget?"text-emerald-600":"text-foreground")}>{real>=activeTarget?"Lebih":"Kurang"}</span>
+            <span className={cn("font-black tabular-nums",real>=activeTarget?"text-emerald-600":"text-foreground")}>{real>=activeTarget?"+":"-"}{fmtRupiahFS(Math.abs(activeTarget-real))}</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
   return (
     <div className="flex items-center gap-4">
       <div className="shrink-0">
@@ -597,6 +628,16 @@ function FSGauge({ pct, targetHo, targetFullHo, real, mode }: { pct:number; targ
       </div>
     </div>
   );
+}
+
+function kategoriColor(k: string): string {
+  const kl = k.toLowerCase();
+  if(kl.includes("new gtma")) return "bg-blue-100 border border-blue-300 text-blue-800";
+  if(kl.includes("gtma")) return "bg-cyan-100 border border-cyan-300 text-cyan-800";
+  if(kl.includes("own channel")||kl.includes("own ch")) return "bg-violet-100 border border-violet-300 text-violet-800";
+  if(kl.includes("uncategorized")||kl.includes("uncat")) return "bg-slate-100 border border-slate-300 text-slate-600";
+  if(kl.includes("new")) return "bg-emerald-100 border border-emerald-300 text-emerald-800";
+  return "bg-amber-100 border border-amber-300 text-amber-800";
 }
 
 function FSFaseBarChart({ data, compact }: { data:any; compact?: boolean }) {
@@ -756,6 +797,8 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
       const key=l.nikAm||l.namaAm||"Unknown";
       if(!amMap.has(key)) amMap.set(key,{namaAm:l.namaAm||key,nikAm:l.nikAm||"",divisi:l.divisi||"",phases:new Map()});
       const e=amMap.get(key)!;
+      // Divisi bisa kosong di LOP pertama — update jika sudah ada nilai
+      if(!e.divisi && l.divisi) e.divisi = l.divisi;
       const phase=l.statusF||"Unknown";
       if(!e.phases.has(phase)) e.phases.set(phase,[]);
       e.phases.get(phase)!.push(l);
@@ -773,8 +816,18 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
 
   // ── Split mode state + computed ─────────────────────────────────────────────
   const [viewMode, setViewMode] = useState<"all"|"split">("all");
-  const dpsGrouped = useMemo(() => groupedByAm.filter(a => a.divisi === "DPS"), [groupedByAm]);
-  const dssGrouped = useMemo(() => groupedByAm.filter(a => a.divisi === "DSS"), [groupedByAm]);
+
+  // Resolve divisi dari LOPs dalam phases jika AM-level divisi kosong
+  function resolveAmDivisi(am: {divisi:string;phases:Map<string,any[]>}): string {
+    if (am.divisi) return am.divisi;
+    const counts: Record<string,number> = {};
+    for (const lops of am.phases.values())
+      for (const l of lops as any[]) if (l.divisi) counts[l.divisi]=(counts[l.divisi]||0)+1;
+    return Object.entries(counts).sort((a,b)=>b[1]-a[1])[0]?.[0] ?? "";
+  }
+
+  const dpsGrouped = useMemo(() => groupedByAm.filter(a => resolveAmDivisi(a) === "DPS"), [groupedByAm]);
+  const dssGrouped = useMemo(() => groupedByAm.filter(a => resolveAmDivisi(a) === "DSS"), [groupedByAm]);
 
   function computeDivisiStatsFromGroup(grp: typeof dpsGrouped) {
     const allLops: any[] = [];
@@ -866,7 +919,7 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
               <div className="flex items-center gap-2">
                 <ChevronRight className={cn("w-4 h-4 text-muted-foreground transition-transform shrink-0",amExpanded&&"rotate-90")}/>
                 <span className="font-black text-foreground text-sm uppercase tracking-wide">{am.namaAm}</span>
-                <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0",am.divisi==="DPS"?"bg-blue-100 text-blue-700":"bg-violet-100 text-violet-700")}>{am.divisi}</span>
+                {(()=>{const d=resolveAmDivisi(am);return d?<span className={cn("text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0",d==="DPS"?"bg-blue-100 text-blue-700":d==="DSS"?"bg-emerald-100 text-emerald-700":"bg-slate-100 text-slate-600")}>{d}</span>:null;})()}
                 <button type="button" onClick={e=>{e.stopPropagation();handleAmExpandIcon(amKey,orderedPhases);}}
                   className="ml-1 p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors shrink-0"
                   title={amExpanded?"Collapse semua proyek":"Expand semua proyek"}>
@@ -909,8 +962,8 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
                   <>
                     {lops.map((lop:any,idx:number)=>(
                       <tr key={`${lop.lopid}-${idx}`} className="hover:bg-pink-50 transition-colors" style={ringStyle({})}>
-                        <td className="px-4 py-2 pl-16"><div className="text-sm text-foreground font-bold leading-tight line-clamp-2 max-w-[280px]" title={lop.judulProyek}>{lop.judulProyek}</div></td>
-                        <td className="px-3 py-2">{lop.kategoriKontrak?<span className="inline-block px-2 py-0.5 rounded text-[11px] bg-secondary border border-border text-muted-foreground font-medium">{lop.kategoriKontrak}</span>:<span className="text-muted-foreground text-xs">–</span>}</td>
+                        <td className="px-4 py-2 pl-16" style={{minWidth:"320px"}}><div className="text-sm text-foreground font-bold leading-tight line-clamp-2" title={lop.judulProyek}>{lop.judulProyek}</div></td>
+                        <td className="px-3 py-2 whitespace-nowrap">{lop.kategoriKontrak?<span className={`inline-block px-2 py-0.5 rounded text-[11px] font-bold ${kategoriColor(lop.kategoriKontrak)}`}>{lop.kategoriKontrak}</span>:<span className="text-muted-foreground text-xs">–</span>}</td>
                         <td className="px-3 py-2 font-mono text-xs text-foreground whitespace-nowrap">{lop.lopid}</td>
                         <td className="px-3 py-2 text-sm text-foreground font-bold max-w-[220px] truncate" title={lop.pelanggan}>{lop.pelanggan}</td>
                         <td className="px-4 py-2 text-right tabular-nums text-base font-black text-foreground whitespace-nowrap">{formatRupiahFull(lop.nilaiProyek)}</td>
@@ -1033,10 +1086,10 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
           <div className="border border-border rounded-lg overflow-hidden">
           <div className="overflow-x-auto">
           <div className="overflow-y-auto" style={{maxHeight:"clamp(300px,55vh,700px)"}}>
-          <table className="w-full text-left text-sm border-collapse" style={{minWidth:"760px"}}>
+          <table className="w-full text-left text-sm border-collapse" style={{minWidth:"820px"}}>
             <thead className="sticky top-0 z-10">
               <tr className="bg-red-700 text-white font-black uppercase tracking-wide text-xs">
-                <th className="px-4 py-3 min-w-[260px]">AM / Fase / Proyek</th>
+                <th className="px-4 py-3 min-w-[320px]">AM / Fase / Proyek</th>
                 <th className="px-3 py-3 whitespace-nowrap w-28">KATEGORI</th>
                 <th className="px-3 py-3 font-mono whitespace-nowrap w-28">LOP ID</th>
                 <th className="px-3 py-3 min-w-[220px]">Pelanggan</th>
@@ -1066,7 +1119,6 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
             const textAccent=isDps?"text-blue-600":"text-emerald-600";
             const bgAccent=isDps?"bg-blue-50/40":"bg-emerald-50/40";
             const borderTop=isDps?"border-t-[3px] border-blue-500":"border-t-[3px] border-emerald-500";
-            const divPct=effectiveTargetFullHo>0?Math.min((st.totalNilai/effectiveTargetFullHo)*100,200):0;
             return (
               <div key={div} className={`bg-card border border-border rounded-xl shadow-sm overflow-hidden flex flex-col ${borderTop}`}>
                 {/* Panel Header */}
@@ -1095,26 +1147,24 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
                     </div>
                   </div>
                 </div>
-                {/* Gauge capaian + bar chart side-by-side */}
-                <div className="flex gap-3 px-4 py-2.5 border-b border-border shrink-0">
-                  <div className="flex-1 min-w-0">
+                {/* Bar chart + Gauge capaian */}
+                <div className="flex gap-0 border-b border-border shrink-0">
+                  <div className="flex-1 min-w-0 px-4 py-2.5 border-r border-border">
+                    <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">LOP per Fase</div>
                     <FSFaseBarChart data={data?{...data,byStatus:st.byStatus}:undefined} compact/>
                   </div>
-                  <div className="shrink-0 flex flex-col items-center justify-center w-40">
-                    <div className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wide mb-1">
-                      Capaian vs Target Full HO
+                  <div className="shrink-0 flex flex-col items-center justify-center px-3 py-2">
+                    <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide text-center mb-0.5">
+                      Capaian {filterMode==="ho"?"HO":"Full HO"}
                     </div>
-                    <div className="relative w-full h-4 bg-secondary rounded-full overflow-hidden">
-                      <div className="h-full rounded-full transition-all duration-700"
-                        style={{width:`${Math.min(divPct,100)}%`, backgroundColor:accent}}/>
-                    </div>
-                    <div className="flex justify-between w-full mt-1">
-                      <span className="text-[10px] font-black" style={{color:accent}}>{divPct.toFixed(1)}%</span>
-                      <span className="text-[10px] text-muted-foreground">{filterMode==="ho"?"HO":"Full HO"}</span>
-                    </div>
-                    <div className="text-[10px] text-muted-foreground mt-1 text-center">
-                      Target: {formatRupiah(effectiveTargetFullHo)}
-                    </div>
+                    <FSGauge
+                      compact
+                      pct={effectiveTargetFullHo>0?(st.totalNilai/effectiveTargetFullHo)*100:0}
+                      targetHo={effectiveTargetHo}
+                      targetFullHo={effectiveTargetFullHo}
+                      real={st.totalNilai}
+                      mode={filterMode}
+                    />
                   </div>
                 </div>
                 {/* Table Toolbar */}
@@ -1136,10 +1186,10 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
                 {/* AM Tree Table — overflow-x luar supaya scrollbar gampang diklik */}
                 <div className="overflow-x-auto">
                   <div className="overflow-y-auto" style={{maxHeight:"clamp(200px,38vh,460px)"}}>
-                    <table className="w-full text-left text-sm border-collapse" style={{minWidth:"520px"}}>
+                    <table className="w-full text-left text-sm border-collapse" style={{minWidth:"600px"}}>
                       <thead className="sticky top-0 z-10">
                         <tr className={`${headerBg} text-white font-black uppercase tracking-wide text-xs`}>
-                          <th className="px-4 py-2.5 min-w-[200px]">AM / Fase / Proyek</th>
+                          <th className="px-4 py-2.5 min-w-[280px]">AM / Fase / Proyek</th>
                           <th className="px-3 py-2.5 whitespace-nowrap w-20">KATEGORI</th>
                           <th className="px-3 py-2.5 font-mono whitespace-nowrap w-20">LOP ID</th>
                           <th className="px-3 py-2.5 min-w-[120px]">Pelanggan</th>

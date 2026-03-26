@@ -925,7 +925,6 @@ export default function FunnelPage() {
                       const phaseExpanded = !!expandedPhase[phaseKey];
                       const phaseTotal = lops.reduce((s, l) => s + (l.nilaiProyek || 0), 0);
                       const c = PHASE_COLORS[phase];
-                      const isLastPhase = phase === lastPhase;
 
                       return (
                         <React.Fragment key={phaseKey}>

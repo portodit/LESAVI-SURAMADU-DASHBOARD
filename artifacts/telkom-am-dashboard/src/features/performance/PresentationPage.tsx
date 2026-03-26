@@ -505,9 +505,9 @@ function FSPeriodeTreeDropdown({ label, filterYear, filterMonths, availableYears
   );
 }
 
-function FSGauge({ pct, targetHo, targetFullHo, real }: { pct:number; targetHo:number; targetFullHo:number; real:number }) {
+function FSGauge({ pct, targetHo, targetFullHo, real, mode }: { pct:number; targetHo:number; targetFullHo:number; real:number; mode:"ho"|"fullho" }) {
   const clamp=Math.min(Math.max(pct,0),100);
-  const r=56,cx=80,cy=76;
+  const r=54,cx=80,cy=70;
   const startAngle=-210,endAngle=30,totalDeg=endAngle-startAngle;
   const fillDeg=(clamp/100)*totalDeg;
   const toRad=(d:number)=>(d*Math.PI)/180;
@@ -519,15 +519,20 @@ function FSGauge({ pct, targetHo, targetFullHo, real }: { pct:number; targetHo:n
     return `M ${x1} ${y1} A ${radius} ${radius} 0 ${large} 1 ${x2} ${y2}`;
   };
   const color=clamp>=100?"#10b981":clamp>=75?"#3b82f6":clamp>=50?"#f59e0b":"#CC0000";
-  const hasTarget=targetFullHo>0;
+  const activeTarget=mode==="ho"?targetHo:targetFullHo;
+  const hasTarget=activeTarget>0;
+  const startX=cx+r*Math.cos(toRad(startAngle));
+  const startY=cy+r*Math.sin(toRad(startAngle));
+  const endX=cx+r*Math.cos(toRad(endAngle));
+  const endY=cy+r*Math.sin(toRad(endAngle));
   return (
     <div className="flex flex-col items-center">
-      <svg width="240" height="165" viewBox="0 0 160 110">
-        <path d={arc(startAngle,endAngle,r)} fill="none" stroke="#e5e7eb" strokeWidth="12" strokeLinecap="round"/>
-        {hasTarget&&clamp>0&&<path d={arc(startAngle,startAngle+fillDeg,r)} fill="none" stroke={color} strokeWidth="12" strokeLinecap="round"/>}
+      <svg width="240" height="172" viewBox="0 0 160 115">
+        <path d={arc(startAngle,endAngle,r)} fill="none" stroke="#e5e7eb" strokeWidth="18" strokeLinecap="round"/>
+        {hasTarget&&clamp>0&&<path d={arc(startAngle,startAngle+fillDeg,r)} fill="none" stroke={color} strokeWidth="18" strokeLinecap="round"/>}
         {hasTarget?(
           <>
-            <text x={cx} y={cy-6} textAnchor="middle" fontSize="22" fontWeight="800" fill={color} fontFamily="ui-monospace,monospace">{clamp.toFixed(1)}%</text>
+            <text x={cx} y={cy-4} textAnchor="middle" fontSize="22" fontWeight="800" fill={color} fontFamily="ui-monospace,monospace">{clamp.toFixed(1)}%</text>
             <text x={cx} y={cy+12} textAnchor="middle" fontSize="9" fill="#6b7280">CAPAIAN</text>
           </>
         ):(
@@ -536,8 +541,8 @@ function FSGauge({ pct, targetHo, targetFullHo, real }: { pct:number; targetHo:n
             <text x={cx} y={cy+10} textAnchor="middle" fontSize="10" fill="#9ca3af">belum diset</text>
           </>
         )}
-        <text x={cx-r+2} y={cy+22} textAnchor="middle" fontSize="8" fill="#9ca3af">0%</text>
-        <text x={cx+r-2} y={cy+22} textAnchor="middle" fontSize="8" fill="#9ca3af">100%</text>
+        <text x={startX} y={startY+13} textAnchor="middle" fontSize="8" fill="#9ca3af">0%</text>
+        <text x={endX} y={endY+13} textAnchor="middle" fontSize="8" fill="#9ca3af">100%</text>
       </svg>
       <div className="w-full space-y-1.5 mt-1 text-sm">
         <div className="flex justify-between items-center">
@@ -547,17 +552,15 @@ function FSGauge({ pct, targetHo, targetFullHo, real }: { pct:number; targetHo:n
         {hasTarget&&(
           <>
             <div className="flex justify-between items-center">
-              <span className="text-muted-foreground text-xs">Target HO</span>
-              <span className="font-mono text-foreground">{fmtRupiahFS(targetHo)}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-muted-foreground text-xs">Target Full HO</span>
-              <span className="font-mono text-foreground">{fmtRupiahFS(targetFullHo)}</span>
+              <span className="text-muted-foreground text-xs">{mode==="ho"?"Target HO":"Target Full HO"}</span>
+              <span className="font-mono text-foreground">{fmtRupiahFS(activeTarget)}</span>
             </div>
             <div className="pt-1.5 border-t border-border flex justify-between items-center">
-              <span className={cn("text-xs font-semibold",real>=targetFullHo?"text-emerald-600":"text-destructive")}>{real>=targetFullHo?"Surplus":"Shortage"}</span>
-              <span className={cn("font-bold font-mono text-sm",real>=targetFullHo?"text-emerald-600":"text-destructive")}>
-                {real>=targetFullHo?"+":"-"}{fmtRupiahFS(Math.abs(targetFullHo-real))}
+              <span className={cn("text-xs font-bold",real>=activeTarget?"text-emerald-600":"text-gray-900 dark:text-white")}>
+                {real>=activeTarget?"Kelebihan":"Kekurangan"}
+              </span>
+              <span className={cn("font-bold font-mono text-sm",real>=activeTarget?"text-emerald-600":"text-gray-900 dark:text-white")}>
+                {real>=activeTarget?"+":"-"}{fmtRupiahFS(Math.abs(activeTarget-real))}
               </span>
             </div>
           </>
@@ -826,7 +829,7 @@ function FunnelSlide() {
             </div>
             <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
               <h3 className="text-sm font-display font-black text-foreground uppercase tracking-wide mb-2">Capaian Real vs Target</h3>
-              <FSGauge pct={pct} targetHo={effectiveTargetHo} targetFullHo={effectiveTargetFullHo} real={data?.realFullHo||0}/>
+              <FSGauge pct={pct} targetHo={effectiveTargetHo} targetFullHo={effectiveTargetFullHo} real={data?.realFullHo||0} mode="fullho"/>
             </div>
           </div>
           {/* Row 2: Ringkasan */}

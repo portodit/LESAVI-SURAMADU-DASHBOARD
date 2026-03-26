@@ -6,25 +6,26 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 This is a **SharePoint Bot / Telkom AM Dashboard** project — a full-stack dashboard for Account Manager (AM) performance monitoring with Telegram Bot integration.
 
 ## Key Master Tables (Data Quality)
-- **master_am**: 12 active AMs only. KATATA (405075) added. 8 inactive removed (SAFIRINA, HANIF, ANDIS, CORNELIA, DAMASTYA, DHEVI, FRISKARINE, RYAN). NIK 850099 → 870022 (Reni→Havea).
+- **master_am**: 13 active AMs. `cross_witel` boolean added (WILDAN/HANDIKA/NYARI = true; others false). NIK 850099 (Reni Wulansari) → 870022 (Havea Pertiwi) mapping applied.
+- **app_settings**: `g_sheets_funnel_spreadsheet_id` added (1czGSp = nationwide SIMLOP/SIGMA dump) separate from `g_sheets_spreadsheet_id` (1ojCi6db = activity/performance).
 - **master_customer**: 262 unique corporate customers, auto-populated from funnel imports.
-- **sales_funnel**: ~1979 clean LOPs after removing SAFIRINA (202) + FRISKARINE (9) LOPs. Filtered by YEAR(report_date) = tahun at query time (matches Power BI Date filter).
+- **sales_funnel**: 252 LOPs (2026) from GSheets `TREG3_SALES_FUNNEL_20260326`. Filtered by YEAR(report_date) = tahun at query time.
 - **sales_funnel_target**: DPS 2026/3 HO=70.257B Full=97.076B; DSS 2026/3 HO=60.048B Full=73.780B.
-- API: `GET /api/funnel?tahun=YEAR` — NOW filters LOPs where YEAR(report_date) = tahun (critical for matching Power BI counts).
-- API: `GET /api/funnel/data-quality` for data cleaning proof (stats + steps).
 
-## Active AM List (12 AMs)
-ANA RUKMANA (402478), CAESAR RIO ANGGINA TORUAN (405690), ERVINA HANDAYANI (920064), HANDIKA DAGNA NEVANDA (980067), HAVEA PERTIWI (870022), KATATA VEKANIDYA SEKAR PUSPITASARI (405075), MOH RIZAL BIN MOH FERRY (850046), NADYA ZAHROTUL HAYATI (403613), NI MADE NOVI WIRANA (896661), NYARI KUSUMA NINGRUM (401431), VIVIN VIOLITA (910024), WILDAN ARIEF (404429)
+## Active AM List (13 AMs)
+ANA RUKMANA (402478), CAESAR RIO ANGGINA TORUAN (405690), ERVINA HANDAYANI (920064), HANDIKA DAGNA NEVANDA (980067, cross_witel), HAVEA PERTIWI (870022), KATATA VEKANIDYA SEKAR PUSPITASARI (405075), MOH RIZAL (850046), NADYA ZAHROTUL HAYATI (403613), NI MADE NOVI WIRANA (896661), NYARI KUSUMANINGRUM (401431, cross_witel), SAFIRINA FEBRYANTI (910017), VIVIN VIOLITA (910024), WILDAN ARIEF (404429, cross_witel)
 
-## Data Cleaning Pipeline (8 steps)
-1. Filter witel = SURAMADU only
-2. Filter divisi = DPS + DSS only
-3. Reni→Havea: NIK 850099 → 870022 (unconditional)
-4. Reject NIK < 4 digits or > 9999999
-5. Filter is_report = 'Y' (hidden Power BI filter — only approved LOPs) [new imports only]
-6. Dedup by lopid — keep latest report_date (DISTINCTCOUNT parity) [new imports only]
-7. Filter by active master_am — only 12 authorized AMs (replaces auto-populate; removed 211 LOPs)
-8. Filter YEAR(report_date) = selected year at query time (Power BI Date slicer parity)
+## GSheets Funnel Import Cleaning Rules (matches Power BI behaviour exactly)
+GSheets `1czGSp` = 76,808 rows nationwide SIMLOP+SIGMA dump. Import produces ~252 LOPs for 2026:
+1. Skip `divisi` filter — use master AM NIK list instead
+2. Skip `is_report` filter — Power BI shows ALL LOPs (F0-F5, approved or not)
+3. NIK extraction: **`nik_pembuat_lop` FIRST** (primary/creator AM) → else `nik_handling[0]` (first comma-separated element) — matches Power BI attribution
+4. NIK normalization: `nik_handling` is comma-separated (e.g. "870022, 810057") — take FIRST token only to avoid concatenation bug
+5. Per-NIK witel filter: `cross_witel=true` → all witels; `cross_witel=false` → witel=SURAMADU only
+6. Report date year filter: only LOPs where `report_date` year = year from sheet name (e.g. TREG3_SALES_FUNNEL_20260326 → 2026 only)
+7. Dedup by lopid — keep latest `report_date` per lopid
+8. Filter to active master AM NIKs only (13 AMs)
+9. Query-time: API `GET /api/funnel?tahun=YEAR` also filters YEAR(report_date) = tahun at display time
 
 ## Stack
 

@@ -168,7 +168,7 @@ export interface CleanedFunnelRow {
   createdDate: string;
 }
 
-export function cleanFunnelRows(rows: ParsedRow[], opts?: { skipDivisiFilter?: boolean; strictIsReport?: boolean; skipIsReportFilter?: boolean; skipWitelFilter?: boolean }): CleanedFunnelRow[] {
+export function cleanFunnelRows(rows: ParsedRow[], opts?: { skipDivisiFilter?: boolean; strictIsReport?: boolean; skipIsReportFilter?: boolean; skipWitelFilter?: boolean; preferPembuat?: boolean }): CleanedFunnelRow[] {
   const passed: CleanedFunnelRow[] = [];
 
   for (const r of rows) {
@@ -185,8 +185,13 @@ export function cleanFunnelRows(rows: ParsedRow[], opts?: { skipDivisiFilter?: b
     if (!opts?.skipDivisiFilter && divisi !== "DPS" && divisi !== "DSS") continue;
 
     // ── STEP 3: Fix NIK AM — 850099 (RENI WULANSARI) → 870022 (HAVEA PERTIWI) unconditionally
-    // Use nik_handling (AM responsible) with fallback to nik_pembuat_lop (LOP creator)
-    const nikRaw = toIntSafe(r.nik_handling) ?? toIntSafe(r.nik_pembuat_lop);
+    // nik_handling may be a comma-separated list (e.g. "870022, 810057") — take the first NIK only
+    // preferPembuat: nik_pembuat_lop (LOP creator) first → else nik_handling[0] (GSheets import)
+    // default: nik_handling[0] first → else nik_pembuat_lop (Excel import from Power BI)
+    const nikHandlingFirst = String(r.nik_handling ?? "").split(",")[0].trim();
+    const nikRaw = opts?.preferPembuat
+      ? (toIntSafe(r.nik_pembuat_lop) ?? toIntSafe(nikHandlingFirst))
+      : (toIntSafe(nikHandlingFirst) ?? toIntSafe(r.nik_pembuat_lop));
     if (nikRaw === null) continue; // skip rows with non-numeric NIK
 
     let nikAm = String(nikRaw);

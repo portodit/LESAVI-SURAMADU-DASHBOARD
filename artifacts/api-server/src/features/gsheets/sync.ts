@@ -119,6 +119,9 @@ export async function syncSelectedSheets(
     if (!settings?.gSheetsSpreadsheetId || !settings?.gSheetsApiKey) {
       return { syncedAt, sheetsFound: 0, results: [], error: "Spreadsheet ID atau API Key belum dikonfigurasi" };
     }
+    // Funnel sheets use a dedicated spreadsheet if configured (1czGSp nationwide SIMLOP data)
+    // Activity/performance sheets use the main spreadsheet (1ojCi6db)
+    const funnelSpreadsheetId = settings.gSheetsFunnelSpreadsheetId || settings.gSheetsSpreadsheetId;
     const spreadsheetId = settings.gSheetsSpreadsheetId;
     const apiKey = settings.gSheetsApiKey;
     const existingImports = await db.select({ type: dataImportsTable.type, period: dataImportsTable.period, sourceUrl: dataImportsTable.sourceUrl }).from(dataImportsTable);
@@ -138,7 +141,7 @@ export async function syncSelectedSheets(
       }
       logger.info({ sheet: sel.title, type: sel.type }, "GSheets sync-selected: importing sheet");
       let result: SyncSheetResult;
-      if (sel.type === "funnel") result = await importFunnelSheet(spreadsheetId, sheet, apiKey, dateInfo);
+      if (sel.type === "funnel") result = await importFunnelSheet(funnelSpreadsheetId, sheet, apiKey, dateInfo);
       else if (sel.type === "activity") result = await importActivitySheet(spreadsheetId, sheet, apiKey, dateInfo);
       else result = await importPerformanceSheet(spreadsheetId, sheet, apiKey, dateInfo);
       results.push(result);
@@ -190,7 +193,17 @@ export async function fetchSheetData(
     });
 }
 
-/** Import a single FUNNEL sheet */
+/** Import a single FUNNEL sheet
+ *
+ * Cleaning rules (derived from kunci jawaban / Power BI behaviour):
+ * 1. Skip divisi filter — use master AM NIK list instead
+ * 2. Skip is_report filter — Power BI shows ALL LOPs incl. F0/F1 not yet in SIMLOP
+ * 3. Apply witel=SURAMADU per-NIK:
+ *    - AMs with cross_witel=false → must be witel=SURAMADU (e.g. KATATA: nationwide NIK but only Suramadu LOPs)
+ *    - AMs with cross_witel=true  → no witel restriction (e.g. WILDAN: Pelindo nationwide, NI MADE: PLN NPS Maluku)
+ * 4. Deduplicate by lopid — keep latest report_date per lopid
+ * 5. report_date stored as-is; frontend filters by YEAR(report_date) at query time
+ */
 async function importFunnelSheet(
   spreadsheetId: string, sheet: SheetInfo, apiKey: string,
   dateInfo: { date: string; period: string },
@@ -202,35 +215,59 @@ async function importFunnelSheet(
       return { sheetName: sheet.title, date, period, type: "funnel", status: "error", message: "Sheet kosong atau tidak ada data" };
     }
 
-    // GSheets nationwide funnel: witel=SURAMADU + is_report=Y filter applied in cleanFunnelRows.
-    // Then restrict to active master AMs only (aktif=true) to match Power BI's AM scope.
-    // Keep original report_date from GSheets — Power BI tahun slicer filters by report_date year.
-    const cleaned = cleanFunnelRows(rows, { skipDivisiFilter: true, strictIsReport: true });
+    // Step 1: Clean all rows without witel/is_report filter — collect NIK, witel, lopid
+    // preferPembuat: nik_pembuat_lop is primary AM key (like Power BI), nik_handling[0] is fallback
+    const cleaned = cleanFunnelRows(rows, { skipDivisiFilter: true, skipWitelFilter: true, skipIsReportFilter: true, preferPembuat: true });
     if (cleaned.length === 0) {
       return { sheetName: sheet.title, date, period, type: "funnel", status: "error", message: `Tidak ada baris valid setelah cleaning dari ${rows.length} baris mentah` };
     }
 
-    // Load active master AMs and filter to only those NIKs
+    // Step 2: Load active master AMs with cross_witel flag
     const allMasterAms = await db.select().from(masterAmTable);
     const masterNameByNik = new Map(allMasterAms.map(m => [m.nik, m.nama]));
     const activeNikSet = new Set(allMasterAms.filter(m => m.aktif).map(m => m.nik));
-    const activeOnly = cleaned.filter(r => r.nikAm && activeNikSet.has(r.nikAm));
+    // cross_witel AMs skip witel filter; others must be witel=SURAMADU
+    const crossWitelNiks = new Set(allMasterAms.filter(m => m.aktif && m.crossWitel).map(m => m.nik));
 
-    if (activeOnly.length === 0) {
-      return { sheetName: sheet.title, date, period, type: "funnel", status: "error", message: `Tidak ada LOP master AM aktif ditemukan setelah filter dari ${cleaned.length} baris SURAMADU` };
+    // Step 3: Filter to active master AMs + per-NIK witel rule
+    const filtered = cleaned.filter(r => {
+      if (!r.nikAm || !activeNikSet.has(r.nikAm)) return false;
+      // Cross-witel AMs: keep all LOPs regardless of witel
+      if (crossWitelNiks.has(r.nikAm)) return true;
+      // Non-cross-witel: only SURAMADU witel LOPs
+      return r.witel.includes("SURAMADU");
+    });
+
+    if (filtered.length === 0) {
+      return { sheetName: sheet.title, date, period, type: "funnel", status: "error", message: `Tidak ada LOP master AM aktif ditemukan setelah filter dari ${cleaned.length} baris` };
     }
 
+    // Step 4: Filter by report_date year = year from sheet name (matches Power BI Date slicer)
+    // e.g. TREG3_SALES_FUNNEL_20260326 → only import LOPs where report_date year = 2026
+    const sheetYear = dateInfo.date ? parseInt(dateInfo.date.slice(0, 4), 10) : 0;
+    const yearFiltered = sheetYear > 0
+      ? filtered.filter(r => r.reportDate && parseInt(r.reportDate.slice(0, 4), 10) === sheetYear)
+      : filtered;
+
+    // Step 5: Deduplicate by lopid — keep row with latest report_date per lopid
+    const dedupMap = new Map<string, typeof yearFiltered[0]>();
+    for (const row of yearFiltered) {
+      const existing = dedupMap.get(row.lopid);
+      if (!existing || (row.reportDate || "") > (existing.reportDate || "")) {
+        dedupMap.set(row.lopid, row);
+      }
+    }
+    const deduped = [...dedupMap.values()];
+
     const [imp] = await db.insert(dataImportsTable).values({
-      type: "funnel", rowsImported: activeOnly.length, period,
+      type: "funnel", rowsImported: deduped.length, period,
       sourceUrl: `gsheets:${spreadsheetId}/${sheet.title}`, autoTelegramSent: false,
     }).returning();
 
     const BATCH = 200;
-    for (let i = 0; i < activeOnly.length; i += BATCH) {
+    for (let i = 0; i < deduped.length; i += BATCH) {
       await db.insert(salesFunnelTable).values(
-        // Keep original report_date from GSheets (the LOP's reporting period).
-        // Power BI tahun=2026 filter matches rows where report_date year=2026.
-        activeOnly.slice(i, i + BATCH).map(row => ({
+        deduped.slice(i, i + BATCH).map(row => ({
           ...row,
           snapshotDate: date,
           importId: imp.id,
@@ -239,8 +276,12 @@ async function importFunnelSheet(
       );
     }
 
-    const count2026 = activeOnly.filter(r => r.reportDate?.startsWith("2026")).length;
-    return { sheetName: sheet.title, date, period, type: "funnel", status: "imported", rowsImported: activeOnly.length, message: `${activeOnly.length} LOP master AM dari ${cleaned.length} baris SURAMADU (${rows.length} total) berhasil diimport — ${count2026} dengan report_date 2026` };
+    const count2026 = deduped.filter(r => r.reportDate?.startsWith("2026")).length;
+    const crossWitelCount = deduped.filter(r => crossWitelNiks.has(r.nikAm)).length;
+    return {
+      sheetName: sheet.title, date, period, type: "funnel", status: "imported", rowsImported: deduped.length,
+      message: `${deduped.length} LOP (${count2026} report_date 2026, ${crossWitelCount} cross-witel) dari ${rows.length} baris GSheets — cross-witel NIKs: [${[...crossWitelNiks].join(",")}]`,
+    };
   } catch (err: any) {
     return { sheetName: sheet.title, date, period, type: "funnel", status: "error", message: err?.message || String(err) };
   }
@@ -415,9 +456,15 @@ export async function runGSheetsSync(): Promise<SyncResult> {
     }
 
     const spreadsheetId = settings.gSheetsSpreadsheetId;
+    const funnelSpreadsheetId = settings.gSheetsFunnelSpreadsheetId || spreadsheetId;
     const apiKey = settings.gSheetsApiKey;
 
-    const sheets = await listAllMatchingSheets(spreadsheetId, apiKey);
+    // List sheets from both spreadsheets (funnel from 1czGSp, activity/performance from 1ojCi6db)
+    const mainSheets = await listAllMatchingSheets(spreadsheetId, apiKey);
+    const funnelSheets = funnelSpreadsheetId !== spreadsheetId
+      ? await listAllMatchingSheets(funnelSpreadsheetId, apiKey).catch(() => [] as SheetInfo[])
+      : [];
+    const sheets = [...mainSheets, ...funnelSheets];
     if (sheets.length === 0) {
       return { syncedAt, sheetsFound: 0, results: [], error: "Tidak ada sheet ditemukan dengan pola yang dikenali (TREG3_SALES_FUNNEL_, TREG3_ACTIVITY_, PERFORMANSI_)" };
     }
@@ -456,7 +503,7 @@ export async function runGSheetsSync(): Promise<SyncResult> {
 
       let result: SyncSheetResult;
       if (type === "funnel") {
-        result = await importFunnelSheet(spreadsheetId, sheet, apiKey, dateInfo);
+        result = await importFunnelSheet(funnelSpreadsheetId, sheet, apiKey, dateInfo);
       } else if (type === "activity") {
         result = await importActivitySheet(spreadsheetId, sheet, apiKey, dateInfo);
       } else {

@@ -10,6 +10,7 @@ export const masterAmTable = pgTable("master_am", {
   witel: text("witel").default("SURAMADU"),
   jabatan: text("jabatan"),
   aktif: boolean("aktif").notNull().default(true),
+  crossWitel: boolean("cross_witel").notNull().default(false),
   source: text("source").default("manual"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

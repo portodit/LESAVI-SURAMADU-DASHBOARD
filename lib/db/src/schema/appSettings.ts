@@ -12,6 +12,7 @@ export const appSettingsTable = pgTable("app_settings", {
   kpiActivityDefault: integer("kpi_activity_default").notNull().default(30),
   // Google Sheets auto-sync
   gSheetsSpreadsheetId: text("g_sheets_spreadsheet_id"),
+  gSheetsFunnelSpreadsheetId: text("g_sheets_funnel_spreadsheet_id"),
   gSheetsApiKey: text("g_sheets_api_key"),
   gSheetsFunnelPattern: text("g_sheets_funnel_pattern").default("TREG3_SALES_FUNNEL_"),
   gSheetsSyncEnabled: boolean("g_sheets_sync_enabled").notNull().default(false),

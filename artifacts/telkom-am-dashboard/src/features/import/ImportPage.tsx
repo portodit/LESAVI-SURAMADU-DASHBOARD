@@ -319,7 +319,7 @@ export default function ImportData() {
       });
       stopDriveProgress(type, true);
       setDriveSyncResult(p => ({ ...p, [type]: result }));
-      qc.invalidateQueries({ queryKey: ["import-history"] });
+      refetch();
       toast({ title: "Sync Berhasil", description: `${result.imported} baris diimport dari "${result.fileName}"` });
     } catch (e: any) {
       stopDriveProgress(type, false);
@@ -334,7 +334,7 @@ export default function ImportData() {
       const result = await apiFetch<any>("/api/gsheets/sync", { method: "POST" });
       setGsSyncResult(result);
       refetchGsStatus();
-      qc.invalidateQueries({ queryKey: ["import-history"] });
+      refetch();
       const imported = result.results?.filter((r: any) => r.status === "imported").length ?? 0;
       toast({ title: imported > 0 ? `${imported} snapshot berhasil diimport` : "Sync selesai", description: result.error || `${result.sheetsFound} sheet ditemukan` });
     } catch (e: any) {
@@ -391,7 +391,7 @@ export default function ImportData() {
         title: imported > 0 ? `${imported} sheet berhasil diimport` : "Sync selesai",
         description: result.error || `${selections.length} sheet diproses`,
       });
-      if (imported > 0) qc.invalidateQueries({ queryKey: ["import-history"] });
+      if (imported > 0) refetch();
     } catch (e: any) {
       toast({ title: "Gagal Import", description: e.message, variant: "destructive" });
     } finally { setGsSyncingSelected(false); }
@@ -977,7 +977,7 @@ export default function ImportData() {
           return (
           <div className="p-6 space-y-4">
             {/* Upload mode toggle */}
-            <div className="flex items-center gap-1 p-1 bg-secondary/40 border border-border rounded-lg w-fit">
+            <div className="flex items-center gap-1 p-1 bg-red-50 border border-red-200 rounded-lg w-fit">
               {([
                 { key: "manual", label: "Upload Manual", icon: UploadCloud },
                 { key: "drive",  label: "Google Drive",  icon: FolderOpen },
@@ -993,14 +993,14 @@ export default function ImportData() {
                   className={cn(
                     "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all",
                     curMode === key
-                      ? "bg-white text-foreground shadow-sm border border-border"
-                      : "text-muted-foreground hover:text-foreground"
+                      ? "bg-red-700 text-white shadow-sm"
+                      : "text-red-700/70 hover:text-red-700 hover:bg-red-100"
                   )}
                 >
                   <Icon className="w-3.5 h-3.5" />
                   {label}
                   {key === "drive" && !driveHasFolder && (
-                    <span className="ml-1 text-[9px] font-normal text-muted-foreground/60 normal-case">(belum diatur)</span>
+                    <span className={cn("ml-1 text-[9px] font-normal normal-case", curMode === key ? "text-red-200" : "text-red-400/60")}>(belum diatur)</span>
                   )}
                 </button>
               ))}

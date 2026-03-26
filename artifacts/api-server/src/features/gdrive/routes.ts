@@ -320,29 +320,24 @@ async function importFunnelRows(rows: any[], sourceUrl: string, period: string |
 
 async function importActivityRows(rows: any[], sourceUrl: string, period: string | null, snapshotDateFull: string, fileName: string) {
   const cleaned = cleanActivityRows(rows);
-  const slugMap = await getAmSlugMap();
-
-  const toInsert = cleaned.map((row: any) => ({
-    nik: row.nik || null,
-    namaAm: row.namaAm,
-    amSlug: slugMap[row.nik] || slugify(row.namaAm),
-    activityType: row.activityType,
-    activityDate: row.activityDate ? new Date(row.activityDate) : null,
-    pelanggan: row.pelanggan || null,
-    keterangan: row.keterangan || null,
-    periode: period || new Date().toISOString().slice(0, 7),
-  })).filter((r: any) => r.namaAm);
+  const snapshotStr = snapshotDateFull || new Date().toISOString().slice(0, 10);
+  const periodStr = period || new Date().toISOString().slice(0, 7);
 
   const [importRecord] = await db.insert(dataImportsTable).values({
-    type: "activity", sourceUrl, period: period || new Date().toISOString().slice(0, 7),
-    rowsImported: toInsert.length, snapshotDate: snapshotDateFull,
+    type: "activity", sourceUrl, period: periodStr,
+    rowsImported: cleaned.length, snapshotDate: snapshotStr,
   }).returning();
 
-  for (const row of toInsert) {
-    await db.insert(salesActivityTable).values({ ...row, importId: importRecord.id })
-      .onConflictDoNothing();
+  const BATCH = 200;
+  for (let i = 0; i < cleaned.length; i += BATCH) {
+    const batch = cleaned.slice(i, i + BATCH).map(row => ({
+      ...row,
+      snapshotDate: snapshotStr,
+      importId: importRecord.id,
+    }));
+    await db.insert(salesActivityTable).values(batch).onConflictDoNothing();
   }
-  return { imported: toInsert.length, importId: importRecord.id, period };
+  return { imported: cleaned.length, importId: importRecord.id, period: periodStr };
 }
 
 export default router;

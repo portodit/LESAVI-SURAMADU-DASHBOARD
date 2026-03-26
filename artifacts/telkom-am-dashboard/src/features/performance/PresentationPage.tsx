@@ -963,7 +963,7 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
                     {lops.map((lop:any,idx:number)=>(
                       <tr key={`${lop.lopid}-${idx}`} className="hover:bg-pink-50 transition-colors" style={ringStyle({})}>
                         <td className="px-4 py-2 pl-16" style={{minWidth:"320px"}}><div className="text-sm text-foreground font-bold leading-tight line-clamp-2" title={lop.judulProyek}>{lop.judulProyek}</div></td>
-                        <td className="px-3 py-2 whitespace-nowrap">{lop.kategoriKontrak?<span className={`inline-block px-2 py-0.5 rounded text-[11px] font-bold ${kategoriColor(lop.kategoriKontrak)}`}>{lop.kategoriKontrak}</span>:<span className="text-muted-foreground text-xs">–</span>}</td>
+                        <td className="px-3 py-2 whitespace-nowrap">{lop.kategoriKontrak?<span className={`inline-block px-2 py-0.5 rounded text-[11px] font-bold whitespace-nowrap ${kategoriColor(lop.kategoriKontrak)}`}>{lop.kategoriKontrak}</span>:<span className="text-muted-foreground text-xs">–</span>}</td>
                         <td className="px-3 py-2 font-mono text-xs text-foreground whitespace-nowrap">{lop.lopid}</td>
                         <td className="px-3 py-2 text-sm text-foreground font-bold max-w-[220px] truncate" title={lop.pelanggan}>{lop.pelanggan}</td>
                         <td className="px-4 py-2 text-right tabular-nums text-base font-black text-foreground whitespace-nowrap">{formatRupiahFull(lop.nilaiProyek)}</td>
@@ -1003,12 +1003,6 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
       <FSSelectDropdown label="Target" value={filterMode} onChange={v=>setFilterMode(v as "ho"|"fullho")}
         options={[{value:"ho",label:"HO"},{value:"fullho",label:"Full HO"}]}
         className="w-28 shrink-0"/>
-      {kontrakOptions.length>0&&(
-        <FSCheckboxDropdown label="Kategori Kontrak" options={kontrakOptions} selected={filterKontrak} onChange={setFilterKontrak}
-          placeholder="Semua kontrak" summaryLabel="kontrak" className="w-36 shrink-0"/>
-      )}
-      <FSCheckboxDropdown label="Status Funnel" options={FS_PHASES} selected={filterStatus} onChange={setFilterStatus}
-        placeholder="Semua status" labelFn={p=>`${p} – ${FS_PHASE_LABELS[p]}`} summaryLabel="status" className="w-36 shrink-0"/>
       <div className="flex flex-col gap-1 shrink-0">
         <label className="text-xs font-bold text-transparent uppercase">.</label>
         <button onClick={()=>setViewMode(v=>v==="split"?"all":"split")}
@@ -1018,6 +1012,12 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
           {viewMode==="split"?"Semua":"Par Divisi"}
         </button>
       </div>
+      {kontrakOptions.length>0&&(
+        <FSCheckboxDropdown label="Kategori Kontrak" options={kontrakOptions} selected={filterKontrak} onChange={setFilterKontrak}
+          placeholder="Semua kontrak" summaryLabel="kontrak" className="w-36 shrink-0"/>
+      )}
+      <FSCheckboxDropdown label="Status Funnel" options={FS_PHASES} selected={filterStatus} onChange={setFilterStatus}
+        placeholder="Semua status" labelFn={p=>`${p} – ${FS_PHASE_LABELS[p]}`} summaryLabel="status" className="w-36 shrink-0"/>
       {hasActiveFilter&&(
         <div className="flex flex-col gap-1 shrink-0">
           <label className="text-xs font-bold text-transparent uppercase">.</label>
@@ -1064,7 +1064,8 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
 
       {/* ── All mode: detail table ─────────────────────────────────────────── */}
       {viewMode!=="split"&&<div className="bg-card border border-border rounded-xl shadow-sm">
-        <div className="px-4 py-3 border-b border-border bg-secondary/30 flex items-center justify-between gap-3 flex-wrap">
+        {/* Sticky toolbar — menempel di atas saat scroll */}
+        <div className="sticky top-0 z-20 bg-card/95 backdrop-blur-sm px-4 py-3 border-b border-border rounded-t-xl flex items-center justify-between gap-3 flex-wrap">
           <h3 className="text-sm font-display font-semibold text-foreground flex items-center gap-2">Detail Funnel per AM</h3>
           <div className="flex items-center gap-2 flex-wrap">
             <FSCheckboxDropdown label="" options={amOptions} selected={filterAm} onChange={setFilterAm}
@@ -1082,12 +1083,10 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
             </button>
           </div>
         </div>
-        <div className="p-3">
-          <div className="border border-border rounded-lg overflow-hidden">
-          <div className="overflow-x-auto">
-          <div className="overflow-y-auto" style={{maxHeight:"clamp(300px,55vh,700px)"}}>
+        {/* Tabel tanpa batasan tinggi — halaman yang scroll */}
+        <div className="overflow-x-auto">
           <table className="w-full text-left text-sm border-collapse" style={{minWidth:"820px"}}>
-            <thead className="sticky top-0 z-10">
+            <thead className="sticky top-[60px] z-10">
               <tr className="bg-red-700 text-white font-black uppercase tracking-wide text-xs">
                 <th className="px-4 py-3 min-w-[320px]">AM / Fase / Proyek</th>
                 <th className="px-3 py-3 whitespace-nowrap w-28">KATEGORI</th>
@@ -1100,9 +1099,6 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
               {renderAmTbodyContentFS(groupedByAm, search||hasActiveFilter?"Tidak ada data yang cocok dengan filter":"Belum ada data funnel")}
             </tbody>
           </table>
-          </div>
-          </div>
-          </div>
         </div>
       </div>}
 

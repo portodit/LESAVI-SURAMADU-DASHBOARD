@@ -582,7 +582,7 @@ function kategoriColor(k: string | null): string {
 }
 function KontrakBadge({ k }: { k: string | null }) {
   if (!k) return <span className="text-muted-foreground text-xs">–</span>;
-  return <span className={`inline-block px-2 py-0.5 rounded text-[11px] border font-bold ${kategoriColor(k)}`}>{k}</span>;
+  return <span className={`inline-block px-2 py-0.5 rounded text-[11px] border font-bold whitespace-nowrap ${kategoriColor(k)}`}>{k}</span>;
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────

@@ -483,6 +483,103 @@ router.get("/import/:id/data", requireAuth, async (req, res): Promise<void> => {
   }
 });
 
+// ── Import Funnel dari Power BI CSV (file attached_assets) ───────────────────
+router.post("/import/powerbi-funnel", requireAuth, async (req, res): Promise<void> => {
+  const fs = await import("fs");
+  const path = await import("path");
+  const XLSX = await import("xlsx");
+
+  // Find CSV files
+  const assetsDir = path.resolve(process.cwd(), "../../attached_assets");
+  const allFiles = fs.existsSync(assetsDir) ? fs.readdirSync(assetsDir) : [];
+  const csvFile = allFiles.find(f => f.includes("Status_Funneling_AM_") && f.endsWith(".csv"));
+  if (!csvFile) {
+    res.status(404).json({ error: "File CSV Power BI tidak ditemukan di attached_assets" });
+    return;
+  }
+
+  const csvPath = path.join(assetsDir, csvFile);
+  const wb = XLSX.readFile(csvPath);
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rawRows = XLSX.utils.sheet_to_json<Record<string, any>>(ws, { defval: null });
+
+  // Load master AM for name→NIK lookup
+  const masterAms = await db.select().from(masterAmTable).where(sql`aktif = true`);
+  const nameToNik = new Map<string, string>();
+  const nikToDivisi = new Map<string, string>();
+  for (const m of masterAms) {
+    const norm = m.nama.toUpperCase().replace(/\s+/g, "");
+    nameToNik.set(norm, m.nik);
+    nikToDivisi.set(m.nik, m.divisi || "DPS");
+  }
+
+  // Dedup by lopid: skip already-imported lopids from this source
+  const existingLopids = new Set<string>(
+    (await db.select({ lopid: salesFunnelTable.lopid }).from(salesFunnelTable)).map(r => r.lopid)
+  );
+
+  const toInsert: any[] = [];
+  let skipped = 0;
+
+  for (const r of rawRows) {
+    const namaAm = String(r["Nama AM"] ?? "").trim().toUpperCase();
+    if (!namaAm) { skipped++; continue; }
+
+    const normName = namaAm.replace(/\s+/g, "");
+    const nikAm = nameToNik.get(normName);
+    if (!nikAm) { skipped++; continue; }
+
+    const lopid = String(r["LOP ID"] ?? "").trim();
+    if (!lopid) { skipped++; continue; }
+    if (existingLopids.has(lopid)) { skipped++; continue; }
+
+    const estDate = String(r["Est. Date BC"] ?? "").trim();
+    const estimateBulan = estDate ? estDate.replace(/\s.*/, "") : null;
+    // Use today as reportDate so YEAR filter works correctly for Power BI CSV LOPs
+    const reportDate = new Date().toISOString().slice(0, 10);
+
+    toInsert.push({
+      lopid,
+      judulProyek: String(r["judul_proyek"] ?? "").trim(),
+      pelanggan: String(r["Pelanggan"] ?? "–").trim().toUpperCase() || "–",
+      nilaiProyek: parseFloat(String(r["Nilai Proyek"] ?? "0").replace(/,/g, "")) || 0,
+      divisi: nikToDivisi.get(nikAm) || "DPS",
+      witel: "SURAMADU",
+      statusF: String(r["Status Funnel"] ?? "").trim(),
+      statusProyek: String(r["Status Proyek"] ?? "").trim(),
+      kategoriKontrak: String(r["Kontrak"] ?? "").trim(),
+      namaAm: masterAms.find(m => m.nik === nikAm)?.nama ?? namaAm,
+      nikAm,
+      reportDate,
+      estimateBulan,
+      snapshotDate: new Date().toISOString().slice(0, 10),
+    });
+    existingLopids.add(lopid);
+  }
+
+  if (toInsert.length === 0) {
+    res.json({ success: true, imported: 0, skipped, message: "Tidak ada LOP baru yang diimport (sudah ada semua atau nama AM tidak cocok)" });
+    return;
+  }
+
+  const [imp] = await db.insert(dataImportsTable).values({
+    type: "funnel",
+    rowsImported: toInsert.length,
+    period: new Date().toISOString().slice(0, 7),
+    sourceUrl: `powerbi-csv:${csvFile}`,
+    autoTelegramSent: false,
+  }).returning();
+
+  const BATCH = 100;
+  for (let i = 0; i < toInsert.length; i += BATCH) {
+    await db.insert(salesFunnelTable).values(
+      toInsert.slice(i, i + BATCH).map(row => ({ ...row, importId: imp.id }))
+    );
+  }
+
+  res.json({ success: true, imported: toInsert.length, skipped, importId: imp.id, message: `${toInsert.length} LOP berhasil diimport dari ${csvFile}` });
+});
+
 // ── Delete Import (hapus snapshot + semua data terkait) ───────────────────────
 router.delete("/import/:id", requireAuth, async (req, res): Promise<void> => {
   const id = parseInt(req.params.id, 10);

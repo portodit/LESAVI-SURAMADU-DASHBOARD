@@ -65,9 +65,10 @@ router.delete("/funnel/targets/:id", requireAuth, async (req, res): Promise<void
 router.get("/funnel", requireAuth, async (req, res): Promise<void> => {
   const { import_id, divisi, status, nama_am, kategori_kontrak, tahun } = req.query;
 
-  // Load master_am for name resolution
+  // Load master_am for name resolution and AM group filtering
   const masterAms = await db.select().from(masterAmTable);
   const masterAmByNik = new Map(masterAms.map(m => [m.nik, m.nama]));
+  const activeNikSet = new Set(masterAms.filter(m => m.aktif).map(m => m.nik));
 
   let allLops = await db.select().from(salesFunnelTable);
 
@@ -109,9 +110,10 @@ router.get("/funnel", requireAuth, async (req, res): Promise<void> => {
     }, {})
   ).map(([, v]) => v);
 
-  // AM groups: only include rows with identified (named) AMs
+  // AM groups: only include master AMs (aktif=true) — filters out DSO/support staff
+  const masterLops = namedLops.filter(l => l.nikAm && activeNikSet.has(l.nikAm));
   const amGroups = Object.entries(
-    namedLops.reduce((acc: any, l) => {
+    masterLops.reduce((acc: any, l) => {
       const key = l.nikAm || l.namaAm || "Unknown";
       if (!acc[key]) acc[key] = {
         namaAm: l.namaAm || "", nik: l.nikAm || "", divisi: l.divisi || "",

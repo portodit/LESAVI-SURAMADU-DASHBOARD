@@ -366,55 +366,120 @@ export default function FunnelPage() {
     [snapshots]
   );
 
-  // Derive filterYear from selected snapshot's period
-  const selectedSnapshot = useMemo(() => snapshots.find(s => s.id === importId), [snapshots, importId]);
-  const filterYear = selectedSnapshot?.period.slice(0, 4) ?? "2026";
+  // Period state — year/month based on report_date (mirrors Power BI Master_Kalender)
+  const [filterYear, setFilterYear] = useState<string>("2026");
+  const [filterMonths, setFilterMonths] = useState<Set<string>>(new Set());
 
+  const selectedSnapshot = useMemo(() => snapshots.find(s => s.id === importId), [snapshots, importId]);
+
+  // Auto-select first snapshot; reset period to snapshot's year when snapshot changes
   useEffect(() => {
     if (snapshotOptions.length > 0 && importId === null) {
       setImportId(Number(snapshotOptions[0].value));
     }
   }, [snapshotOptions.length > 0 && snapshotOptions[0]?.value]);
 
-  const funnelParams = useMemo(() => {
-    const p = new URLSearchParams();
-    if (importId) p.set("import_id", String(importId));
-    if (filterDivisi !== "all") p.set("divisi", filterDivisi);
-    p.set("tahun", filterYear);
-    return p.toString();
-  }, [importId, filterDivisi, filterYear]);
+  useEffect(() => {
+    if (selectedSnapshot) {
+      setFilterYear(selectedSnapshot.period.slice(0, 4));
+      setFilterMonths(new Set());
+    }
+  }, [selectedSnapshot?.id]);
 
   const { data, isLoading } = useQuery<FunnelData>({
-    queryKey: ["funnel-data", funnelParams],
-    queryFn: () => apiFetch(`/api/funnel?${funnelParams}`),
+    queryKey: ["funnel-data", importId, filterDivisi],
+    queryFn: () => {
+      const p = new URLSearchParams();
+      if (importId) p.set("import_id", String(importId));
+      if (filterDivisi !== "all") p.set("divisi", filterDivisi);
+      return apiFetch(`/api/funnel?${p.toString()}`);
+    },
     enabled: importId !== null || snapshots.length === 0,
     staleTime: 30_000,
   });
 
-  const amOptions = useMemo(() => {
-    if (!data) return [];
-    const map = new Map<string, string>();
-    // Only show AMs with a valid name (exclude unidentified/historical entries)
-    for (const l of data.lops) { if (l.nikAm && l.namaAm && l.namaAm.trim() !== "") map.set(l.nikAm, l.namaAm); }
-    return Array.from(map.keys()).sort((a, b) => (map.get(a) || "").localeCompare(map.get(b) || ""));
+  // Year options derived from unique years in report_date values of loaded data
+  const yearOptions = useMemo(() => {
+    if (!data) return [{ value: filterYear, label: filterYear }];
+    const years = new Set<string>();
+    for (const l of data.lops) {
+      if (l.reportDate) {
+        const yr = String(l.reportDate).slice(0, 4);
+        if (yr && /^\d{4}$/.test(yr)) years.add(yr);
+      } else {
+        years.add("(Blank)");
+      }
+    }
+    return [...years].sort().reverse().map(y => ({ value: y, label: y }));
   }, [data]);
+
+  // Available months for selected year
+  const availableMonthsForYear = useMemo(() => {
+    if (!data || filterYear === "(Blank)") return [];
+    const months = new Set<string>();
+    for (const l of data.lops) {
+      if (l.reportDate && String(l.reportDate).slice(0, 4) === filterYear) {
+        const mo = String(l.reportDate).slice(5, 7);
+        if (mo) months.add(mo);
+      }
+    }
+    return [...months].sort();
+  }, [data, filterYear]);
+
+  // Period-filtered LOPs (year + month from report_date — mirrors Power BI Date slicer)
+  const periodFilteredLops = useMemo(() => {
+    if (!data) return [];
+    return data.lops.filter(l => {
+      if (filterYear === "(Blank)") return !l.reportDate;
+      if (!l.reportDate) return false;
+      const rd = String(l.reportDate);
+      if (rd.slice(0, 4) !== filterYear) return false;
+      if (filterMonths.size > 0) {
+        const mo = rd.slice(5, 7);
+        if (!filterMonths.has(mo)) return false;
+      }
+      return true;
+    });
+  }, [data, filterYear, filterMonths]);
+
+  // Computed stats from period-filtered LOPs (used by charts/summary cards)
+  const periodStats = useMemo(() => {
+    const lops = periodFilteredLops;
+    const byStatusMap: Record<string, { status: string; count: number; totalNilai: number }> = {};
+    for (const l of lops) {
+      const s = l.statusF || "Unknown";
+      if (!byStatusMap[s]) byStatusMap[s] = { status: s, count: 0, totalNilai: 0 };
+      byStatusMap[s].count++;
+      byStatusMap[s].totalNilai += l.nilaiProyek || 0;
+    }
+    return {
+      totalLop: lops.length,
+      totalNilai: lops.reduce((s, l) => s + (l.nilaiProyek || 0), 0),
+      pelangganCount: new Set(lops.map(l => l.pelanggan).filter(Boolean)).size,
+      realFullHo: lops.reduce((s, l) => s + (l.nilaiProyek || 0), 0),
+      byStatus: Object.values(byStatusMap),
+    };
+  }, [periodFilteredLops]);
+
+  const amOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const l of periodFilteredLops) { if (l.nikAm && l.namaAm && l.namaAm.trim() !== "") map.set(l.nikAm, l.namaAm); }
+    return Array.from(map.keys()).sort((a, b) => (map.get(a) || "").localeCompare(map.get(b) || ""));
+  }, [periodFilteredLops]);
 
   const amLabelFn = useMemo(() => {
-    if (!data) return (v: string) => v;
     const map = new Map<string, string>();
-    for (const l of data.lops) { if (l.nikAm && l.namaAm) map.set(l.nikAm, l.namaAm); }
+    for (const l of periodFilteredLops) { if (l.nikAm && l.namaAm) map.set(l.nikAm, l.namaAm); }
     return (nik: string) => map.get(nik) || nik;
-  }, [data]);
+  }, [periodFilteredLops]);
 
   const kontrakOptions = useMemo(() => {
-    if (!data) return [];
-    return [...new Set(data.lops.map(l => l.kategoriKontrak).filter(Boolean) as string[])].sort();
-  }, [data]);
+    return [...new Set(periodFilteredLops.map(l => l.kategoriKontrak).filter(Boolean) as string[])].sort();
+  }, [periodFilteredLops]);
 
   const filteredLops = useMemo(() => {
-    if (!data) return [];
     const q = search.toLowerCase();
-    return data.lops.filter(l => {
+    return periodFilteredLops.filter(l => {
       if (filterAm.size > 0 && (!l.nikAm || !filterAm.has(l.nikAm))) return false;
       if (filterStatus.size > 0 && (!l.statusF || !filterStatus.has(l.statusF))) return false;
       if (filterKontrak.size > 0 && (!l.kategoriKontrak || !filterKontrak.has(l.kategoriKontrak))) return false;
@@ -424,7 +489,7 @@ export default function FunnelPage() {
       }
       return true;
     });
-  }, [data, filterAm, filterStatus, filterKontrak, search]);
+  }, [periodFilteredLops, filterAm, filterStatus, filterKontrak, search]);
 
   const groupedByAm = useMemo(() => {
     const amMap = new Map<string, { namaAm: string; nikAm: string; divisi: string; phases: Map<string, LopRow[]> }>();
@@ -471,26 +536,39 @@ export default function FunnelPage() {
     } else { setExpandedAm({}); setExpandedPhase({}); }
   }
 
-  const hasActiveFilter = filterStatus.size > 0 || filterDivisi !== "all";
+  const hasActiveFilter = filterStatus.size > 0 || filterDivisi !== "all" || filterYear !== (selectedSnapshot?.period.slice(0,4) ?? "2026") || filterMonths.size > 0;
   const hasDetailFilter = filterAm.size > 0 || filterKontrak.size > 0;
-  const lopBadge = filteredLops.length !== (data?.totalLop || 0)
-    ? `${filteredLops.length} / ${data?.totalLop || 0}` : filteredLops.length.toLocaleString("id-ID");
+  const lopBadge = filteredLops.length !== periodStats.totalLop
+    ? `${filteredLops.length} / ${periodStats.totalLop}` : filteredLops.length.toLocaleString("id-ID");
 
   const effectiveTargetHo = data?.targetHo || 0;
   const effectiveTargetFullHo = data?.targetFullHo || 0;
   const activeTarget = filterTarget === "ho" ? effectiveTargetHo : effectiveTargetFullHo;
-  const pct = activeTarget ? ((data?.realFullHo || 0) / activeTarget) * 100 : 0;
+  const pct = activeTarget ? (periodStats.realFullHo / activeTarget) * 100 : 0;
 
   return (
     <div className="space-y-4 p-4">
 
-      {/* Filter Bar — single row */}
+      {/* Filter Bar */}
       <div className="bg-card border border-border rounded-xl px-4 py-3 shadow-sm">
         <div className="flex items-end gap-2 flex-wrap">
-          <SelectDropdown label="Periode" value={String(importId || "")}
+          {/* SNAPSHOT */}
+          <SelectDropdown label="Snapshot" value={String(importId || "")}
             onChange={v => setImportId(Number(v))}
             options={snapshotOptions.length > 0 ? snapshotOptions : [{ value: "", label: "Belum ada data" }]}
             disabled={snapshotOptions.length === 0} className="w-52 shrink-0" />
+
+          {/* PERIODE = Tahun + Bulan based on report_date */}
+          <div className="w-px h-9 bg-border self-end" />
+          <SelectDropdown label="Periode — Tahun" value={filterYear}
+            onChange={v => { setFilterYear(v); setFilterMonths(new Set()); }}
+            options={yearOptions.length > 0 ? yearOptions : [{ value: filterYear, label: filterYear }]}
+            className="w-24 shrink-0" />
+          <CheckboxDropdown label="Bulan" options={availableMonthsForYear}
+            selected={filterMonths} onChange={setFilterMonths}
+            placeholder="Semua bulan" labelFn={m => MONTHS_ID[parseInt(m)] || m}
+            summaryLabel="bulan" className="w-32 shrink-0" />
+
           <div className="w-px h-9 bg-border self-end" />
           <SelectDropdown label="Divisi" value={filterDivisi} onChange={setFilterDivisi}
             options={[{ value: "all", label: "Semua Divisi" }, { value: "DPS", label: "DPS" }, { value: "DSS", label: "DSS" }]}
@@ -503,7 +581,10 @@ export default function FunnelPage() {
           {hasActiveFilter && (
             <div className="flex flex-col gap-1">
               <label className="text-[10px] font-bold text-transparent uppercase">.</label>
-              <button onClick={() => { setFilterStatus(new Set()); setFilterDivisi("all"); }}
+              <button onClick={() => {
+                setFilterStatus(new Set()); setFilterDivisi("all");
+                setFilterYear(selectedSnapshot?.period.slice(0,4) ?? "2026"); setFilterMonths(new Set());
+              }}
                 className="h-9 flex items-center gap-1 px-3 text-sm text-destructive border border-destructive/30 rounded-lg hover:bg-destructive/5 transition-colors whitespace-nowrap">
                 <X className="w-3.5 h-3.5" /> Reset
               </button>
@@ -526,17 +607,17 @@ export default function FunnelPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
               <h3 className="text-sm font-display font-semibold text-foreground mb-3">LOP per Fase</h3>
-              <FaseBarChart data={data} />
+              <FaseBarChart data={data ? { ...data, byStatus: periodStats.byStatus } : undefined} />
             </div>
             <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
               <h3 className="text-sm font-display font-semibold text-foreground mb-2">
                 Capaian Real vs {filterTarget === "ho" ? "Target HO" : "Target Full HO"}
               </h3>
-              <Gauge pct={pct} targetHo={filterTarget === "ho" ? activeTarget : effectiveTargetHo} targetFullHo={filterTarget === "fullho" ? activeTarget : effectiveTargetFullHo} real={data?.realFullHo || 0} />
+              <Gauge pct={pct} targetHo={filterTarget === "ho" ? activeTarget : effectiveTargetHo} targetFullHo={filterTarget === "fullho" ? activeTarget : effectiveTargetFullHo} real={periodStats.realFullHo} />
             </div>
           </div>
           {/* Row 2: KPI Cards */}
-          <KpiGrid data={data} />
+          <KpiGrid data={data ? { ...data, totalLop: periodStats.totalLop, totalNilai: periodStats.totalNilai, pelangganCount: periodStats.pelangganCount } : undefined} />
         </div>
       )}
 

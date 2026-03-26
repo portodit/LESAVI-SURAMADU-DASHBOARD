@@ -890,7 +890,7 @@ export default function FunnelPage() {
                 <th className="px-3 py-3 whitespace-nowrap w-28">KATEGORI</th>
                 <th className="px-3 py-3 font-mono whitespace-nowrap w-28">LOP ID</th>
                 <th className="px-3 py-3 min-w-[220px]">Pelanggan</th>
-                <th className="px-4 py-3 text-right whitespace-nowrap rounded-tr-lg w-40">Nilai Proyek</th>
+                <th className="px-4 py-3 text-right whitespace-nowrap rounded-tr-lg min-w-[200px]">Nilai Proyek</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/50">
@@ -940,8 +940,8 @@ export default function FunnelPage() {
                         <span className="text-xs font-black text-foreground tracking-wide">TOTAL {amLopCount} LOP</span>
                       </td>
                       {!amExpanded && (
-                        <td className="px-4 py-3 text-right">
-                          <span className="font-black text-foreground tabular-nums text-sm">{formatRupiahFull(amTotal)}</span>
+                        <td className="px-4 py-3 text-right whitespace-nowrap">
+                          <span className="font-black text-foreground tabular-nums text-sm whitespace-nowrap">{formatRupiahFull(amTotal)}</span>
                         </td>
                       )}
                     </tr>
@@ -972,8 +972,8 @@ export default function FunnelPage() {
                               ? <td colSpan={4} className="px-3 py-2.5" />
                               : <>
                                   <td colSpan={3} className="px-3 py-2.5" />
-                                  <td className="px-4 py-2.5 text-right">
-                                    <span className="text-sm font-black text-red-800 tabular-nums">{formatRupiahFull(phaseTotal)}</span>
+                                  <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                                    <span className="text-sm font-black text-red-800 tabular-nums whitespace-nowrap">{formatRupiahFull(phaseTotal)}</span>
                                   </td>
                                 </>
                             }

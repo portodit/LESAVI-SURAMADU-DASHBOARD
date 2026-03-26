@@ -8,6 +8,7 @@ import funnelRouter from "../features/funnel/routes";
 import activityRouter from "../features/activity/routes";
 import telegramRouter from "../features/telegram/routes";
 import settingsRouter from "../features/settings/routes";
+import gSheetsRouter from "../features/gsheets/routes";
 import publicAmRouter from "../features/am/publicRoutes";
 import publicPerformanceRouter from "../features/performance/publicRoutes";
 
@@ -22,6 +23,7 @@ router.use(funnelRouter);
 router.use(activityRouter);
 router.use(telegramRouter);
 router.use(settingsRouter);
+router.use(gSheetsRouter);
 router.use(publicAmRouter);
 router.use(publicPerformanceRouter);
 

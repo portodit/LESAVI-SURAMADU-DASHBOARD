@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db, appSettingsTable } from "@workspace/db";
 import { requireAuth } from "../../shared/auth";
+import { rescheduleGSheets } from "../gsheets/scheduler";
 
 const router: IRouter = Router();
 
@@ -19,11 +20,24 @@ router.get("/settings", requireAuth, async (req, res): Promise<void> => {
     sharepointActivityUrl: settings.sharepointActivityUrl,
     autoSendOnImport: settings.autoSendOnImport,
     kpiActivityDefault: settings.kpiActivityDefault,
+    // Google Sheets sync settings
+    gSheetsSpreadsheetId: settings.gSheetsSpreadsheetId,
+    gSheetsApiKey: settings.gSheetsApiKey ? "***" + settings.gSheetsApiKey.slice(-6) : null,
+    gSheetsFunnelPattern: settings.gSheetsFunnelPattern ?? "TREG3_SALES_FUNNEL_",
+    gSheetsSyncEnabled: settings.gSheetsSyncEnabled,
+    gSheetsSyncHourWib: settings.gSheetsSyncHourWib,
+    gSheetsSyncIntervalDays: settings.gSheetsSyncIntervalDays,
+    gSheetsLastSyncAt: settings.gSheetsLastSyncAt?.toISOString() ?? null,
   });
 });
 
 router.patch("/settings", requireAuth, async (req, res): Promise<void> => {
-  const { telegramBotToken, sharepointPerformanceUrl, sharepointFunnelUrl, sharepointActivityUrl, autoSendOnImport, kpiActivityDefault } = req.body;
+  const {
+    telegramBotToken, sharepointPerformanceUrl, sharepointFunnelUrl, sharepointActivityUrl,
+    autoSendOnImport, kpiActivityDefault,
+    gSheetsSpreadsheetId, gSheetsApiKey, gSheetsFunnelPattern,
+    gSheetsSyncEnabled, gSheetsSyncHourWib, gSheetsSyncIntervalDays,
+  } = req.body;
 
   const [existing] = await db.select().from(appSettingsTable);
   const updates: Partial<typeof appSettingsTable.$inferInsert> = {};
@@ -34,6 +48,14 @@ router.patch("/settings", requireAuth, async (req, res): Promise<void> => {
   if (sharepointActivityUrl !== undefined) updates.sharepointActivityUrl = sharepointActivityUrl;
   if (autoSendOnImport !== undefined) updates.autoSendOnImport = autoSendOnImport;
   if (kpiActivityDefault !== undefined) updates.kpiActivityDefault = kpiActivityDefault;
+  // Google Sheets fields
+  if (gSheetsSpreadsheetId !== undefined) updates.gSheetsSpreadsheetId = gSheetsSpreadsheetId || null;
+  if (gSheetsApiKey !== undefined && !String(gSheetsApiKey).startsWith("***")) updates.gSheetsApiKey = gSheetsApiKey || null;
+  if (gSheetsFunnelPattern !== undefined) updates.gSheetsFunnelPattern = gSheetsFunnelPattern || "TREG3_SALES_FUNNEL_";
+  if (gSheetsSyncEnabled !== undefined) updates.gSheetsSyncEnabled = Boolean(gSheetsSyncEnabled);
+  if (gSheetsSyncHourWib !== undefined) updates.gSheetsSyncHourWib = Number(gSheetsSyncHourWib) || 6;
+  if (gSheetsSyncIntervalDays !== undefined) updates.gSheetsSyncIntervalDays = Number(gSheetsSyncIntervalDays) || 1;
+  updates.updatedAt = new Date();
 
   let settings;
   if (existing) {
@@ -46,6 +68,9 @@ router.patch("/settings", requireAuth, async (req, res): Promise<void> => {
     }).returning();
   }
 
+  // Reschedule GSheets sync with new settings
+  rescheduleGSheets();
+
   res.json({
     telegramBotToken: settings.telegramBotToken ? "***" + settings.telegramBotToken.slice(-6) : null,
     sharepointPerformanceUrl: settings.sharepointPerformanceUrl,
@@ -53,6 +78,13 @@ router.patch("/settings", requireAuth, async (req, res): Promise<void> => {
     sharepointActivityUrl: settings.sharepointActivityUrl,
     autoSendOnImport: settings.autoSendOnImport,
     kpiActivityDefault: settings.kpiActivityDefault,
+    gSheetsSpreadsheetId: settings.gSheetsSpreadsheetId,
+    gSheetsApiKey: settings.gSheetsApiKey ? "***" + settings.gSheetsApiKey.slice(-6) : null,
+    gSheetsFunnelPattern: settings.gSheetsFunnelPattern ?? "TREG3_SALES_FUNNEL_",
+    gSheetsSyncEnabled: settings.gSheetsSyncEnabled,
+    gSheetsSyncHourWib: settings.gSheetsSyncHourWib,
+    gSheetsSyncIntervalDays: settings.gSheetsSyncIntervalDays,
+    gSheetsLastSyncAt: settings.gSheetsLastSyncAt?.toISOString() ?? null,
   });
 });
 

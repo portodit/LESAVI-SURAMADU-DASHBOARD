@@ -2,6 +2,7 @@ import app from "./app";
 import { logger } from "./shared/logger";
 import { ensureDefaultAdmin } from "./shared/auth";
 import { startTelegramPoller } from "./features/telegram/poller";
+import { startGSheetsScheduler } from "./features/gsheets/scheduler";
 
 const rawPort = process.env["PORT"];
 
@@ -29,4 +30,5 @@ app.listen(port, (err) => {
 
   logger.info({ port }, "Server listening");
   startTelegramPoller(15000);
+  startGSheetsScheduler();
 });

@@ -888,7 +888,7 @@ export default function ImportData() {
         )}
 
         {/* File-based tabs content */}
-        {activeTab !== "target-ho" && activeTab !== "master-am" && (
+        {activeTab !== "target-ho" && activeTab !== "master-am" && activeTab !== "gsheets" && (
         <div className="p-6 space-y-4">
           {/* File upload with drag & drop */}
           <div className="space-y-2">
@@ -1031,8 +1031,8 @@ export default function ImportData() {
         )}
       </div>
 
-      {/* History Table — only for file-import tabs */}
-      {activeTab !== "target-ho" && activeTab !== "master-am" && (
+      {/* History Table — only for file-import tabs (not gsheets, history appears in respective type tabs) */}
+      {activeTab !== "target-ho" && activeTab !== "master-am" && activeTab !== "gsheets" && (
       <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
         <div className="px-6 py-4 border-b border-border flex items-center gap-3">
           <History className="w-4 h-4 text-muted-foreground" />

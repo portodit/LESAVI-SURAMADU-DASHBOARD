@@ -11,7 +11,8 @@ import {
   AlertCircle, ArrowRight, X, FileSpreadsheet, Trash2,
   Eye, AlertTriangle, RefreshCw, BarChart2, Filter, Activity, Layers, Target, Plus, Save,
   Users, UserCheck, UserX, Pencil, ShieldCheck, ChevronDown, ChevronUp,
-  Sheet, Play, Clock, CircleCheck, CircleX, SkipForward, FolderOpen, Download
+  Sheet, Play, Clock, CircleCheck, CircleX, SkipForward, FolderOpen, Download,
+  ListChecks, CheckSquare2, Square, Terminal
 } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { format } from "date-fns";
@@ -157,6 +158,12 @@ export default function ImportData() {
   // Progress simulation for Drive sync
   const [driveProgress, setDriveProgress] = useState<Record<string, { percent: number; stage: string } | null>>({});
   const driveProgressRef = useRef<Record<string, ReturnType<typeof setInterval>>>({});
+  // Multi-select per driveType
+  const [driveSelectedFiles, setDriveSelectedFiles] = useState<Record<string, Record<string, boolean>>>({});
+  // Sync log
+  type SyncLogEntry = { fileId: string; fileName: string; status: "waiting" | "running" | "ok" | "error"; message: string; rows?: number };
+  const [syncLog, setSyncLog] = useState<SyncLogEntry[]>([]);
+  const [syncLogOpen, setSyncLogOpen] = useState(true);
 
   // Google Sheets sync state
   const [gsForm, setGsForm] = useState<{
@@ -325,6 +332,37 @@ export default function ImportData() {
       stopDriveProgress(type, false);
       toast({ title: "Sync Gagal", description: e.message, variant: "destructive" });
     } finally { setDriveSyncing(p => ({ ...p, [type]: false })); }
+  };
+
+  const handleDriveSyncBatch = async (type: string, filesToSync: any[]) => {
+    if (filesToSync.length === 0) return;
+    const entries: SyncLogEntry[] = filesToSync.map(f => ({
+      fileId: f.id, fileName: f.name, status: "waiting", message: "Menunggu...",
+    }));
+    setSyncLog(entries);
+    setSyncLogOpen(true);
+    setDriveSyncing(p => ({ ...p, [type]: true }));
+    setDriveSyncResult(p => ({ ...p, [type]: null }));
+    startDriveProgress(type);
+    let anyOk = false;
+    for (let i = 0; i < filesToSync.length; i++) {
+      const f = filesToSync[i];
+      setSyncLog(prev => prev.map((e, idx) => idx === i ? { ...e, status: "running", message: "Sedang download & import..." } : e));
+      try {
+        const fDetected = extractDateFromFilename(f.name);
+        const result = await apiFetch<any>(`/api/gdrive/sync?type=${type}`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fileId: f.id, snapshotDate: fDetected?.isoDate || driveSnapshotOverride[type] || undefined }),
+        });
+        setSyncLog(prev => prev.map((e, idx) => idx === i ? { ...e, status: "ok", message: `${result.imported} baris berhasil diimport`, rows: result.imported } : e));
+        anyOk = true;
+      } catch (e: any) {
+        setSyncLog(prev => prev.map((e2, idx) => idx === i ? { ...e2, status: "error", message: e.message || "Gagal" } : e2));
+      }
+    }
+    stopDriveProgress(type, anyOk);
+    setDriveSyncing(p => ({ ...p, [type]: false }));
+    if (anyOk) refetch();
   };
 
   const handleGsSync = async () => {
@@ -1193,13 +1231,13 @@ export default function ImportData() {
                     {/* Drive action buttons */}
                     <div className="space-y-2">
                       <div className="flex gap-2 flex-wrap">
-                        <Button variant="outline" size="sm" onClick={() => handleDriveList(driveType)} disabled={isListing || isSyncing} className="gap-2 h-8 text-xs">
+                        <Button variant="outline" size="sm" onClick={() => {
+                          handleDriveList(driveType);
+                          setDriveSelectedFiles(p => ({ ...p, [driveType]: {} }));
+                          setSyncLog([]);
+                        }} disabled={isListing || isSyncing} className="gap-2 h-8 text-xs">
                           {isListing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FolderOpen className="w-3.5 h-3.5 text-amber-500" />}
                           {driveFilesList.length > 0 ? "Refresh Daftar File" : "Cek File di Drive"}
-                        </Button>
-                        <Button size="sm" onClick={() => handleDriveSync(driveType)} disabled={isSyncing || isListing} className="gap-2 h-8 text-xs bg-amber-600 hover:bg-amber-700 text-white">
-                          {isSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-                          {isSyncing ? "Sedang Sync..." : "Sync File Terbaru"}
                         </Button>
                       </div>
                       {/* Progress bar for Drive sync */}
@@ -1225,58 +1263,151 @@ export default function ImportData() {
                       )}
                     </div>
 
-                    {/* File list */}
-                    {driveFilesList.length > 0 && (
-                      <div className="border border-border rounded-xl overflow-hidden">
-                        <div className="px-4 py-2 bg-secondary/40 border-b border-border">
-                          <p className="text-[11px] font-bold text-foreground">{driveFilesList.length} file ditemukan di folder</p>
-                        </div>
-                        <div className="divide-y divide-border/50 max-h-52 overflow-y-auto">
-                          {driveFilesList.map((f: any, i: number) => {
-                            const fDetected = extractDateFromFilename(f.name);
-                            const isGSheet = f.mimeType === "application/vnd.google-apps.spreadsheet";
-                            return (
-                              <div key={f.id} className={cn("px-4 py-2.5 flex items-center gap-3", i === 0 ? "bg-amber-50" : "")}>
-                                <FileSpreadsheet className={cn("w-3.5 h-3.5 shrink-0", i === 0 ? "text-amber-600" : isGSheet ? "text-green-600" : "text-muted-foreground")} />
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-1.5">
-                                    <p className="text-xs font-semibold text-foreground truncate">{f.name}</p>
-                                    {isGSheet && (
-                                      <span className="shrink-0 text-[9px] font-bold bg-green-100 text-green-700 px-1.5 py-0.5 rounded border border-green-200">Sheets</span>
-                                    )}
-                                  </div>
-                                  <p className="text-[10px] text-muted-foreground">
-                                    {f.modifiedTime ? format(new Date(f.modifiedTime), "d MMM yyyy, HH:mm", { locale: id }) : ""}
-                                    {fDetected && <> · <span className="font-medium text-emerald-600">Snapshot: {fDetected.display}</span></>}
-                                  </p>
-                                </div>
-                                {i === 0 && <span className="text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full border border-amber-200 shrink-0">Terbaru</span>}
-                                <Button
-                                  variant="ghost" size="sm"
-                                  onClick={() => {
-                                    if (fDetected) setDriveSnapshotOverride(p => ({ ...p, [driveType]: fDetected.isoDate }));
-                                    handleDriveSync(driveType, f.id, fDetected?.isoDate);
-                                  }}
+                    {/* File list with multi-select */}
+                    {driveFilesList.length > 0 && (() => {
+                      const selMap = driveSelectedFiles[driveType] || {};
+                      const selectedIds = driveFilesList.filter((f: any) => selMap[f.id]).map((f: any) => f.id);
+                      const allSelected = driveFilesList.length > 0 && driveFilesList.every((f: any) => selMap[f.id]);
+                      const someSelected = selectedIds.length > 0;
+                      const toggleAll = () => {
+                        const next: Record<string, boolean> = {};
+                        if (!allSelected) driveFilesList.forEach((f: any) => { next[f.id] = true; });
+                        setDriveSelectedFiles(p => ({ ...p, [driveType]: next }));
+                      };
+                      const toggleFile = (fid: string) => {
+                        setDriveSelectedFiles(p => ({
+                          ...p,
+                          [driveType]: { ...(p[driveType] || {}), [fid]: !(p[driveType] || {})[fid] },
+                        }));
+                      };
+                      return (
+                        <div className="border border-border rounded-xl overflow-hidden">
+                          {/* Header with select-all + action */}
+                          <div className="px-3 py-2 bg-secondary/40 border-b border-border flex items-center gap-2">
+                            <button onClick={toggleAll} disabled={isSyncing} className="flex items-center gap-1.5 text-[11px] font-bold text-foreground hover:text-primary transition-colors">
+                              {allSelected
+                                ? <CheckSquare2 className="w-3.5 h-3.5 text-primary" />
+                                : someSelected
+                                  ? <CheckSquare2 className="w-3.5 h-3.5 text-muted-foreground" />
+                                  : <Square className="w-3.5 h-3.5 text-muted-foreground" />
+                              }
+                              {driveFilesList.length} file ditemukan
+                            </button>
+                            <div className="ml-auto flex items-center gap-2">
+                              {someSelected && (
+                                <Button size="sm"
+                                  onClick={() => handleDriveSyncBatch(driveType, driveFilesList.filter((f: any) => selMap[f.id]))}
                                   disabled={isSyncing}
-                                  className="h-6 px-2 text-[10px] shrink-0"
+                                  className="h-6 px-2.5 text-[10px] gap-1.5 bg-red-700 hover:bg-red-800 text-white"
                                 >
-                                  <Download className="w-3 h-3 mr-1" /> Sync ini
+                                  {isSyncing ? <Loader2 className="w-3 h-3 animate-spin" /> : <ListChecks className="w-3 h-3" />}
+                                  Sync {selectedIds.length} file
                                 </Button>
-                              </div>
-                            );
-                          })}
+                              )}
+                              <Button size="sm"
+                                onClick={() => handleDriveSyncBatch(driveType, driveFilesList.slice(0, 1))}
+                                disabled={isSyncing}
+                                className="h-6 px-2.5 text-[10px] gap-1.5 bg-amber-600 hover:bg-amber-700 text-white"
+                              >
+                                {isSyncing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+                                Terbaru saja
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="divide-y divide-border/50 max-h-60 overflow-y-auto">
+                            {driveFilesList.map((f: any, i: number) => {
+                              const fDetected = extractDateFromFilename(f.name);
+                              const isGSheet = f.mimeType === "application/vnd.google-apps.spreadsheet";
+                              const isChecked = !!(selMap[f.id]);
+                              return (
+                                <div
+                                  key={f.id}
+                                  onClick={() => !isSyncing && toggleFile(f.id)}
+                                  className={cn(
+                                    "px-3 py-2.5 flex items-center gap-2.5 cursor-pointer transition-colors select-none",
+                                    isChecked ? "bg-primary/5 border-l-2 border-l-primary" : i === 0 ? "bg-amber-50/60 hover:bg-amber-50" : "hover:bg-secondary/30"
+                                  )}
+                                >
+                                  {isChecked
+                                    ? <CheckSquare2 className="w-3.5 h-3.5 shrink-0 text-primary" />
+                                    : <Square className="w-3.5 h-3.5 shrink-0 text-border" />
+                                  }
+                                  <FileSpreadsheet className={cn("w-3.5 h-3.5 shrink-0", i === 0 ? "text-amber-600" : isGSheet ? "text-green-600" : "text-muted-foreground/60")} />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-1.5">
+                                      <p className="text-xs font-semibold text-foreground truncate">{f.name}</p>
+                                      {isGSheet && (
+                                        <span className="shrink-0 text-[9px] font-bold bg-green-100 text-green-700 px-1.5 py-0.5 rounded border border-green-200">Sheets</span>
+                                      )}
+                                      {i === 0 && <span className="text-[9px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full border border-amber-200 shrink-0">Terbaru</span>}
+                                    </div>
+                                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                                      {f.modifiedTime ? format(new Date(f.modifiedTime), "d MMM yyyy, HH:mm", { locale: id }) : ""}
+                                      {fDetected && <> · <span className="font-medium text-emerald-600">Snapshot: {fDetected.display}</span></>}
+                                    </p>
+                                  </div>
+                                  <Button
+                                    variant="ghost" size="sm"
+                                    onClick={e => {
+                                      e.stopPropagation();
+                                      handleDriveSyncBatch(driveType, [f]);
+                                    }}
+                                    disabled={isSyncing}
+                                    className="h-6 px-2 text-[10px] shrink-0 hover:bg-amber-100 hover:text-amber-800"
+                                  >
+                                    <Download className="w-3 h-3 mr-0.5" /> Sync ini
+                                  </Button>
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      );
+                    })()}
 
-                    {/* Sync result */}
-                    {syncResult && (
-                      <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl border bg-emerald-50 border-emerald-200 text-emerald-700 text-xs">
-                        <CircleCheck className="w-3.5 h-3.5 shrink-0" />
-                        <span>
-                          Berhasil sync <strong>{syncResult.imported} baris</strong> dari <em>{syncResult.fileName}</em>
-                          {syncResult.snapshotDate && <> · snapshot: <strong>{syncResult.snapshotDate}</strong></>}
-                        </span>
+                    {/* Sync log panel — collapsible */}
+                    {syncLog.length > 0 && (
+                      <div className="border border-border rounded-xl overflow-hidden">
+                        <button
+                          onClick={() => setSyncLogOpen(p => !p)}
+                          className="w-full px-3 py-2 flex items-center gap-2 bg-secondary/40 hover:bg-secondary/60 transition-colors border-b border-border text-left"
+                        >
+                          <Terminal className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                          <span className="text-[11px] font-bold text-foreground flex-1">Log Proses Sync</span>
+                          <span className={cn(
+                            "text-[9px] font-bold px-1.5 py-0.5 rounded-full",
+                            syncLog.every(e => e.status === "ok") ? "bg-emerald-100 text-emerald-700"
+                            : syncLog.some(e => e.status === "error") ? "bg-red-100 text-red-700"
+                            : "bg-amber-100 text-amber-700"
+                          )}>
+                            {syncLog.filter(e => e.status === "ok").length}/{syncLog.length} OK
+                          </span>
+                          {syncLogOpen ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground shrink-0" />}
+                        </button>
+                        {syncLogOpen && (
+                          <div className="max-h-52 overflow-y-auto divide-y divide-border/40 bg-[#1e1e2e]/[0.03]">
+                            {syncLog.map((entry, i) => (
+                              <div key={entry.fileId} className="flex items-start gap-2.5 px-3 py-2.5">
+                                <div className="shrink-0 mt-0.5">
+                                  {entry.status === "waiting" && <Clock className="w-3.5 h-3.5 text-muted-foreground/40" />}
+                                  {entry.status === "running" && <Loader2 className="w-3.5 h-3.5 text-amber-500 animate-spin" />}
+                                  {entry.status === "ok" && <CircleCheck className="w-3.5 h-3.5 text-emerald-500" />}
+                                  {entry.status === "error" && <CircleX className="w-3.5 h-3.5 text-red-500" />}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-[11px] font-semibold text-foreground truncate">{entry.fileName}</p>
+                                  <p className={cn(
+                                    "text-[10px] mt-0.5",
+                                    entry.status === "ok" ? "text-emerald-600" : entry.status === "error" ? "text-red-600" : "text-muted-foreground"
+                                  )}>{entry.message}</p>
+                                </div>
+                                {entry.rows !== undefined && (
+                                  <span className="shrink-0 text-[10px] font-bold tabular-nums text-emerald-600">{entry.rows.toLocaleString("id-ID")} baris</span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
                   </>
@@ -1791,8 +1922,8 @@ export default function ImportData() {
         </div>
       )}
 
-      {/* Data Cleaning Proof — funnel tab only */}
-      {activeTab === "funnel" && (
+      {/* Data Cleaning Proof — hidden, data still fetched for internal use */}
+      {false && activeTab === "funnel" && (
         <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
           <button
             className="w-full px-6 py-4 border-b border-border flex items-center gap-3 hover:bg-secondary/20 transition-colors text-left"

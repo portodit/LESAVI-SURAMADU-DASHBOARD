@@ -392,11 +392,18 @@ function FSPeriodeTreeDropdown({ label, filterYear, filterMonths, availableYears
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
   const [expandedYears, setExpandedYears] = useState<Set<string>>(new Set([filterYear]));
-  const ref = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const dropRef = useRef<HTMLDivElement>(null);
 
   useEffect(()=>{
-    const h=(e:MouseEvent)=>{if(ref.current&&!ref.current.contains(e.target as Node))setOpen(false);};
+    const h=(e:MouseEvent)=>{
+      if(
+        triggerRef.current&&!triggerRef.current.contains(e.target as Node)&&
+        dropRef.current&&!dropRef.current.contains(e.target as Node)
+      ) setOpen(false);
+    };
     document.addEventListener("mousedown",h); return()=>document.removeEventListener("mousedown",h);
   },[]);
 
@@ -405,6 +412,14 @@ function FSPeriodeTreeDropdown({ label, filterYear, filterMonths, availableYears
   },[filterYear]);
 
   const years = availableYears.length > 0 ? availableYears : [filterYear];
+
+  const toggle = () => {
+    if(triggerRef.current){
+      const r=triggerRef.current.getBoundingClientRect();
+      setPos({ top: r.bottom+4, left: r.left });
+    }
+    setOpen(o=>!o);
+  };
 
   const toggleExpand = (yr:string, e:React.MouseEvent) => {
     e.stopPropagation();
@@ -425,9 +440,9 @@ function FSPeriodeTreeDropdown({ label, filterYear, filterMonths, availableYears
     : `${filterYear} · ${filterMonths.size} bulan`;
 
   return (
-    <div className={cn("flex flex-col gap-1 relative",className)} ref={ref}>
+    <div className={cn("flex flex-col gap-1",className)} ref={triggerRef}>
       {label&&<label className="text-xs font-display font-bold text-foreground uppercase tracking-wide">{label}</label>}
-      <button type="button" onClick={()=>setOpen(o=>!o)}
+      <button type="button" onClick={toggle}
         className={cn("h-9 px-3 bg-secondary/50 border border-border rounded-lg text-sm flex items-center gap-1.5 w-full transition-colors text-left",open&&"border-primary/50 ring-2 ring-primary/20")}>
         <span className="flex-1 truncate font-medium text-foreground">{displayText}</span>
         {filterMonths.size>0&&(
@@ -435,8 +450,9 @@ function FSPeriodeTreeDropdown({ label, filterYear, filterMonths, availableYears
         )}
         <ChevronDown className={cn("w-3.5 h-3.5 text-muted-foreground shrink-0 transition-transform",open&&"rotate-180")}/>
       </button>
-      {open&&(
-        <div className="absolute top-full left-0 mt-1 z-50 bg-card border border-border rounded-xl shadow-xl w-52 overflow-hidden">
+      {open&&createPortal(
+        <div ref={dropRef} style={{ position:"fixed", top:pos.top, left:pos.left, zIndex:9999 }}
+          className="bg-card border border-border rounded-xl shadow-xl w-52 overflow-hidden">
           <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-secondary/30">
             <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Periode</span>
             <button onClick={()=>onChange(filterYear,new Set())} className="text-[11px] text-primary font-semibold hover:underline">Reset</button>
@@ -482,7 +498,8 @@ function FSPeriodeTreeDropdown({ label, filterYear, filterMonths, availableYears
               );
             })}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

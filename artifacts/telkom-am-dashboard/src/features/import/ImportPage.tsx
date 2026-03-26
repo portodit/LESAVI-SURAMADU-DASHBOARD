@@ -11,7 +11,7 @@ import {
   AlertCircle, ArrowRight, X, FileSpreadsheet, Trash2,
   Eye, AlertTriangle, RefreshCw, BarChart2, Filter, Activity, Layers, Target, Plus, Save,
   Users, UserCheck, UserX, Pencil, ShieldCheck, ChevronDown, ChevronUp,
-  Sheet, Play, Clock, CircleCheck, CircleX, SkipForward
+  Sheet, Play, Clock, CircleCheck, CircleX, SkipForward, FolderOpen, Download
 } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { format } from "date-fns";
@@ -143,6 +143,14 @@ export default function ImportData() {
     staleTime: 30_000,
   });
 
+  // Google Drive sync state
+  const [driveForm, setDriveForm] = useState({ folderPerformance: "", folderFunnel: "", folderActivity: "", folderTarget: "" });
+  const [driveSaving, setDriveSaving] = useState(false);
+  const [driveListLoading, setDriveListLoading] = useState<Record<string, boolean>>({});
+  const [driveFiles, setDriveFiles] = useState<Record<string, any[]>>({});
+  const [driveSyncing, setDriveSyncing] = useState<Record<string, boolean>>({});
+  const [driveSyncResult, setDriveSyncResult] = useState<Record<string, any>>({});
+
   // Google Sheets sync state
   const [gsForm, setGsForm] = useState({
     spreadsheetId: "", apiKey: "", funnelPattern: "TREG3_SALES_FUNNEL_",
@@ -167,7 +175,6 @@ export default function ImportData() {
     queryKey: ["app-settings-gs"],
     queryFn: () => apiFetch("/api/settings"),
     staleTime: 60_000,
-    enabled: activeTab === "gsheets",
   });
   useEffect(() => {
     if (!appSettings) return;
@@ -179,6 +186,12 @@ export default function ImportData() {
       syncHourWib: appSettings.gSheetsSyncHourWib ?? 6,
       syncIntervalDays: appSettings.gSheetsSyncIntervalDays ?? 1,
     }));
+    setDriveForm({
+      folderPerformance: appSettings.gDriveFolderPerformance || "",
+      folderFunnel: appSettings.gDriveFolderFunnel || "",
+      folderActivity: appSettings.gDriveFolderActivity || "",
+      folderTarget: appSettings.gDriveFolderTarget || "",
+    });
   }, [appSettings]);
 
   const handleSaveGsSettings = async () => {
@@ -202,6 +215,54 @@ export default function ImportData() {
     } catch (e: any) {
       toast({ title: "Gagal Simpan", description: e.message, variant: "destructive" });
     } finally { setGsSaving(false); }
+  };
+
+  const handleSaveDriveFolders = async () => {
+    setDriveSaving(true);
+    try {
+      await apiFetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          gDriveFolderPerformance: driveForm.folderPerformance || null,
+          gDriveFolderFunnel: driveForm.folderFunnel || null,
+          gDriveFolderActivity: driveForm.folderActivity || null,
+          gDriveFolderTarget: driveForm.folderTarget || null,
+        }),
+      });
+      toast({ title: "Folder Tersimpan", description: "URL folder Google Drive berhasil disimpan" });
+      qc.invalidateQueries({ queryKey: ["app-settings-gs"] });
+    } catch (e: any) {
+      toast({ title: "Gagal Simpan", description: e.message, variant: "destructive" });
+    } finally { setDriveSaving(false); }
+  };
+
+  const handleDriveList = async (type: string) => {
+    setDriveListLoading(p => ({ ...p, [type]: true }));
+    setDriveFiles(p => ({ ...p, [type]: [] }));
+    try {
+      const data = await apiFetch<{ files: any[] }>(`/api/gdrive/list?type=${type}`);
+      setDriveFiles(p => ({ ...p, [type]: data.files || [] }));
+    } catch (e: any) {
+      toast({ title: "Gagal Memuat Daftar File", description: e.message, variant: "destructive" });
+    } finally { setDriveListLoading(p => ({ ...p, [type]: false })); }
+  };
+
+  const handleDriveSync = async (type: string, fileId?: string) => {
+    setDriveSyncing(p => ({ ...p, [type]: true }));
+    setDriveSyncResult(p => ({ ...p, [type]: null }));
+    try {
+      const result = await apiFetch<any>(`/api/gdrive/sync?type=${type}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileId }),
+      });
+      setDriveSyncResult(p => ({ ...p, [type]: result }));
+      qc.invalidateQueries({ queryKey: ["import-history"] });
+      toast({ title: "Sync Berhasil", description: `${result.imported} baris diimport dari "${result.fileName}"` });
+    } catch (e: any) {
+      toast({ title: "Sync Gagal", description: e.message, variant: "destructive" });
+    } finally { setDriveSyncing(p => ({ ...p, [type]: false })); }
   };
 
   const handleGsSync = async () => {
@@ -975,6 +1036,70 @@ export default function ImportData() {
               {activeTab === "activity" && " Filter witel=SURAMADU, divisi=DPS/DSS, validasi NIK, UPPER+TRIM nama customer."}
             </div>
           </div>
+
+          {/* Google Drive sync section — only if folder configured for this tab */}
+          {(() => {
+            const typeMap: Record<string, string> = { performansi: "performance", funnel: "funnel", activity: "activity" };
+            const driveType = typeMap[activeTab];
+            if (!driveType) return null;
+            const driveHasFolder = driveType === "performance" ? !!appSettings?.gDriveFolderPerformance
+              : driveType === "funnel" ? !!appSettings?.gDriveFolderFunnel
+              : !!appSettings?.gDriveFolderActivity;
+            if (!driveHasFolder) return null;
+            const files = driveFiles[driveType] || [];
+            const isListing = !!driveListLoading[driveType];
+            const isSyncing = !!driveSyncing[driveType];
+            const syncResult = driveSyncResult[driveType];
+            return (
+              <div className="border-t border-dashed border-border pt-4 space-y-3">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <FolderOpen className="w-4 h-4 text-amber-500 shrink-0" />
+                  <p className="text-xs font-bold text-foreground uppercase tracking-wide">Atau Sync dari Google Drive</p>
+                  <span className="text-[10px] font-medium bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full border border-amber-200">Folder sudah dikonfigurasi</span>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  <Button variant="outline" size="sm" onClick={() => handleDriveList(driveType)} disabled={isListing} className="gap-2 h-8 text-xs">
+                    {isListing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FolderOpen className="w-3.5 h-3.5 text-amber-500" />}
+                    Cek File di Drive
+                  </Button>
+                  <Button size="sm" onClick={() => handleDriveSync(driveType)} disabled={isSyncing} className="gap-2 h-8 text-xs bg-amber-600 hover:bg-amber-700 text-white">
+                    {isSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                    Sync File Terbaru
+                  </Button>
+                </div>
+                {files.length > 0 && (
+                  <div className="border border-border rounded-xl overflow-hidden">
+                    <div className="px-4 py-2 bg-secondary/40 border-b border-border">
+                      <p className="text-[11px] font-bold text-foreground">{files.length} file Excel ditemukan di folder</p>
+                    </div>
+                    <div className="divide-y divide-border/50 max-h-48 overflow-y-auto">
+                      {files.map((f: any, i: number) => (
+                        <div key={f.id} className={cn("px-4 py-2.5 flex items-center gap-3", i === 0 ? "bg-amber-50" : "")}>
+                          <FileSpreadsheet className={cn("w-3.5 h-3.5 shrink-0", i === 0 ? "text-amber-600" : "text-muted-foreground")} />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-foreground truncate">{f.name}</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {f.modifiedTime ? format(new Date(f.modifiedTime), "d MMM yyyy, HH:mm", { locale: id }) : ""}
+                            </p>
+                          </div>
+                          {i === 0 && <span className="text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full border border-amber-200 shrink-0">Terbaru</span>}
+                          <Button variant="ghost" size="sm" onClick={() => handleDriveSync(driveType, f.id)} disabled={isSyncing} className="h-6 px-2 text-[10px] shrink-0">
+                            <Download className="w-3 h-3 mr-1" /> Sync ini
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {syncResult && (
+                  <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl border bg-emerald-50 border-emerald-200 text-emerald-700 text-xs">
+                    <CircleCheck className="w-3.5 h-3.5 shrink-0" />
+                    <span>Berhasil sync <strong>{syncResult.imported} baris</strong> dari <em>{syncResult.fileName}</em></span>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
         )}
       </div>
@@ -1329,6 +1454,54 @@ export default function ImportData() {
                   </div>
                 );
               })()}
+            </div>
+          </div>
+
+          {/* Google Drive Folder Config Card */}
+          <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
+            <div className="px-6 py-4 border-b border-border flex items-center gap-3">
+              <FolderOpen className="w-5 h-5 text-amber-500" />
+              <div>
+                <h2 className="font-display font-bold text-sm text-foreground">Konfigurasi Folder Google Drive</h2>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Paste URL folder publik Google Drive — 1 folder per tipe data. API Key yang sama dengan GSheets digunakan.</p>
+              </div>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="flex items-start gap-2 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-600" />
+                <div className="space-y-1">
+                  <p className="font-bold">Cara pengaturan folder Google Drive:</p>
+                  <ol className="list-decimal ml-4 space-y-0.5 text-amber-700">
+                    <li>Buat folder di Google Drive dan set <strong>"Anyone with the link can view"</strong></li>
+                    <li>Masukkan file Excel (.xlsx/.xls) ke masing-masing folder sesuai tipe data</li>
+                    <li>Salin URL folder dari browser (format: <code className="font-mono bg-amber-100 px-1 rounded">drive.google.com/drive/folders/...</code>)</li>
+                    <li>Saat sync, file Excel paling baru (berdasarkan tanggal modifikasi) yang akan digunakan</li>
+                  </ol>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-3">
+                {([
+                  { key: "folderPerformance", label: "Folder Performa AM", color: "text-emerald-600" },
+                  { key: "folderFunnel", label: "Folder Sales Funnel", color: "text-blue-600" },
+                  { key: "folderActivity", label: "Folder Sales Activity", color: "text-purple-600" },
+                  { key: "folderTarget", label: "Folder Target HO", color: "text-red-600" },
+                ] as { key: keyof typeof driveForm; label: string; color: string }[]).map(({ key, label, color }) => (
+                  <div key={key} className="space-y-1">
+                    <label className={cn("text-xs font-bold uppercase tracking-wide", color)}>{label}</label>
+                    <input
+                      type="text"
+                      value={driveForm[key]}
+                      onChange={e => setDriveForm(p => ({ ...p, [key]: e.target.value }))}
+                      placeholder="https://drive.google.com/drive/folders/..."
+                      className="w-full h-9 px-3 bg-background border border-border rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                  </div>
+                ))}
+              </div>
+              <Button onClick={handleSaveDriveFolders} disabled={driveSaving} className="gap-2 bg-amber-600 hover:bg-amber-700 text-white">
+                {driveSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                Simpan URL Folder
+              </Button>
             </div>
           </div>
         </div>

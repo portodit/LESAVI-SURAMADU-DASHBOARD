@@ -20,6 +20,11 @@ export const appSettingsTable = pgTable("app_settings", {
   gSheetsSyncIntervalDays: integer("g_sheets_sync_interval_days").notNull().default(1),
   gSheetsLastSyncAt: timestamp("g_sheets_last_sync_at", { withTimezone: true }),
   gSheetsLastSyncResult: text("g_sheets_last_sync_result"),
+  // Google Drive folder sync (public folders, 1 folder per data type)
+  gDriveFolderPerformance: text("g_drive_folder_performance"),
+  gDriveFolderFunnel: text("g_drive_folder_funnel"),
+  gDriveFolderActivity: text("g_drive_folder_activity"),
+  gDriveFolderTarget: text("g_drive_folder_target"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

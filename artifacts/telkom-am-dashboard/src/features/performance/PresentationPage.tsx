@@ -549,44 +549,49 @@ function FSGauge({ pct, targetHo, targetFullHo, real, mode }: { pct:number; targ
   const endX=cx+r*Math.cos(toRad(endAngle));
   const endY=cy+r*Math.sin(toRad(endAngle));
   return (
-    <div className="flex flex-col items-center">
-      <svg width="240" height="172" viewBox="0 0 160 115">
-        <path d={arc(startAngle,endAngle,r)} fill="none" stroke="#e5e7eb" strokeWidth="18" strokeLinecap="round"/>
-        {hasTarget&&clamp>0&&<path d={arc(startAngle,startAngle+fillDeg,r)} fill="none" stroke={color} strokeWidth="18" strokeLinecap="round"/>}
-        {hasTarget?(
-          <>
-            <text x={cx} y={cy-4} textAnchor="middle" fontSize="22" fontWeight="800" fill={color} fontFamily="ui-monospace,monospace">{clamp.toFixed(1)}%</text>
-            <text x={cx} y={cy+12} textAnchor="middle" fontSize="9" fill="#6b7280">CAPAIAN</text>
-          </>
-        ):(
-          <>
-            <text x={cx} y={cy-4} textAnchor="middle" fontSize="11" fontWeight="700" fill="#6b7280">Target</text>
-            <text x={cx} y={cy+10} textAnchor="middle" fontSize="10" fill="#9ca3af">belum diset</text>
-          </>
-        )}
-        <text x={startX} y={startY+13} textAnchor="middle" fontSize="8" fill="#9ca3af">0%</text>
-        <text x={endX} y={endY+13} textAnchor="middle" fontSize="8" fill="#9ca3af">100%</text>
-      </svg>
-      <div className="w-full space-y-1.5 mt-1 text-sm">
+    <div className="flex items-center gap-4">
+      <div className="shrink-0">
+        <svg width="180" height="130" viewBox="0 0 160 115">
+          <path d={arc(startAngle,endAngle,r)} fill="none" stroke="#e5e7eb" strokeWidth="18" strokeLinecap="round"/>
+          {hasTarget&&clamp>0&&<path d={arc(startAngle,startAngle+fillDeg,r)} fill="none" stroke={color} strokeWidth="18" strokeLinecap="round"/>}
+          {hasTarget?(
+            <>
+              <text x={cx} y={cy-4} textAnchor="middle" fontSize="22" fontWeight="800" fill={color} fontFamily="ui-monospace,monospace">{clamp.toFixed(1)}%</text>
+              <text x={cx} y={cy+12} textAnchor="middle" fontSize="9" fill="#6b7280">CAPAIAN</text>
+            </>
+          ):(
+            <>
+              <text x={cx} y={cy-4} textAnchor="middle" fontSize="11" fontWeight="700" fill="#6b7280">Target</text>
+              <text x={cx} y={cy+10} textAnchor="middle" fontSize="10" fill="#9ca3af">belum diset</text>
+            </>
+          )}
+          <text x={startX} y={startY+13} textAnchor="middle" fontSize="8" fill="#9ca3af">0%</text>
+          <text x={endX} y={endY+13} textAnchor="middle" fontSize="8" fill="#9ca3af">100%</text>
+        </svg>
+      </div>
+      <div className="flex-1 space-y-2 text-sm">
         <div className="flex justify-between items-center">
           <span className="text-muted-foreground text-xs">Real Pipeline</span>
-          <span className="font-bold text-foreground font-mono">{fmtRupiahFS(real)}</span>
+          <span className="font-bold text-foreground tabular-nums">{fmtRupiahFS(real)}</span>
         </div>
         {hasTarget&&(
           <>
             <div className="flex justify-between items-center">
               <span className="text-muted-foreground text-xs">{mode==="ho"?"Target HO":"Target Full HO"}</span>
-              <span className="font-mono text-foreground">{fmtRupiahFS(activeTarget)}</span>
+              <span className="tabular-nums text-foreground">{fmtRupiahFS(activeTarget)}</span>
             </div>
             <div className="pt-1.5 border-t border-border flex justify-between items-center">
               <span className={cn("text-xs font-bold",real>=activeTarget?"text-emerald-600":"text-gray-900 dark:text-white")}>
                 {real>=activeTarget?"Kelebihan":"Kekurangan"}
               </span>
-              <span className={cn("font-bold font-mono text-sm",real>=activeTarget?"text-emerald-600":"text-gray-900 dark:text-white")}>
+              <span className={cn("font-bold tabular-nums text-sm",real>=activeTarget?"text-emerald-600":"text-gray-900 dark:text-white")}>
                 {real>=activeTarget?"+":"-"}{fmtRupiahFS(Math.abs(activeTarget-real))}
               </span>
             </div>
           </>
+        )}
+        {!hasTarget&&(
+          <p className="text-xs text-muted-foreground">Target belum diset — import di menu Import Data</p>
         )}
       </div>
     </div>
@@ -686,7 +691,7 @@ function FunnelSlide() {
   ,[snapshots,filterYear,filterMonths]);
 
   useEffect(()=>{if(yearOptions.length>0)setFilterYear(yearOptions[0].value);},[yearOptions.length]);
-  useEffect(()=>{if(snapshotOptions.length>0)setImportId(Number(snapshotOptions[0].value));},[snapshotOptions.length>0&&snapshotOptions[0]?.value]);
+  useEffect(()=>{ if(snapshotOptions.length>0 && importId===null) setImportId(Number(snapshotOptions[0].value)); },[snapshotOptions, importId]);
 
   const funnelParams = useMemo(()=>{
     const p=new URLSearchParams();
@@ -749,18 +754,14 @@ function FunnelSlide() {
     });
   },[filteredLops]);
 
-  // Auto-expand all rows when data first loads or snapshot changes
   const lastAutoExpandIdFS = useRef<number|null>(undefined as any);
   useEffect(()=>{
     if(groupedByAm.length===0) return;
     if(importId===lastAutoExpandIdFS.current) return;
     lastAutoExpandIdFS.current=importId;
-    const ak:Record<string,boolean>={},pk:Record<string,boolean>={};
-    for(const am of groupedByAm){
-      ak[am.nikAm||am.namaAm]=true;
-      for(const[ph] of am.phases) pk[`${am.nikAm||am.namaAm}|${ph}`]=true;
-    }
-    setExpandedAm(ak); setExpandedPhase(pk); setAllExpanded(true);
+    const ak:Record<string,boolean>={};
+    for(const am of groupedByAm) ak[am.nikAm||am.namaAm]=true;
+    setExpandedAm(ak); setExpandedPhase({}); setAllExpanded(false);
   },[groupedByAm,importId]);
 
   function handleToggleAll(){
@@ -823,38 +824,6 @@ function FunnelSlide() {
     <div className="p-4 space-y-4">
       {navbarPortalEl && createPortal(navbarFilterBar, navbarPortalEl)}
 
-      {/* Target HO override */}
-      <div className="bg-card border border-border rounded-xl px-4 py-3 shadow-sm">
-        <div className="flex items-end gap-2 flex-wrap">
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-display font-bold text-foreground uppercase tracking-wide">Target HO <span className="text-muted-foreground font-normal normal-case">(Milyar)</span></label>
-            <input type="number" min="0" step="0.1" value={targetHoOverride} onChange={e=>setTargetHoOverride(e.target.value)}
-              placeholder={effectiveTargetHo>0?(effectiveTargetHo/1e9).toFixed(2):"e.g. 5.5"}
-              className="h-9 px-3 w-36 bg-secondary/50 border border-border rounded-lg text-sm font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 placeholder:text-muted-foreground/50"/>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-display font-bold text-foreground uppercase tracking-wide">Target Full HO <span className="text-muted-foreground font-normal normal-case">(Milyar)</span></label>
-            <input type="number" min="0" step="0.1" value={targetFullHoOverride} onChange={e=>setTargetFullHoOverride(e.target.value)}
-              placeholder={effectiveTargetFullHo>0?(effectiveTargetFullHo/1e9).toFixed(2):"e.g. 8.0"}
-              className="h-9 px-3 w-36 bg-secondary/50 border border-border rounded-lg text-sm font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 placeholder:text-muted-foreground/50"/>
-          </div>
-          {(targetHoOverride||targetFullHoOverride)&&(
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-bold text-transparent uppercase">.</label>
-              <button onClick={()=>{setTargetHoOverride("");setTargetFullHoOverride("");}}
-                className="h-9 flex items-center gap-1 px-3 text-xs text-muted-foreground border border-border rounded-lg hover:bg-secondary/50 transition-colors">
-                <X className="w-3 h-3"/> Reset target
-              </button>
-            </div>
-          )}
-          <p className="text-[11px] text-muted-foreground self-end pb-1.5 ml-1">
-            {targetHoOverride||targetFullHoOverride?"Menggunakan target manual (override)"
-              :effectiveTargetHo>0?`Target dari DB: HO ${(effectiveTargetHo/1e9).toFixed(2)}M · Full HO ${(effectiveTargetFullHo/1e9).toFixed(2)}M`
-              :"Belum ada target tersimpan — input manual di atas atau import di menu Target HO"}
-          </p>
-        </div>
-      </div>
-
       {/* Row 1: LOP per Fase + Capaian Real */}
       {isLoading ? (
         <div className="space-y-4">
@@ -867,17 +836,17 @@ function FunnelSlide() {
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
-              <h3 className="text-sm font-display font-black text-foreground uppercase tracking-wide mb-3">LOP per Fase</h3>
+              <h3 className="text-sm font-display font-semibold text-foreground mb-3">LOP per Fase</h3>
               <FSFaseBarChart data={data}/>
             </div>
             <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
-              <h3 className="text-sm font-display font-black text-foreground uppercase tracking-wide mb-2">Capaian Real vs Target</h3>
+              <h3 className="text-sm font-display font-semibold text-foreground mb-2">Capaian Real vs Target Full HO</h3>
               <FSGauge pct={pct} targetHo={effectiveTargetHo} targetFullHo={effectiveTargetFullHo} real={data?.realFullHo||0} mode="fullho"/>
             </div>
           </div>
           {/* Row 2: Ringkasan */}
           <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
-            <h3 className="text-sm font-display font-black text-foreground uppercase tracking-wide mb-3">Ringkasan</h3>
+            <h3 className="text-sm font-display font-semibold text-foreground mb-3">Ringkasan</h3>
             <FSKpiGrid data={data}/>
           </div>
         </div>
@@ -886,9 +855,8 @@ function FunnelSlide() {
       {/* Detail Table */}
       <div className="bg-card border border-border rounded-xl shadow-sm">
         <div className="px-4 py-3 border-b border-border bg-secondary/30 flex items-center justify-between gap-3 flex-wrap">
-          <h3 className="text-sm font-display font-black text-foreground flex items-center gap-2">
+          <h3 className="text-sm font-display font-semibold text-foreground flex items-center gap-2">
             Detail Funnel per AM
-            <span className="bg-foreground text-background text-[11px] font-bold px-2 py-0.5 rounded-full font-mono">{lopBadge}</span>
           </h3>
           <div className="flex items-center gap-2 flex-wrap">
             <FSCheckboxDropdown label="" options={amOptions} selected={filterAm} onChange={setFilterAm}
@@ -904,6 +872,11 @@ function FunnelSlide() {
                 <X className="w-3 h-3"/> Reset AM
               </button>
             )}
+            <button onClick={handleToggleAll}
+              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground border border-border rounded-lg px-3 py-1.5 transition-colors whitespace-nowrap">
+              {allExpanded?<Minimize2 className="w-3.5 h-3.5"/>:<Expand className="w-3.5 h-3.5"/>}
+              {allExpanded?"Collapse Semua":"Expand Semua AM"}
+            </button>
           </div>
         </div>
         <div className="p-3">
@@ -912,24 +885,18 @@ function FunnelSlide() {
           <table className="w-full text-left text-sm border-collapse">
             <thead>
               <tr className="bg-red-700 text-white font-black uppercase tracking-wide text-xs">
-                <th className="px-4 py-3 rounded-tl-lg w-8">
-                  <button onClick={handleToggleAll} title={allExpanded?"Collapse semua":"Expand semua"}
-                    className="text-white/70 hover:text-white transition-colors">
-                    {allExpanded?<Minimize2 className="w-3.5 h-3.5"/>:<Expand className="w-3.5 h-3.5"/>}
-                  </button>
-                </th>
-                <th className="px-4 py-3 min-w-[200px]">AM / Fase / Proyek</th>
-                <th className="px-3 py-3 whitespace-nowrap">Kat. Kontrak</th>
-                <th className="px-3 py-3 font-mono whitespace-nowrap">LOP ID</th>
-                <th className="px-3 py-3 min-w-[140px]">Pelanggan</th>
-                <th className="px-4 py-3 text-right whitespace-nowrap rounded-tr-lg">Nilai Proyek</th>
+                <th className="px-4 py-3 rounded-tl-lg min-w-[260px]">AM / Fase / Proyek</th>
+                <th className="px-3 py-3 whitespace-nowrap w-28">KATEGORI</th>
+                <th className="px-3 py-3 font-mono whitespace-nowrap w-28">LOP ID</th>
+                <th className="px-3 py-3 min-w-[220px]">Pelanggan</th>
+                <th className="px-4 py-3 text-right whitespace-nowrap rounded-tr-lg w-40">Nilai Proyek</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/50">
               {isLoading?(
-                <tr><td colSpan={6} className="text-center py-16 text-muted-foreground text-sm">Memuat data...</td></tr>
+                <tr><td colSpan={5} className="text-center py-16 text-muted-foreground text-sm">Memuat data...</td></tr>
               ):groupedByAm.length===0?(
-                <tr><td colSpan={6} className="text-center py-16 text-muted-foreground text-sm">
+                <tr><td colSpan={5} className="text-center py-16 text-muted-foreground text-sm">
                   {search||hasActiveFilter?"Tidak ada data yang cocok dengan filter":"Belum ada data funnel"}
                 </td></tr>
               ):groupedByAm.map(am=>{
@@ -938,29 +905,30 @@ function FunnelSlide() {
                 const amTotal=Array.from(am.phases.values()).flat().reduce((s:number,l:any)=>s+(l.nilaiProyek||0),0);
                 const amLopCount=Array.from(am.phases.values()).flat().length;
                 const orderedPhases=[...FS_PHASES.filter(p=>am.phases.has(p)),...Array.from(am.phases.keys()).filter(p=>!FS_PHASES.includes(p))];
+                const ring=amExpanded?"#94a3b8":undefined;
+                const ringStyle=(extra?:React.CSSProperties):React.CSSProperties=>ring?{borderLeft:`2px solid ${ring}`,borderRight:`2px solid ${ring}`,...extra}:{};
+                const lastPhase=orderedPhases[orderedPhases.length-1];
                 return (
                   <React.Fragment key={amKey}>
-                    <tr className="hover:bg-secondary/30 transition-colors cursor-pointer" onClick={()=>toggleAmRow(amKey)}>
-                      <td className="px-4 py-3 bg-secondary/20">
-                        <ChevronRight className={cn("w-4 h-4 text-muted-foreground transition-transform",amExpanded&&"rotate-90")}/>
-                      </td>
-                      <td className="px-4 py-3 bg-secondary/20">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-black text-foreground text-sm uppercase">{am.namaAm}</span>
-                          <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-bold",am.divisi==="DPS"?"bg-blue-100 text-blue-800":"bg-violet-100 text-violet-800")}>{am.divisi}</span>
-                          <div className="flex gap-1 flex-wrap mt-0.5">
-                            {orderedPhases.map(p=>{
-                              const lops=am.phases.get(p)!; const c=FS_PHASE_COLORS[p];
-                              return <span key={p} className={cn("text-[10px] px-1.5 py-0.5 rounded font-bold",c?.pill||"bg-muted text-muted-foreground")}>{p}: {lops.length} proyek</span>;
-                            })}
-                          </div>
+                    <tr className="cursor-pointer select-none bg-card hover:bg-secondary/30 transition-colors"
+                      style={ring?{borderTop:`2px solid ${ring}`,borderLeft:`2px solid ${ring}`,borderRight:`2px solid ${ring}`,borderBottom:amExpanded?"none":`2px solid ${ring}`}:{borderTop:"2px solid transparent"}}
+                      onClick={()=>toggleAmRow(amKey)}>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <ChevronRight className={cn("w-4 h-4 text-muted-foreground transition-transform shrink-0",amExpanded&&"rotate-90")}/>
+                          <span className="font-black text-foreground text-sm uppercase tracking-wide">{am.namaAm}</span>
+                          <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0",am.divisi==="DPS"?"bg-blue-100 text-blue-700":"bg-violet-100 text-violet-700")}>{am.divisi}</span>
+                          <button type="button" onClick={e=>{e.stopPropagation();toggleAmRow(amKey);}}
+                            className="ml-1 p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors shrink-0">
+                            {amExpanded?<Minimize2 className="w-3 h-3"/>:<Expand className="w-3 h-3"/>}
+                          </button>
                         </div>
                       </td>
-                      <td className="px-3 py-3 bg-secondary/20" colSpan={3}>
+                      <td className="px-3 py-3" colSpan={3}>
                         <span className="text-xs text-muted-foreground font-medium">{amLopCount} LOP</span>
                       </td>
-                      <td className="px-4 py-3 bg-secondary/20 text-right">
-                        <span className="font-black text-foreground font-mono text-sm">{fmtRupiahFS(amTotal)}</span>
+                      <td className="px-4 py-3 text-right">
+                        <span className="font-black text-foreground tabular-nums text-sm">{fmtRupiahFS(amTotal)}</span>
                       </td>
                     </tr>
                     {amExpanded&&orderedPhases.map(phase=>{
@@ -969,39 +937,44 @@ function FunnelSlide() {
                       const phaseExpanded=!!expandedPhase[phaseKey];
                       const phaseTotal=lops.reduce((s:number,l:any)=>s+(l.nilaiProyek||0),0);
                       const c=FS_PHASE_COLORS[phase];
+                      const isLastPhase=phase===lastPhase;
+                      const phaseIsBottomOfRing=isLastPhase&&!phaseExpanded;
                       return (
                         <React.Fragment key={phaseKey}>
-                          <tr className="hover:bg-primary/5 transition-colors cursor-pointer" onClick={()=>togglePhaseRow(phaseKey)}>
-                            <td className="px-4 py-2.5 pl-8">
-                              <ChevronRight className={cn("w-3.5 h-3.5 text-muted-foreground transition-transform",phaseExpanded&&"rotate-90")}/>
-                            </td>
+                          <tr className="cursor-pointer select-none hover:brightness-95 transition-all"
+                            style={{background:"#f1f5f9",borderLeft:`4px solid ${c?.bar||"#94a3b8"}`,...ringStyle(phaseIsBottomOfRing&&ring?{borderBottom:`2px solid ${ring}`,borderRight:`2px solid ${ring}`}:{})}}
+                            onClick={()=>togglePhaseRow(phaseKey)}>
                             <td className="px-4 py-2.5 pl-10">
                               <div className="flex items-center gap-2">
-                                <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold",c?.pill||"bg-muted text-muted-foreground")}>
-                                  {phase}<span className="font-normal opacity-80 hidden md:inline">· {FS_PHASE_LABELS[phase]}</span>
-                                </span>
-                                <span className="text-xs text-muted-foreground font-medium">{lops.length} proyek</span>
+                                <ChevronRight className={cn("w-3.5 h-3.5 text-slate-500 transition-transform shrink-0",phaseExpanded&&"rotate-90")}/>
+                                <span className="text-sm font-black font-mono" style={{color:c?.text}}>{phase}</span>
+                                <span className="text-sm font-bold text-slate-700">{FS_PHASE_LABELS[phase]}</span>
+                                <span className="text-xs font-bold text-slate-500 bg-slate-200 px-1.5 py-0.5 rounded-full">{lops.length} proyek</span>
                               </div>
                             </td>
                             <td colSpan={3} className="px-3 py-2.5"/>
                             <td className="px-4 py-2.5 text-right">
-                              <span className="text-sm font-bold text-muted-foreground font-mono">{fmtRupiahFS(phaseTotal)}</span>
+                              <span className="text-sm font-black text-slate-700 tabular-nums">{fmtRupiahFS(phaseTotal)}</span>
                             </td>
                           </tr>
-                          {phaseExpanded&&lops.map((lop:any,idx:number)=>(
-                            <tr key={`${lop.lopid}-${idx}`} className="hover:bg-muted/30 transition-colors">
-                              <td className="px-4 py-2"/>
-                              <td className="px-4 py-2 pl-14">
-                                <div className="text-sm text-foreground font-medium leading-tight line-clamp-2 max-w-[220px]" title={lop.judulProyek}>{lop.judulProyek}</div>
-                              </td>
-                              <td className="px-3 py-2">
-                                {lop.kategoriKontrak?<span className="inline-block px-2 py-0.5 rounded text-[11px] bg-secondary border border-border text-foreground font-medium">{lop.kategoriKontrak}</span>:<span className="text-muted-foreground text-xs">–</span>}
-                              </td>
-                              <td className="px-3 py-2 font-mono text-xs text-foreground whitespace-nowrap">{lop.lopid}</td>
-                              <td className="px-3 py-2 text-sm text-foreground font-bold max-w-[160px] truncate" title={lop.pelanggan}>{lop.pelanggan}</td>
-                              <td className="px-4 py-2 text-right font-mono text-sm font-bold text-foreground whitespace-nowrap">{fmtRupiahFS(lop.nilaiProyek)}</td>
-                            </tr>
-                          ))}
+                          {phaseExpanded&&lops.map((lop:any,idx:number)=>{
+                            const isLastLop=idx===lops.length-1;
+                            const isBottomOfRing=isLastPhase&&isLastLop;
+                            return (
+                              <tr key={`${lop.lopid}-${idx}`} className="hover:bg-rose-50/50 transition-colors"
+                                style={ringStyle(isBottomOfRing&&ring?{borderBottom:`2px solid ${ring}`}:{})}>
+                                <td className="px-4 py-2 pl-16">
+                                  <div className="text-sm text-foreground font-bold leading-tight line-clamp-2 max-w-[280px]" title={lop.judulProyek}>{lop.judulProyek}</div>
+                                </td>
+                                <td className="px-3 py-2">
+                                  {lop.kategoriKontrak?<span className="inline-block px-2 py-0.5 rounded text-[11px] bg-secondary border border-border text-muted-foreground font-medium">{lop.kategoriKontrak}</span>:<span className="text-muted-foreground text-xs">–</span>}
+                                </td>
+                                <td className="px-3 py-2 font-mono text-xs text-foreground whitespace-nowrap">{lop.lopid}</td>
+                                <td className="px-3 py-2 text-sm text-foreground font-bold max-w-[220px] truncate" title={lop.pelanggan}>{lop.pelanggan}</td>
+                                <td className="px-4 py-2 text-right tabular-nums text-sm font-bold text-foreground whitespace-nowrap">{fmtRupiahFS(lop.nilaiProyek)}</td>
+                              </tr>
+                            );
+                          })}
                         </React.Fragment>
                       );
                     })}

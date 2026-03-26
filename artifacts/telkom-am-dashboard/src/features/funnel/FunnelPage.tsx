@@ -710,12 +710,9 @@ export default function FunnelPage() {
     if (groupedByAm.length === 0) return;
     if (importId === lastAutoExpandId.current) return;
     lastAutoExpandId.current = importId;
-    const ak: Record<string, boolean> = {}, pk: Record<string, boolean> = {};
-    for (const am of groupedByAm) {
-      ak[am.nikAm || am.namaAm] = true;
-      for (const [ph] of am.phases) pk[`${am.nikAm || am.namaAm}|${ph}`] = true;
-    }
-    setExpandedAm(ak); setExpandedPhase(pk); setAllExpanded(true);
+    const ak: Record<string, boolean> = {};
+    for (const am of groupedByAm) ak[am.nikAm || am.namaAm] = true;
+    setExpandedAm(ak); setExpandedPhase({}); setAllExpanded(false);
   }, [groupedByAm, importId]);
 
   function toggleAmRow(key: string) {
@@ -945,7 +942,7 @@ export default function FunnelPage() {
                             const isLastLop = idx === lops.length - 1;
                             const isBottomOfRing = isLastPhase && isLastLop;
                             return (
-                              <tr key={`${lop.lopid}-${idx}`} className="hover:bg-blue-50/50 transition-colors"
+                              <tr key={`${lop.lopid}-${idx}`} className="hover:bg-rose-50/50 transition-colors"
                                 style={ringStyle(isBottomOfRing && ring ? { borderBottom: `2px solid ${ring}` } : {})}>
                                 <td className="px-4 py-2 pl-16">
                                   <div className="text-sm text-foreground font-bold leading-tight line-clamp-2 max-w-[280px]" title={lop.judulProyek}>

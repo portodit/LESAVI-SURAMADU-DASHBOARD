@@ -65,7 +65,9 @@ function SnapshotPicker({
         >
           {opts.map(o => (
             <option key={o.id} value={o.id}>
-              {format(new Date(o.createdAt), "d MMM yyyy HH:mm", { locale: idLocale })}
+              {o.snapshotDate
+                ? format(new Date(o.snapshotDate), "d MMM yyyy", { locale: idLocale })
+                : format(new Date(o.createdAt), "d MMM yyyy HH:mm", { locale: idLocale })}
               {o.period ? ` — ${o.period}` : ""}
             </option>
           ))}
@@ -129,9 +131,15 @@ function KirimPesanSection() {
     onError: (e: any) => toast({ title: "Gagal Kirim", description: e.error || "Terjadi kesalahan", variant: "destructive" }),
   });
 
+  const effectivePeriod = (() => {
+    if (msgTab === "funnel") return funnelImports.find(i => i.id === funnelCurrId)?.period || perfPeriod;
+    if (msgTab === "activity") return actImports.find(i => i.id === activityCurrId)?.period || perfPeriod;
+    return perfPeriod;
+  })();
+
   const handleSend = () => {
     sendMut.mutate({
-      period: perfPeriod,
+      period: effectivePeriod,
       includePerformance: msgTab === "semua" || msgTab === "performa",
       includeFunnel: msgTab === "semua" || msgTab === "funnel",
       includeActivity: msgTab === "semua" || msgTab === "activity",

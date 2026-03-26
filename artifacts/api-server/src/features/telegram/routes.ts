@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, telegramLogsTable, accountManagersTable, appSettingsTable, telegramBotUsersTable } from "@workspace/db";
+import { db, telegramLogsTable, accountManagersTable, appSettingsTable, telegramBotUsersTable, dataImportsTable } from "@workspace/db";
 import { eq, desc, inArray } from "drizzle-orm";
 import { requireAuth } from "../../shared/auth";
 import { sendReminderToAllAMs, sendToTelegram } from "../telegram/service";
@@ -9,11 +9,24 @@ import crypto from "crypto";
 const router: IRouter = Router();
 
 router.post("/telegram/send", requireAuth, async (req, res): Promise<void> => {
-  const { targetNiks, period, includePerformance, includeFunnel, includeActivity, customMessage } = req.body;
-  if (!period) { res.status(400).json({ error: "Period diperlukan" }); return; }
+  const { targetNiks, period, includePerformance, includeFunnel, includeActivity, customMessage,
+          perfSnapshotId, funnelCurrSnapshotId, funnelPrevSnapshotId, activitySnapshotId } = req.body;
+
+  let effectivePeriod = period as string | undefined;
+
+  // Derive period from funnel or activity snapshot if not explicitly provided
+  if (!effectivePeriod && (includeFunnel || includeActivity)) {
+    const snapId = funnelCurrSnapshotId || activitySnapshotId;
+    if (snapId) {
+      const [snap] = await db.select({ period: dataImportsTable.period }).from(dataImportsTable).where(eq(dataImportsTable.id, Number(snapId)));
+      effectivePeriod = snap?.period ?? "";
+    }
+  }
+
+  if (!effectivePeriod) { res.status(400).json({ error: "Period diperlukan — pilih snapshot atau atur periode laporan" }); return; }
 
   const result = await sendReminderToAllAMs(
-    period,
+    effectivePeriod,
     { includePerformance: !!includePerformance, includeFunnel: !!includeFunnel, includeActivity: !!includeActivity },
     targetNiks || undefined
   );

@@ -940,8 +940,7 @@ export default function FunnelPage() {
                             <td className="px-4 py-2.5 pl-10">
                               <div className="flex items-center gap-2">
                                 <ChevronRight className={cn("w-3.5 h-3.5 text-slate-500 transition-transform shrink-0", phaseExpanded && "rotate-90")} />
-                                <span className="text-sm font-black font-mono" style={{ color: c?.text }}>{phase}</span>
-                                <span className="text-sm font-bold text-slate-700">{PHASE_LABELS[phase]}</span>
+                                <span className="text-sm font-black uppercase tracking-wide" style={{ color: c?.text }}>DAFTAR PROYEK {phase}</span>
                                 <span className="text-xs font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full">{lops.length} proyek</span>
                               </div>
                             </td>
@@ -950,7 +949,7 @@ export default function FunnelPage() {
                               : <>
                                   <td colSpan={3} className="px-3 py-2.5" />
                                   <td className="px-4 py-2.5 text-right">
-                                    <span className="text-sm font-black text-slate-700 tabular-nums">{formatRupiahFull(phaseTotal)}</span>
+                                    <span className="text-sm font-black text-red-800 tabular-nums">{formatRupiahFull(phaseTotal)}</span>
                                   </td>
                                 </>
                             }
@@ -973,11 +972,11 @@ export default function FunnelPage() {
                                 </tr>
                               ))}
                               {/* Phase total row — shown below all LOPs */}
-                              <tr className="bg-slate-50 border-t border-slate-200" style={ringStyle({})}>
+                              <tr className="bg-red-50 border-t border-red-200" style={ringStyle({})}>
                                 <td colSpan={4} className="px-4 py-1.5 pl-16">
-                                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Total Nilai {phase} {PHASE_LABELS[phase]}</span>
+                                  <span className="text-xs font-black text-red-800 uppercase tracking-wide">Total Nilai {phase}</span>
                                 </td>
-                                <td className="px-4 py-1.5 text-right tabular-nums font-black text-slate-700 whitespace-nowrap text-sm">
+                                <td className="px-4 py-1.5 text-right tabular-nums font-black text-red-800 whitespace-nowrap text-sm">
                                   {formatRupiahFull(phaseTotal)}
                                 </td>
                               </tr>
@@ -989,11 +988,11 @@ export default function FunnelPage() {
 
                     {/* AM total row — shown below all phases when expanded */}
                     {amExpanded && (
-                      <tr className="bg-slate-100 border-t-2 border-slate-300" style={ring ? { borderLeft: `2px solid ${ring}`, borderRight: `2px solid ${ring}`, borderBottom: `2px solid ${ring}` } : {}}>
+                      <tr className="bg-red-700 border-t-2 border-red-800" style={ring ? { borderLeft: `2px solid ${ring}`, borderRight: `2px solid ${ring}`, borderBottom: `2px solid ${ring}` } : {}}>
                         <td colSpan={4} className="px-4 py-2 pl-10">
-                          <span className="text-xs font-black text-slate-600 uppercase tracking-wide">Total Nilai Proyek — {am.namaAm}</span>
+                          <span className="text-xs font-black text-white uppercase tracking-wide">Total Nilai Proyek — {am.namaAm}</span>
                         </td>
-                        <td className="px-4 py-2 text-right tabular-nums font-black text-foreground whitespace-nowrap text-base">
+                        <td className="px-4 py-2 text-right tabular-nums font-black text-white whitespace-nowrap text-base">
                           {formatRupiahFull(amTotal)}
                         </td>
                       </tr>

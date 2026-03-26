@@ -988,11 +988,11 @@ export default function FunnelPage() {
 
                     {/* AM total row — shown below all phases when expanded */}
                     {amExpanded && (
-                      <tr className="bg-red-700 border-t-2 border-red-800" style={ring ? { borderLeft: `2px solid ${ring}`, borderRight: `2px solid ${ring}`, borderBottom: `2px solid ${ring}` } : {}}>
+                      <tr className="bg-slate-100 border-t-2 border-slate-300" style={ring ? { borderLeft: `2px solid ${ring}`, borderRight: `2px solid ${ring}`, borderBottom: `2px solid ${ring}` } : {}}>
                         <td colSpan={4} className="px-4 py-2 pl-10">
-                          <span className="text-xs font-black text-white uppercase tracking-wide">Total Nilai Proyek — {am.namaAm}</span>
+                          <span className="text-xs font-black text-slate-600 uppercase tracking-wide">Total Nilai Proyek — {am.namaAm}</span>
                         </td>
-                        <td className="px-4 py-2 text-right tabular-nums font-black text-white whitespace-nowrap text-base">
+                        <td className="px-4 py-2 text-right tabular-nums font-black text-foreground whitespace-nowrap text-base">
                           {formatRupiahFull(amTotal)}
                         </td>
                       </tr>

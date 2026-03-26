@@ -7,6 +7,7 @@ export const dataImportsTable = pgTable("data_imports", {
   type: text("type").notNull(),
   rowsImported: integer("rows_imported").notNull().default(0),
   period: text("period").notNull(),
+  snapshotDate: text("snapshot_date"),
   sourceUrl: text("source_url"),
   autoTelegramSent: boolean("auto_telegram_sent").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

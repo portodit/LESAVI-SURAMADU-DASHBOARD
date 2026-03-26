@@ -15,8 +15,9 @@ async function apiFetch(path: string, opts?: RequestInit) {
 
 const PAGE_SIZE = 50;
 
-function formatSnapshotTitle(createdAt: string, type: string): string {
-  const date = format(new Date(createdAt), "d MMMM yyyy", { locale: id });
+function formatSnapshotTitle(createdAt: string, type: string, snapshotDate?: string | null): string {
+  const dateStr = snapshotDate || createdAt;
+  const date = format(new Date(dateStr), "d MMMM yyyy", { locale: id });
   const upper = date.toUpperCase();
   if (type === "performance") return `SNAPSHOT PERFORMANSI AM WITEL SURAMADU (${upper})`;
   if (type === "funnel") return `SNAPSHOT SALES FUNNEL WITEL SURAMADU (${upper})`;
@@ -357,7 +358,7 @@ export default function ImportDetail({ params }: { params: { id: string } }) {
             {imp ? (
               <>
                 <h1 className="text-base font-display font-bold text-foreground leading-snug">
-                  {formatSnapshotTitle(imp.createdAt, imp.type)}
+                  {formatSnapshotTitle(imp.createdAt, imp.type, imp.snapshotDate)}
                 </h1>
                 <div className="flex flex-wrap gap-4 mt-3 text-xs text-muted-foreground">
                   <span>Import ID: <strong className="text-foreground">#{imp.id}</strong></span>

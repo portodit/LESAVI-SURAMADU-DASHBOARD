@@ -258,6 +258,7 @@ async function importFunnelSheet(
 
     const [imp] = await db.insert(dataImportsTable).values({
       type: "funnel", rowsImported: deduped.length, period,
+      snapshotDate: date,
       sourceUrl: `gsheets:${spreadsheetId}/${sheet.title}`, autoTelegramSent: false,
     }).returning();
 
@@ -302,6 +303,7 @@ async function importActivitySheet(
 
     const [imp] = await db.insert(dataImportsTable).values({
       type: "activity", rowsImported: cleaned.length, period,
+      snapshotDate: date,
       sourceUrl: `gsheets:${spreadsheetId}/${sheet.title}`, autoTelegramSent: false,
     }).returning();
 
@@ -415,6 +417,7 @@ async function importPerformanceSheet(
 
     const [imp] = await db.insert(dataImportsTable).values({
       type: "performance", rowsImported: toInsert.length, period,
+      snapshotDate: date,
       sourceUrl: `gsheets:${spreadsheetId}/${sheet.title}`, autoTelegramSent: false,
     }).returning();
 

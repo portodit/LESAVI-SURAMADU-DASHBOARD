@@ -235,6 +235,7 @@ router.post("/import/performance", requireAuth, async (req, res): Promise<void> 
     type: "performance",
     rowsImported: toInsert.length,
     period: importPeriod,
+    snapshotDate: snapshotDate || null,
     sourceUrl,
     autoTelegramSent: false,
   }).returning();
@@ -331,6 +332,7 @@ router.post("/import/funnel", requireAuth, async (req, res): Promise<void> => {
     type: "funnel",
     rowsImported: activeOnly.length,
     period: importPeriod,
+    snapshotDate: snapshotDate || null,
     sourceUrl,
     autoTelegramSent: false,
   }).returning();
@@ -426,6 +428,7 @@ router.post("/import/activity", requireAuth, async (req, res): Promise<void> => 
     type: "activity",
     rowsImported: cleaned.length,
     period: importPeriod,
+    snapshotDate: snapshotDate || null,
     sourceUrl,
     autoTelegramSent: false,
   }).returning();

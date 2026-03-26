@@ -5,6 +5,22 @@ import { generatePerfFeedback, generateBasaBasi, generateFunnelMotivation } from
 
 const MONTH_NAMES = ["", "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
 
+function formatSnapshotDate(snapshotDate: string | null | undefined, period: string | null | undefined, fallback: string = "-"): string {
+  const raw = snapshotDate || period || "";
+  if (!raw) return fallback;
+  if (raw.length === 10) {
+    // YYYY-MM-DD
+    const [y, m, d] = raw.split("-").map(Number);
+    if (y && m && d) return `${d} ${MONTH_NAMES[m] || m} ${y}`;
+  }
+  if (raw.length === 7) {
+    // YYYY-MM
+    const [y, m] = raw.split("-").map(Number);
+    if (y && m) return `${MONTH_NAMES[m] || m} ${y}`;
+  }
+  return raw;
+}
+
 // ── Snapshot-aware helpers ──────────────────────────────────────────────────
 
 // Get performance rows for a period: try latest snapshot first, fallback to all snapshots
@@ -241,7 +257,7 @@ async function buildFunnelMessage(nik: string): Promise<string | null> {
   const latestLops = allLops.filter(l => l.importId === latestImport.id);
   const counts = countByStatus(latestLops);
   const total = latestLops.length;
-  const snapshotDateLatest = latestImport.period || latestImport.createdAt?.toISOString()?.slice(0, 10) || "-";
+  const snapshotDateLatest = formatSnapshotDate(latestImport.snapshotDate, latestImport.period, latestImport.createdAt?.toISOString()?.slice(0, 10) || "-");
 
   const basaBasi = await generateBasaBasi(am.nama);
 
@@ -275,7 +291,7 @@ async function buildFunnelMessage(nik: string): Promise<string | null> {
   // ── 2+ snapshots: compare latest vs previous ─────────────────────────────
   const prevImport = funnelImports[1];
   const prevLops = allLops.filter(l => l.importId === prevImport.id);
-  const snapshotDatePrev = prevImport.period || prevImport.createdAt?.toISOString()?.slice(0, 10) || "-";
+  const snapshotDatePrev = formatSnapshotDate(prevImport.snapshotDate, prevImport.period, prevImport.createdAt?.toISOString()?.slice(0, 10) || "-");
 
   const prevMap = new Map(prevLops.map(l => [l.lopid, l]));
 

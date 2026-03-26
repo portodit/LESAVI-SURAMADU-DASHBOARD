@@ -81,8 +81,9 @@ async function readSheetNames(file: File): Promise<string[]> {
   });
 }
 
-function formatSnapshotTitle(createdAt: string, type: string): string {
-  const date = format(new Date(createdAt), "d MMMM yyyy", { locale: id });
+function formatSnapshotTitle(createdAt: string, type: string, snapshotDate?: string | null): string {
+  const dateStr = snapshotDate || createdAt;
+  const date = format(new Date(dateStr), "d MMMM yyyy", { locale: id });
   const upper = date.toUpperCase();
   if (type === "performance") return `SNAPSHOT PERFORMANSI AM WITEL SURAMADU (${upper})`;
   if (type === "funnel") return `SNAPSHOT SALES FUNNEL WITEL SURAMADU (${upper})`;
@@ -1001,7 +1002,7 @@ export default function ImportData() {
               <div className="text-xs">
                 <p className="font-bold mb-0.5">Sudah Ada Snapshot Hari Ini</p>
                 <p className="text-amber-700 leading-relaxed">
-                  {formatSnapshotTitle(sameDayImport.createdAt, sameDayImport.type)} sudah tersimpan ({sameDayImport.rowsImported} baris).
+                  {formatSnapshotTitle(sameDayImport.createdAt, sameDayImport.type, sameDayImport.snapshotDate)} sudah tersimpan ({sameDayImport.rowsImported} baris).
                   Jika Anda mengimport ulang, data lama untuk periode ini akan <strong>ditimpa</strong>.
                 </p>
               </div>
@@ -1101,7 +1102,7 @@ export default function ImportData() {
               {filteredHistory.map((h, i) => (
                 <tr key={i} className={cn("transition-colors", deleteConfirmId === h.id ? "bg-red-50" : "hover:bg-secondary/20")}>
                   <td className="px-6 py-3.5">
-                    <p className="text-xs font-semibold text-foreground leading-snug">{formatSnapshotTitle(h.createdAt, h.type)}</p>
+                    <p className="text-xs font-semibold text-foreground leading-snug">{formatSnapshotTitle(h.createdAt, h.type, h.snapshotDate)}</p>
                     <p className="text-[10px] text-muted-foreground mt-0.5">{format(new Date(h.createdAt), 'HH:mm:ss', { locale: id })} WIB · ID #{h.id}</p>
                   </td>
                   <td className="px-5 py-3.5 font-mono text-sm text-foreground">{h.period}</td>

@@ -189,6 +189,119 @@ function CheckboxDropdown({ label, options, selected, onChange, placeholder, lab
   );
 }
 
+// ─── PeriodeTreeDropdown — Power BI style year > month tree picker ────────────
+
+function PeriodeTreeDropdown({ label, filterYear, filterMonths, availableYears, onChange, className }: {
+  label?: string;
+  filterYear: string;
+  filterMonths: Set<string>;
+  availableYears: string[];
+  onChange: (year: string, months: Set<string>) => void;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [expandedYears, setExpandedYears] = useState<Set<string>>(new Set([filterYear]));
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
+
+  useEffect(() => {
+    setExpandedYears(prev => new Set([...prev, filterYear]));
+  }, [filterYear]);
+
+  const years = availableYears.length > 0 ? availableYears : [filterYear];
+
+  const toggleExpand = (yr: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpandedYears(prev => { const n = new Set(prev); n.has(yr) ? n.delete(yr) : n.add(yr); return n; });
+  };
+
+  const selectYear = (yr: string) => onChange(yr, new Set());
+
+  const toggleMonth = (yr: string, mo: string) => {
+    if (yr !== filterYear) { onChange(yr, new Set([mo])); return; }
+    const n = new Set(filterMonths);
+    n.has(mo) ? n.delete(mo) : n.add(mo);
+    onChange(yr, n);
+  };
+
+  const displayText = filterMonths.size === 0
+    ? `${filterYear} (semua bulan)`
+    : filterMonths.size === 1
+    ? `${MONTHS_ID[parseInt([...filterMonths][0])]} ${filterYear}`
+    : `${filterYear} · ${filterMonths.size} bulan`;
+
+  return (
+    <div className={cn("flex flex-col gap-1 relative", className)} ref={ref}>
+      {label && <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{label}</label>}
+      <button type="button" onClick={() => setOpen(o => !o)}
+        className={cn("h-9 px-3 bg-secondary/50 border border-border rounded-lg text-sm flex items-center gap-1.5 w-full transition-colors text-left",
+          open && "border-primary/50 ring-2 ring-primary/20")}>
+        <span className="flex-1 truncate font-medium text-foreground">{displayText}</span>
+        {filterMonths.size > 0 && (
+          <span className="bg-primary text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none shrink-0">{filterMonths.size}</span>
+        )}
+        <ChevronDown className={cn("w-3.5 h-3.5 text-muted-foreground shrink-0 transition-transform", open && "rotate-180")} />
+      </button>
+      {open && (
+        <div className="absolute top-full left-0 mt-1 z-50 bg-card border border-border rounded-xl shadow-xl w-52 overflow-hidden">
+          <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-secondary/30">
+            <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Periode</span>
+            <button onClick={() => onChange(filterYear, new Set())}
+              className="text-[11px] text-primary font-semibold hover:underline">Reset</button>
+          </div>
+          <div className="max-h-64 overflow-y-auto py-1">
+            {years.map(yr => {
+              const isActive = yr === filterYear;
+              const allSel = isActive && filterMonths.size === 0;
+              const someSel = isActive && filterMonths.size > 0;
+              const exp = expandedYears.has(yr);
+              return (
+                <div key={yr}>
+                  <div className="flex items-center gap-1 px-2 py-1.5 hover:bg-secondary/40 transition-colors">
+                    <button type="button" onClick={e => toggleExpand(yr, e)}
+                      className="p-0.5 text-muted-foreground hover:text-foreground shrink-0">
+                      <ChevronRight className={cn("w-3 h-3 transition-transform", exp && "rotate-90")} />
+                    </button>
+                    <label className="flex items-center gap-2 flex-1 cursor-pointer select-none">
+                      <input type="checkbox" checked={allSel}
+                        ref={el => { if (el) el.indeterminate = someSel; }}
+                        onChange={() => selectYear(yr)}
+                        className="w-3.5 h-3.5 accent-primary cursor-pointer" />
+                      <span className={cn("text-sm font-semibold", isActive ? "text-primary" : "text-foreground")}>{yr}</span>
+                    </label>
+                  </div>
+                  {exp && (
+                    <div className="ml-6 pb-1">
+                      {MONTH_NUMS.map((mo, idx) => {
+                        const checked = isActive && filterMonths.has(mo);
+                        return (
+                          <label key={mo} className="flex items-center gap-2 px-2 py-1 hover:bg-secondary/30 cursor-pointer rounded select-none">
+                            <input type="checkbox" checked={checked}
+                              onChange={() => toggleMonth(yr, mo)}
+                              className="w-3.5 h-3.5 accent-primary cursor-pointer" />
+                            <span className={cn("text-sm", checked ? "text-foreground font-medium" : "text-muted-foreground")}>
+                              {MONTHS_FULL[idx + 1]}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── SVG Gauge ───────────────────────────────────────────────────────────────
 
 function Gauge({ pct, targetHo, targetFullHo, real }: { pct: number; targetHo: number; targetFullHo: number; real: number }) {
@@ -548,12 +661,13 @@ export default function FunnelPage() {
             options={snapshotOptions.length > 0 ? snapshotOptions : [{ value: "", label: "Belum ada data" }]}
             disabled={snapshotOptions.length === 0} className="w-36 shrink-0" />
 
-          {/* TAHUN + BULAN */}
+          {/* PERIODE (Power BI tree: year > months) */}
           <div className="w-px h-9 bg-border self-end shrink-0" />
-          <SelectDropdown label="Tahun" value={filterYear} onChange={v => { setFilterYear(v); setFilterMonths(new Set()); }}
-            options={yearOptions} className="w-20 shrink-0" />
-          <CheckboxDropdown label="Bulan" options={MONTH_NUMS} selected={filterMonths} onChange={setFilterMonths}
-            placeholder="Semua bulan" labelFn={mo => MONTHS_FULL[parseInt(mo)] ?? mo} summaryLabel="bulan" className="w-36 shrink-0" />
+          <PeriodeTreeDropdown label="Periode"
+            filterYear={filterYear} filterMonths={filterMonths}
+            availableYears={yearOptions.map(o => o.value)}
+            onChange={(y, ms) => { setFilterYear(y); setFilterMonths(ms); }}
+            className="w-44 shrink-0" />
 
           <div className="w-px h-9 bg-border self-end shrink-0" />
           <SelectDropdown label="Divisi" value={filterDivisi} onChange={setFilterDivisi}

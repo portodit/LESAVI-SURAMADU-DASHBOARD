@@ -12,6 +12,7 @@ export interface SheetInfo {
   title: string;
   sheetId: number;
   detectedType: "funnel" | "activity" | "performance";
+  spreadsheetId?: string;
 }
 
 export interface SyncSheetResult {
@@ -82,7 +83,7 @@ export async function listAllMatchingSheets(
     const title = s.properties.title;
     const detectedType = detectSheetType(title);
     if (detectedType) {
-      result.push({ title, sheetId: s.properties.sheetId, detectedType });
+      result.push({ title, sheetId: s.properties.sheetId, detectedType, spreadsheetId });
     }
   }
   return result;
@@ -135,7 +136,7 @@ export async function syncSelectedSheets(
     const results: SyncSheetResult[] = [];
 
     for (const sel of selections) {
-      const sheet: SheetInfo = { title: sel.title, sheetId: sel.sheetId, detectedType: sel.type };
+      const sheet: SheetInfo = { title: sel.title, sheetId: sel.sheetId, detectedType: sel.type, spreadsheetId: sel.spreadsheetId };
       const dateInfo = parseDateFromSheetName(sel.title);
       if (!dateInfo) {
         results.push({ sheetName: sel.title, date: "", period: "", type: sel.type, status: "error", message: "Format tanggal tidak dikenali di nama sheet (harus diakhiri YYYYMMDD)" });
@@ -148,9 +149,9 @@ export async function syncSelectedSheets(
       }
       logger.info({ sheet: sel.title, type: sel.type }, "GSheets sync-selected: importing sheet");
       let result: SyncSheetResult;
-      if (sel.type === "funnel") result = await importFunnelSheet(funnelSpreadsheetId, sheet, apiKey, dateInfo);
-      else if (sel.type === "activity") result = await importActivitySheet(spreadsheetId, sheet, apiKey, dateInfo);
-      else result = await importPerformanceSheet(spreadsheetId, sheet, apiKey, dateInfo);
+      if (sel.type === "funnel") result = await importFunnelSheet(sheet.spreadsheetId || spreadsheetId, sheet, apiKey, dateInfo);
+      else if (sel.type === "activity") result = await importActivitySheet(sheet.spreadsheetId || spreadsheetId, sheet, apiKey, dateInfo);
+      else result = await importPerformanceSheet(sheet.spreadsheetId || spreadsheetId, sheet, apiKey, dateInfo);
       results.push(result);
     }
 
@@ -172,7 +173,7 @@ export async function fetchSheetData(
   sheetName: string,
   apiKey: string,
 ): Promise<ParsedRow[]> {
-  const encodedSheet = encodeURIComponent(sheetName);
+  const encodedSheet = encodeURIComponent(`'${sheetName}'`);
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodedSheet}?key=${apiKey}`;
   const resp = await fetch(url);
   if (!resp.ok) {
@@ -502,11 +503,11 @@ export async function runGSheetsSync(): Promise<SyncResult> {
 
       let result: SyncSheetResult;
       if (type === "funnel") {
-        result = await importFunnelSheet(funnelSpreadsheetId, sheet, apiKey, dateInfo);
+        result = await importFunnelSheet(sheet.spreadsheetId || funnelSpreadsheetId, sheet, apiKey, dateInfo);
       } else if (type === "activity") {
-        result = await importActivitySheet(spreadsheetId, sheet, apiKey, dateInfo);
+        result = await importActivitySheet(sheet.spreadsheetId || spreadsheetId, sheet, apiKey, dateInfo);
       } else {
-        result = await importPerformanceSheet(spreadsheetId, sheet, apiKey, dateInfo);
+        result = await importPerformanceSheet(sheet.spreadsheetId || spreadsheetId, sheet, apiKey, dateInfo);
       }
 
       if (result.status === "imported") existingByType[type]?.add(period);

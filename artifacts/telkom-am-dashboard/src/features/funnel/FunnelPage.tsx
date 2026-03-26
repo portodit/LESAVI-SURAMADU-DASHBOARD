@@ -491,6 +491,28 @@ function FaseBarChart({ data }: { data: FunnelData | undefined }) {
 
 // ─── KPI Cards ───────────────────────────────────────────────────────────────
 
+function MiniSparkline({ color, fill }: { color: string; fill: string }) {
+  const pts = [28, 22, 30, 18, 26, 14, 20, 8, 16, 4];
+  const w = 88, h = 38, pad = 2;
+  const xs = pts.map((_, i) => pad + (i / (pts.length - 1)) * (w - pad * 2));
+  const ys = pts.map(v => pad + (v / 32) * (h - pad * 2));
+  const line = xs.map((x, i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${ys[i].toFixed(1)}`).join(" ");
+  const area = `${line} L${xs[xs.length-1].toFixed(1)},${(h-pad).toFixed(1)} L${xs[0].toFixed(1)},${(h-pad).toFixed(1)} Z`;
+  const gid = `sg-${color.replace(/[^a-z]/g, "")}`;
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={fill} stopOpacity="0.45" />
+          <stop offset="100%" stopColor={fill} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={area} fill={`url(#${gid})`} />
+      <path d={line} stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function KpiGrid({ data }: { data: FunnelData | undefined }) {
   if (!data) return null;
   const kpis = [
@@ -499,33 +521,35 @@ function KpiGrid({ data }: { data: FunnelData | undefined }) {
       value: data.totalLop.toLocaleString("id-ID"),
       sub: "proyek aktif",
       color: "text-foreground",
-      icon: <TrendingUp className="w-8 h-8 text-emerald-500 opacity-80" />,
+      spark: { color: "#10b981", fill: "#10b981" },
     },
     {
       label: "Total Nilai Pipeline",
       value: formatRupiah(data.totalNilai),
       sub: "nilai seluruh LOP",
       color: "text-blue-600",
-      icon: <TrendingUp className="w-8 h-8 text-blue-400 opacity-80" />,
+      spark: { color: "#3b82f6", fill: "#3b82f6" },
     },
     {
       label: "Jumlah Pelanggan",
       value: data.pelangganCount.toLocaleString("id-ID"),
       sub: "unique customer",
       color: "text-amber-600",
-      icon: <TrendingUp className="w-8 h-8 text-amber-400 opacity-80" />,
+      spark: { color: "#f59e0b", fill: "#f59e0b" },
     },
   ];
   return (
     <div className="grid grid-cols-3 gap-3">
       {kpis.map(k => (
-        <div key={k.label} className="bg-secondary/50 border border-border rounded-xl p-4 flex items-center gap-3">
+        <div key={k.label} className="bg-secondary/50 border border-border rounded-xl p-4 flex items-center gap-3 overflow-hidden">
           <div className="flex-1 min-w-0">
             <div className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-1">{k.label}</div>
-            <div className={cn("text-2xl font-black tabular-nums leading-tight", k.color)}>{k.value}</div>
+            <div className={cn("text-3xl font-black tabular-nums leading-tight tracking-tight", k.color)}>{k.value}</div>
             <div className="text-[11px] text-muted-foreground mt-0.5">{k.sub}</div>
           </div>
-          <div className="shrink-0 opacity-70">{k.icon}</div>
+          <div className="shrink-0 opacity-90">
+            <MiniSparkline color={k.spark.color} fill={k.spark.fill} />
+          </div>
         </div>
       ))}
     </div>

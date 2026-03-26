@@ -1125,10 +1125,10 @@ export default function FunnelPage() {
                   </div>
                 </div>
 
-                {/* AM Tree Table */}
-                <div className="overflow-x-auto">
+                {/* AM Tree Table — scrollable */}
+                <div className="overflow-auto" style={{ maxHeight: "clamp(220px, 46vh, 540px)" }}>
                   <table className="w-full text-left text-sm border-collapse">
-                    <thead>
+                    <thead className="sticky top-0 z-10">
                       <tr className={`${headerBg} text-white font-black uppercase tracking-wide text-xs`}>
                         <th className="px-4 py-2.5 min-w-[200px]">AM / Fase / Proyek</th>
                         <th className="px-3 py-2.5 whitespace-nowrap w-20">KATEGORI</th>

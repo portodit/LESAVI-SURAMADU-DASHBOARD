@@ -785,6 +785,21 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
   function toggleAmRow(key:string){
     setExpandedAm(p=>({...p,[key]:!p[key]}));
   }
+  function handleAmExpandIcon(amKey:string, phases:string[]){
+    const isNowExpanding=!expandedAm[amKey];
+    setExpandedAm(p=>({...p,[amKey]:isNowExpanding}));
+    if(isNowExpanding){
+      const pk:Record<string,boolean>={};
+      for(const ph of phases) pk[`${amKey}|${ph}`]=true;
+      setExpandedPhase(p=>({...p,...pk}));
+    } else {
+      setExpandedPhase(p=>{
+        const n={...p};
+        for(const ph of phases) delete n[`${amKey}|${ph}`];
+        return n;
+      });
+    }
+  }
   function togglePhaseRow(key:string){setExpandedPhase(p=>({...p,[key]:!p[key]}));}
 
   const effectiveTargetHo=targetHoOverride?parseFloat(targetHoOverride)*1e9:(data?.targetHo||0);
@@ -923,7 +938,8 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
                           <ChevronRight className={cn("w-4 h-4 text-muted-foreground transition-transform shrink-0",amExpanded&&"rotate-90")}/>
                           <span className="font-black text-foreground text-sm uppercase tracking-wide">{am.namaAm}</span>
                           <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0",am.divisi==="DPS"?"bg-blue-100 text-blue-700":"bg-violet-100 text-violet-700")}>{am.divisi}</span>
-                          <button type="button" onClick={e=>{e.stopPropagation();toggleAmRow(amKey);}}
+                          <button type="button" onClick={e=>{e.stopPropagation();handleAmExpandIcon(amKey,orderedPhases);}}
+                            title={amExpanded?"Collapse semua proyek":"Expand semua proyek"}
                             className="ml-1 p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors shrink-0">
                             {amExpanded?<Minimize2 className="w-3 h-3"/>:<Expand className="w-3 h-3"/>}
                           </button>
@@ -947,14 +963,14 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
                       return (
                         <React.Fragment key={phaseKey}>
                           <tr className="cursor-pointer select-none hover:brightness-95 transition-all"
-                            style={{background:"#f1f5f9",borderLeft:`4px solid ${c?.bar||"#94a3b8"}`,...ringStyle(phaseIsBottomOfRing&&ring?{borderBottom:`2px solid ${ring}`,borderRight:`2px solid ${ring}`}:{})}}
+                            style={{background:"rgba(253,242,248,0.75)",borderLeft:`4px solid ${c?.bar||"#94a3b8"}`,...ringStyle(phaseIsBottomOfRing&&ring?{borderBottom:`2px solid ${ring}`,borderRight:`2px solid ${ring}`}:{})}}
                             onClick={()=>togglePhaseRow(phaseKey)}>
                             <td className="px-4 py-2.5 pl-10">
                               <div className="flex items-center gap-2">
                                 <ChevronRight className={cn("w-3.5 h-3.5 text-slate-500 transition-transform shrink-0",phaseExpanded&&"rotate-90")}/>
                                 <span className="text-sm font-black font-mono" style={{color:c?.text}}>{phase}</span>
                                 <span className="text-sm font-bold text-slate-700">{FS_PHASE_LABELS[phase]}</span>
-                                <span className="text-xs font-bold text-slate-500 bg-slate-200 px-1.5 py-0.5 rounded-full">{lops.length} proyek</span>
+                                <span className="text-xs font-bold text-pink-600 bg-pink-100 px-1.5 py-0.5 rounded-full">{lops.length} proyek</span>
                               </div>
                             </td>
                             <td colSpan={3} className="px-3 py-2.5"/>

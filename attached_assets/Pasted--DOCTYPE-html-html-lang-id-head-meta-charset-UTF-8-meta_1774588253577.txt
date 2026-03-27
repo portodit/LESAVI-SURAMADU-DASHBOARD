@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AM Sales Activity Report</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --red:       #E8192C;
+  --red-light: #ffebed;
+  --navy:      #0D1B2A;
+  --navy2:     #1a2d42;
+  --blue:      #1565C0;
+  --blue-soft: #e8f0fe;
+  --teal:      #00897B;
+  --teal-soft: #e0f2f1;
+  --amber:     #F57F17;
+  --amber-soft:#fff8e1;
+  --gray-50:   #f8fafc;
+  --gray-100:  #f1f5f9;
+  --gray-200:  #e2e8f0;
+  --gray-300:  #cbd5e1;
+  --gray-400:  #94a3b8;
+  --gray-500:  #64748b;
+  --gray-600:  #475569;
+  --gray-800:  #1e293b;
+  --font:      'Plus Jakarta Sans', sans-serif;
+  --mono:      'JetBrains Mono', monospace;
+  --radius:    10px;
+  --shadow:    0 1px 3px rgba(0,0,0,.07), 0 4px 16px rgba(0,0,0,.05);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font); background: var(--gray-50); color: var(--gray-800); font-size: 13px; min-height: 100vh; }
+
+/* ===== NAVBAR ===== */
+.navbar {
+  background: var(--navy);
+  padding: 0 20px;
+  display: flex; align-items: center; gap: 12px;
+  height: 54px; position: sticky; top: 0; z-index: 200;
+  box-shadow: 0 2px 8px rgba(0,0,0,.3);
+  flex-wrap: nowrap; overflow-x: auto;
+}
+.navbar-logo {
+  width: 30px; height: 30px; background: var(--red);
+  border-radius: 6px; display: flex; align-items: center;
+  justify-content: center; font-weight: 800; color: white; font-size: 13px; flex-shrink: 0;
+}
+.nav-sep { width: 1px; height: 22px; background: rgba(255,255,255,.12); flex-shrink: 0; }
+.nav-titles { flex-shrink: 0; }
+.nav-label { color: rgba(255,255,255,.5); font-size: 10px; font-weight: 600; letter-spacing: .4px; }
+.nav-title { color: white; font-size: 13px; font-weight: 700; letter-spacing: .2px; }
+.nav-filters {
+  display: flex; align-items: center; gap: 8px;
+  flex: 1; flex-wrap: nowrap; overflow-x: auto;
+  padding: 0 4px;
+}
+.nav-filters::-webkit-scrollbar { height: 0; }
+
+
+.filter-group { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.filter-label {
+  font-size: 10px; font-weight: 700; color: rgba(255,255,255,.45);
+  text-transform: uppercase; letter-spacing: .7px; white-space: nowrap;
+}
+.filter-sep { width: 1px; height: 22px; background: rgba(255,255,255,.12); flex-shrink: 0; }
+
+/* Standard select */
+.f-select {
+  appearance: none;
+  background: rgba(255,255,255,.08);
+  border: 1.5px solid rgba(255,255,255,.15); border-radius: 7px;
+  padding: 4px 24px 4px 9px; font-family: var(--font);
+  font-size: 12px; font-weight: 500; color: white;
+  cursor: pointer; transition: border-color .15s, background .15s;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.5)' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 7px center;
+  min-width: 90px;
+}
+.f-select option { background: var(--navy2); color: white; }
+.f-select:focus { outline: none; border-color: rgba(255,255,255,.4); background: rgba(255,255,255,.12); }
+.f-select:hover { border-color: rgba(255,255,255,.25); background: rgba(255,255,255,.1); }
+
+/* ===== DROPDOWN CHECKBOX ===== */
+.dd-wrap { position: relative; }
+.dd-trigger {
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(255,255,255,.08); border: 1.5px solid rgba(255,255,255,.15);
+  border-radius: 7px; padding: 4px 10px; cursor: pointer;
+  font-family: var(--font); font-size: 12px; font-weight: 500;
+  color: white; min-width: 120px; user-select: none;
+  transition: border-color .15s, background .15s;
+}
+.dd-trigger:hover { border-color: rgba(255,255,255,.25); background: rgba(255,255,255,.1); }
+.dd-trigger.open  { border-color: rgba(255,255,255,.4); background: rgba(255,255,255,.14); }
+.dd-count {
+  background: var(--red); color: white;
+  font-size: 10px; font-weight: 700;
+  padding: 1px 6px; border-radius: 10px;
+  font-family: var(--mono); margin-left: auto;
+}
+.dd-arrow {
+  margin-left: 4px; transition: transform .2s;
+  color: var(--gray-400); font-size: 10px;
+}
+.dd-trigger.open .dd-arrow { transform: rotate(180deg); }
+
+.dd-panel {
+  display: none; position: absolute; top: calc(100% + 6px); left: 0;
+  background: white; border: 1.5px solid var(--gray-200);
+  border-radius: 9px; box-shadow: 0 8px 24px rgba(0,0,0,.12);
+  min-width: 200px; z-index: 300; overflow: hidden;
+  animation: ddOpen .15s ease;
+}
+.dd-panel.open { display: block; }
+@keyframes ddOpen { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:translateY(0); } }
+
+.dd-search {
+  padding: 8px 10px; border-bottom: 1px solid var(--gray-100);
+}
+.dd-search input {
+  width: 100%; border: 1.5px solid var(--gray-200); border-radius: 6px;
+  padding: 5px 9px; font-family: var(--font); font-size: 12px;
+  outline: none; color: var(--gray-800);
+}
+.dd-search input:focus { border-color: var(--blue); }
+
+.dd-actions {
+  display: flex; gap: 0; border-bottom: 1px solid var(--gray-100);
+}
+.dd-action-btn {
+  flex: 1; padding: 6px; text-align: center;
+  font-size: 11px; font-weight: 600; color: var(--blue);
+  cursor: pointer; background: none; border: none;
+  font-family: var(--font); transition: background .1s;
+}
+.dd-action-btn:hover { background: var(--blue-soft); }
+.dd-action-btn + .dd-action-btn { border-left: 1px solid var(--gray-100); }
+
+.dd-list { max-height: 220px; overflow-y: auto; padding: 4px 0; }
+.dd-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 7px 12px; cursor: pointer; transition: background .1s;
+}
+.dd-item:hover { background: var(--gray-50); }
+.dd-item input[type=checkbox] {
+  width: 14px; height: 14px; accent-color: var(--blue);
+  cursor: pointer; flex-shrink: 0;
+}
+.dd-item-label { font-size: 12px; font-weight: 500; color: var(--gray-800); line-height: 1.3; }
+.dd-item-sub   { font-size: 10px; color: var(--gray-400); }
+
+.dd-kpi-note {
+  padding: 7px 12px; border-top: 1px solid var(--gray-100);
+  font-size: 10px; color: var(--gray-400); line-height: 1.5;
+  background: var(--gray-50);
+}
+.dd-kpi-badge {
+  display: inline-block; background: var(--blue-soft);
+  color: var(--blue); font-size: 9px; font-weight: 700;
+  padding: 1px 5px; border-radius: 3px; margin-right: 2px;
+}
+
+/* ===== MAIN ===== */
+.main { padding: 16px 24px 40px; }
+
+/* ===== OVERVIEW CARDS ===== */
+.cards-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 12px; margin-bottom: 18px;
+}
+.ov-card {
+  background: white; border-radius: var(--radius);
+  padding: 16px 18px; box-shadow: var(--shadow);
+  border: 1px solid var(--gray-200); position: relative; overflow: hidden;
+}
+.ov-card::after {
+  content: ''; position: absolute;
+  top: 0; left: 0; right: 0; height: 3px; border-radius: var(--radius) var(--radius) 0 0;
+}
+.ov-card.c-blue::after  { background: var(--blue); }
+.ov-card.c-teal::after  { background: var(--teal); }
+.ov-card.c-red::after   { background: var(--red); }
+.ov-icon {
+  width: 34px; height: 34px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; margin-bottom: 10px;
+}
+.c-blue .ov-icon  { background: var(--blue-soft); }
+.c-teal .ov-icon  { background: var(--teal-soft); }
+.c-red  .ov-icon  { background: var(--red-light); }
+.ov-label { font-size: 10px; font-weight: 700; color: var(--gray-400); text-transform: uppercase; letter-spacing: .7px; margin-bottom: 5px; }
+.ov-val   { font-size: 30px; font-weight: 800; font-family: var(--mono); line-height: 1; margin-bottom: 4px; }
+.c-blue .ov-val { color: var(--blue); }
+.c-teal .ov-val { color: var(--teal); }
+.c-red  .ov-val { color: var(--red); }
+.ov-sub { font-size: 11px; color: var(--gray-400); }
+.ov-sub b { color: var(--gray-600); }
+
+/* ===== TABLE ===== */
+.tbl-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px;
+}
+.tbl-title {
+  font-size: 14px; font-weight: 700; color: var(--navy);
+  display: flex; align-items: center; gap: 8px;
+}
+.tbl-title-badge {
+  background: var(--gray-100); color: var(--gray-500);
+  font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 20px;
+}
+.tbl-actions { display: flex; gap: 7px; }
+.btn-sm {
+  padding: 6px 12px; border-radius: 7px; font-size: 11px;
+  font-weight: 600; cursor: pointer; border: 1.5px solid var(--gray-200);
+  background: white; color: var(--gray-600); font-family: var(--font); transition: all .15s;
+  white-space: nowrap;
+}
+.btn-sm:hover { border-color: var(--blue); color: var(--blue); }
+.btn-sm.dark  { background: var(--navy); color: white; border-color: var(--navy); }
+.btn-sm.dark:hover { background: var(--navy2); }
+
+.search-wrap {
+  display: flex; align-items: center; gap: 6px;
+  background: white; border: 1.5px solid var(--gray-200);
+  border-radius: 7px; padding: 5px 10px;
+  transition: border-color .15s;
+}
+.search-wrap:focus-within { border-color: var(--blue); }
+.search-icon { font-size: 12px; }
+.search-input {
+  border: none; outline: none; font-family: var(--font);
+  font-size: 12px; color: var(--gray-800); width: 160px;
+  background: transparent;
+}
+.search-input::placeholder { color: var(--gray-400); }
+
+.tbl-wrap {
+  background: white; border-radius: var(--radius);
+  box-shadow: var(--shadow); border: 1px solid var(--gray-200); overflow: hidden;
+}
+
+/* Table head */
+.tbl-head {
+  display: grid;
+  grid-template-columns: 32px 220px 1fr 72px 72px 72px 100px;
+  background: var(--navy); color: rgba(255,255,255,.6);
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .6px; padding: 10px 14px; gap: 8px;
+}
+.th { display: flex; align-items: center; }
+
+/* AM Row */
+.am-row { border-bottom: 1px solid var(--gray-100); }
+.am-row:last-child { border-bottom: none; }
+.am-main {
+  display: grid;
+  grid-template-columns: 32px 220px 1fr 72px 72px 72px 100px;
+  padding: 11px 14px; gap: 8px; cursor: pointer;
+  align-items: center; transition: background .12s;
+}
+.am-main:hover { background: var(--gray-50); }
+.am-row.expanded .am-main { background: #f0f5ff; border-bottom: 1px solid #dce8ff; }
+
+.tog {
+  width: 22px; height: 22px; border-radius: 6px;
+  border: 1.5px solid var(--gray-300); background: white;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; color: var(--gray-400);
+  flex-shrink: 0; transition: all .15s;
+  line-height: 1;
+}
+.am-row.expanded .tog { background: var(--blue); border-color: var(--blue); color: white; }
+
+.am-name-cell { overflow: hidden; }
+.am-name-text { font-size: 12px; font-weight: 700; color: var(--navy); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.am-name-meta { font-size: 10px; color: var(--gray-400); margin-top: 1px; }
+
+/* Progress */
+.prog-wrap {}
+.prog-track { height: 6px; background: var(--gray-100); border-radius: 20px; overflow: hidden; margin-bottom: 4px; }
+.prog-fill  { height: 100%; border-radius: 20px; transition: width .7s cubic-bezier(.34,1.56,.64,1); }
+.pg-green { background: linear-gradient(90deg,#00897B,#26c6b9); }
+.pg-amber { background: linear-gradient(90deg,#F57F17,#ffb300); }
+.pg-red   { background: linear-gradient(90deg,#E8192C,#ef5350); }
+.prog-meta { display: flex; justify-content: space-between; align-items: center; }
+.prog-pct  { font-size: 11px; font-weight: 700; font-family: var(--mono); }
+.pg-green .prog-pct, .pg-green + .prog-meta .prog-pct { color: var(--teal); }
+.prog-kpi  { font-size: 10px; color: var(--gray-400); font-family: var(--mono); }
+
+.stat { font-size: 13px; font-weight: 600; font-family: var(--mono); color: var(--gray-800); }
+.stat.dim { color: var(--gray-300); }
+
+
+
+.status-badge {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 3px 9px; border-radius: 20px;
+  font-size: 10px; font-weight: 700;
+}
+.sb-reach { background: var(--teal-soft);  color: var(--teal); }
+.sb-close  { background: var(--amber-soft); color: var(--amber); }
+.sb-below  { background: var(--red-light);  color: var(--red); }
+
+/* ===== EXPANDED LIST ===== */
+.act-list { display: none; border-top: 1px solid #dce8ff; background: #fafbfe; }
+.am-row.expanded .act-list { display: block; }
+
+.act-list-head {
+  display: grid; grid-template-columns: 36px 130px 1fr 160px 120px 80px;
+  padding: 7px 14px 7px 54px; gap: 8px;
+  background: var(--gray-100); border-bottom: 1px solid var(--gray-200);
+  font-size: 9px; font-weight: 700; color: var(--gray-400);
+  text-transform: uppercase; letter-spacing: .6px;
+}
+.act-item {
+  display: grid; grid-template-columns: 36px 130px 1fr 160px 120px 80px;
+  padding: 9px 14px 9px 54px; gap: 8px;
+  border-bottom: 1px solid var(--gray-100); align-items: start;
+  transition: background .1s; animation: fadeSlide .18s ease;
+}
+.act-item:hover { background: white; }
+.act-item:last-child { border-bottom: none; }
+
+
+@keyframes fadeSlide {
+  from { opacity:0; transform:translateY(-5px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+
+.act-no   { font-size: 10px; color: var(--gray-400); font-family: var(--mono); padding-top: 1px; }
+.act-date { font-size: 11px; font-weight: 600; color: var(--gray-800); font-family: var(--mono); }
+.act-day  { font-size: 10px; color: var(--gray-400); font-weight: 400; margin-top: 1px; }
+.act-cust { font-size: 12px; font-weight: 600; color: var(--navy); }
+.act-note { font-size: 10px; color: var(--gray-400); margin-top: 2px; line-height: 1.4; }
+
+.type-pill {
+  display: inline-flex; padding: 2px 8px; border-radius: 4px;
+  font-size: 10px; font-weight: 600;
+}
+.tp-kunjungan    { background:#e3f2fd; color:#1565C0; }
+.tp-administrasi { background:#f3e5f5; color:#6a1b9a; }
+.tp-follow       { background:#e8f5e9; color:#2e7d32; }
+.tp-penawaran    { background:#fff3e0; color:#e65100; }
+.tp-koordinasi   { background:#fce4ec; color:#880e4f; }
+.tp-negosiasi    { background:#e0f7fa; color:#00695c; }
+
+.cat-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 600;
+}
+.cat-dp  { background: var(--blue-soft);  color: var(--blue); }
+.cat-pp  { background: var(--teal-soft);  color: var(--teal); }
+.cat-tp  { background: var(--gray-100);   color: var(--gray-500); }
+
+.kpi-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+.kpi-dot.on  { background: var(--teal); }
+.kpi-dot.off { background: var(--gray-300); }
+.kpi-yes {
+  display: inline-flex; align-items: center;
+  font-size: 10px; font-weight: 700; color: var(--teal);
+  background: var(--teal-soft); padding: 2px 7px; border-radius: 4px;
+}
+.kpi-no {
+  display: inline-flex; align-items: center;
+  font-size: 10px; font-weight: 700; color: var(--gray-400);
+  background: var(--gray-100); padding: 2px 7px; border-radius: 4px;
+}
+
+/* KPI info note di bawah progress bar */
+.kpi-info-note {
+  font-size: 10px; color: var(--gray-400); margin-top: 6px;
+  padding: 6px 10px; background: var(--gray-50);
+  border-radius: 6px; border-left: 3px solid var(--blue-soft);
+  line-height: 1.5; display: flex; align-items: flex-start; gap: 5px;
+}
+.kpi-info-note strong { color: var(--blue); font-size: 10px; }
+
+.empty-state { text-align: center; padding: 36px; color: var(--gray-400); font-size: 13px; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar">
+  <div class="navbar-logo">T</div>
+  <div class="nav-sep"></div>
+  <div class="nav-titles">
+    <div class="nav-label">LESA VI WITEL SURAMADU</div>
+    <div class="nav-title">AM SALES ACTIVITY REPORT</div>
+  </div>
+  <div class="nav-sep"></div>
+
+  <!-- FILTERS IN NAVBAR -->
+  <div class="nav-filters">
+
+    <div class="filter-group">
+      <span class="filter-label">Snapshot</span>
+      <select class="f-select" id="f-snapshot" onchange="applyFilters()">
+        <option value="20260326">26 Mar 2026</option>
+        <option value="20260313">13 Mar 2026</option>
+        <option value="20260227">27 Feb 2026</option>
+      </select>
+    </div>
+    <div class="filter-sep"></div>
+
+    <div class="filter-group">
+      <span class="filter-label">Tahun</span>
+      <select class="f-select" id="f-tahun" onchange="applyFilters()" style="min-width:70px">
+        <option value="2026">2026</option>
+        <option value="2025">2025</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <span class="filter-label">Bulan</span>
+      <select class="f-select" id="f-bulan" onchange="applyFilters()" style="min-width:100px">
+        <option value="all">Semua Bulan</option>
+        <option value="1">Januari</option>
+        <option value="2" selected>Februari</option>
+        <option value="3">Maret</option>
+        <option value="4">April</option>
+      </select>
+    </div>
+    <div class="filter-sep"></div>
+
+    <div class="filter-group">
+      <span class="filter-label">Divisi</span>
+      <select class="f-select" id="f-divisi" onchange="applyFilters()" style="min-width:82px">
+        <option value="all">Semua</option>
+        <option value="DPS">DPS</option>
+        <option value="DSS">DSS</option>
+      </select>
+    </div>
+    <div class="filter-sep"></div>
+
+    <!-- Nama AM dropdown checkbox -->
+    <div class="filter-group">
+      <span class="filter-label">Nama AM</span>
+      <div class="dd-wrap" id="dd-am-wrap">
+        <div class="dd-trigger" id="dd-am-trigger" onclick="toggleDD('am')">
+          <span id="dd-am-label">Semua AM</span>
+          <span class="dd-count" id="dd-am-count" style="display:none"></span>
+          <span class="dd-arrow">▾</span>
+        </div>
+        <div class="dd-panel" id="dd-am-panel">
+          <div class="dd-search"><input type="text" placeholder="Cari nama AM..." id="dd-am-search" oninput="filterDDItems('am')" /></div>
+          <div class="dd-actions">
+            <button class="dd-action-btn" onclick="selectAllDD('am')">Pilih Semua</button>
+            <button class="dd-action-btn" onclick="clearAllDD('am')">Hapus Semua</button>
+          </div>
+          <div class="dd-list" id="dd-am-list"></div>
+        </div>
+      </div>
+    </div>
+    <div class="filter-sep"></div>
+
+    <!-- Kategori dropdown checkbox -->
+    <div class="filter-group">
+      <span class="filter-label">Kategori</span>
+      <div class="dd-wrap" id="dd-kat-wrap">
+        <div class="dd-trigger" id="dd-kat-trigger" onclick="toggleDD('kat')">
+          <span id="dd-kat-label">2 Kategori KPI</span>
+          <span class="dd-count" id="dd-kat-count" style="display:none"></span>
+          <span class="dd-arrow">▾</span>
+        </div>
+        <div class="dd-panel" id="dd-kat-panel">
+          <div class="dd-actions">
+            <button class="dd-action-btn" onclick="selectAllDD('kat')">Pilih Semua</button>
+            <button class="dd-action-btn" onclick="clearAllDD('kat')">Hapus Semua</button>
+          </div>
+          <div class="dd-list" id="dd-kat-list">
+            <label class="dd-item">
+              <input type="checkbox" value="dengan-pelanggan" checked onchange="updateDDLabel('kat');applyFilters()">
+              <div>
+                <div class="dd-item-label">Dengan Pelanggan <span class="dd-kpi-badge">KPI</span></div>
+                <div class="dd-item-sub">Dihitung dalam progres KPI bulanan</div>
+              </div>
+            </label>
+            <label class="dd-item">
+              <input type="checkbox" value="dengan-proyek" checked onchange="updateDDLabel('kat');applyFilters()">
+              <div>
+                <div class="dd-item-label">Pelanggan dg Proyek <span class="dd-kpi-badge">KPI</span></div>
+                <div class="dd-item-sub">Dihitung dalam progres KPI bulanan</div>
+              </div>
+            </label>
+            <label class="dd-item">
+              <input type="checkbox" value="tanpa-pelanggan" onchange="updateDDLabel('kat');applyFilters()">
+              <div>
+                <div class="dd-item-label">Tanpa Pelanggan</div>
+                <div class="dd-item-sub">Tidak mempengaruhi KPI</div>
+              </div>
+            </label>
+          </div>
+          <div class="dd-kpi-note">
+            <span class="dd-kpi-badge">KPI</span> = dihitung untuk ketercapaian KPI aktivitas bulanan
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end nav-filters -->
+
+</nav>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- OVERVIEW -->
+  <div class="cards-grid">
+    <div class="ov-card c-blue">
+      <div class="ov-icon">📊</div>
+      <div class="ov-label">Total Aktivitas (KPI)</div>
+      <div class="ov-val" id="ov-total">—</div>
+      <div class="ov-sub">dari <b id="ov-total-am">—</b> Account Manager</div>
+    </div>
+    <div class="ov-card c-teal">
+      <div class="ov-icon">✅</div>
+      <div class="ov-label">AM Capai KPI</div>
+      <div class="ov-val" id="ov-reach">—</div>
+      <div class="ov-sub">target <b>≥20 aktivitas</b> / bulan</div>
+    </div>
+    <div class="ov-card c-red">
+      <div class="ov-icon">⚠️</div>
+      <div class="ov-label">AM Di Bawah KPI</div>
+      <div class="ov-val" id="ov-below">—</div>
+      <div class="ov-sub" id="ov-below-sub">—</div>
+    </div>
+  </div>
+
+  <!-- TABLE HEADER -->
+  <div class="tbl-header">
+    <div>
+      <div class="tbl-title">
+        Monitoring KPI Aktivitas
+        <span class="tbl-title-badge" id="tbl-badge">0 AM</span>
+      </div>
+      <div class="kpi-info-note">
+        📌 <span>Progress KPI dihitung dari aktivitas kategori <strong>Dengan Pelanggan</strong> dan <strong>Pelanggan dengan Proyek</strong> saja. Kategori <strong>Tanpa Pelanggan</strong> tetap ditampilkan namun tidak terhitung dalam capaian KPI bulanan.</span>
+      </div>
+    </div>
+    <div class="tbl-actions">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input class="search-input" type="text" placeholder="Cari nama AM..." id="search-am" oninput="applyFilters()">
+      </div>
+      <button class="btn-sm" onclick="expandAll()">Expand Semua</button>
+      <button class="btn-sm" onclick="collapseAll()">Collapse Semua</button>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="tbl-wrap">
+    <div class="tbl-head">
+      <div class="th"></div>
+      <div class="th">Nama AM</div>
+      <div class="th">Progress KPI</div>
+      <div class="th">Aktivitas</div>
+      <div class="th">Target</div>
+      <div class="th">Sisa</div>
+      <div class="th">Status</div>
+    </div>
+    <div id="tbl-body">
+      <div class="empty-state">Memuat data...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// =============================================
+// CONFIG
+// =============================================
+const KPI = 20;
+const DAYS   = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
+const MONTHS = ['','Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'];
+const TYPE_COLORS = {
+  'Kunjungan'   : '#1565C0',
+  'Administrasi': '#6a1b9a',
+  'Follow-up'   : '#2e7d32',
+  'Penawaran'   : '#e65100',
+  'Koordinasi'  : '#880e4f',
+  'Negosiasi'   : '#00695c',
+};
+const TYPE_BG = {
+  'Kunjungan'   : '#e3f2fd',
+  'Administrasi': '#f3e5f5',
+  'Follow-up'   : '#e8f5e9',
+  'Penawaran'   : '#fff3e0',
+  'Koordinasi'  : '#fce4ec',
+  'Negosiasi'   : '#e0f7fa',
+};
+
+// =============================================
+// GENERATE SAMPLE DATA
+// =============================================
+const AM_LIST = [
+  {name:"ANA RUKMANA",                          div:"DPS", cnt:5, month:1},
+  {name:"CAESAR RIO ANGGINA TORUAN",            div:"DPS", cnt:24},
+  {name:"ERVINA HANDAYANI",                     div:"DPS", cnt:22},
+  {name:"HANDIKA DAGNA NEVANDA",                div:"DPS", cnt:15},
+  {name:"HAVEA PERTIWI",                        div:"DPS", cnt:20},
+  {name:"KATATA VEKANIDYA SEKAR PUSPITASARI",   div:"DSS", cnt:27},
+  {name:"MOH RIZAL BIN MOH. FERRY Y.P. DARA",  div:"DSS", cnt:12},
+  {name:"NADYA ZAHROTUL HAYATI",                div:"DPS", cnt:19},
+  {name:"NI MADE NOVI WIRANA",                  div:"DSS", cnt:23},
+  {name:"NYARI KUSUMANINGRUM",                  div:"DPS", cnt:21},
+  {name:"SAFIRINA FEBRYANTI",                   div:"DSS", cnt:16},
+  {name:"VIVIN VIOLITA",                        div:"DPS", cnt:25},
+  {name:"WILDAN ARIEF",                         div:"DSS", cnt:20},
+];
+const CUSTS  = ["PT SINAR GALAXI","PELAYARAN MERATUS","MASPION GROUP","SAMATOR","PT POLEKAO INDONESIA","GELORA DJAYA PT","ADI BUMI JAYA","YARSI A YANI CC50","UPN VETERAN SURABAYA","MULIA BATARA SEMESTA","LABORATORIUM KLINIK PRAMITA","INDAL ALUMINIUM INDUSTRY","HOTEL FOUR POINTS MANADO","INDONESIA TSINGSHAN STAINLESS"];
+const NOTES  = ["Presentasi produk internet dedicated","Follow up surat penawaran","Koordinasi gangguan layanan","Diskusi kebutuhan bandwidth tambahan","Konfirmasi jadwal instalasi perangkat","Penanganan invoice outstanding","Koordinasi internal tim teknis","Rekon piutang pelanggan","Close berkas BC Pra Latihan","Pemantauan progress order aktif","Kunjungan rutin maintenance relationship","Negosiasi harga paket enterprise"];
+const TYPES  = ["Kunjungan","Administrasi","Follow-up","Penawaran","Koordinasi","Negosiasi"];
+const CATS   = ["dengan-pelanggan","dengan-pelanggan","dengan-proyek","tanpa-pelanggan"];
+
+function rnd(arr) { return arr[Math.floor(Math.random()*arr.length)]; }
+function seededRnd(seed) { let x=Math.sin(seed)*10000; return x-Math.floor(x); }
+
+const RAW = [];
+AM_LIST.forEach(({name,div,cnt,month:m}) => {
+  const month = m || 2;
+  for(let i=0;i<cnt;i++){
+    const day   = Math.floor(seededRnd(name.charCodeAt(0)*i+i*7+3)*28)+1;
+    const year  = 2026;
+    const d     = new Date(year, month-1, Math.min(day,28));
+    const cat   = i % 10 < 5 ? 'dengan-pelanggan' : i % 10 < 8 ? 'dengan-proyek' : 'tanpa-pelanggan';
+    RAW.push({
+      am: name, div,
+      date: `${year}-${String(month).padStart(2,'0')}-${String(Math.min(day,28)).padStart(2,'0')}`,
+      dateObj: d,
+      cust: rnd(CUSTS), type: rnd(TYPES), note: rnd(NOTES), cat
+    });
+  }
+});
+
+// =============================================
+// DROPDOWN CHECKBOX STATE
+// =============================================
+let expandedRows = new Set();
+let ddOpen = null;
+
+function toggleDD(key) {
+  const panel   = document.getElementById(`dd-${key}-panel`);
+  const trigger = document.getElementById(`dd-${key}-trigger`);
+  if (ddOpen && ddOpen !== key) closeDD(ddOpen);
+  if (panel.classList.contains('open')) {
+    closeDD(key);
+  } else {
+    panel.classList.add('open');
+    trigger.classList.add('open');
+    ddOpen = key;
+  }
+}
+function closeDD(key) {
+  document.getElementById(`dd-${key}-panel`)?.classList.remove('open');
+  document.getElementById(`dd-${key}-trigger`)?.classList.remove('open');
+  if (ddOpen === key) ddOpen = null;
+}
+document.addEventListener('click', e => {
+  if (ddOpen && !e.target.closest(`#dd-${ddOpen}-wrap`)) closeDD(ddOpen);
+});
+
+function getChecked(key) {
+  return [...document.querySelectorAll(`#dd-${key}-list input[type=checkbox]:checked`)].map(c=>c.value);
+}
+function updateDDLabel(key) {
+  const all     = [...document.querySelectorAll(`#dd-${key}-list input[type=checkbox]`)];
+  const checked = all.filter(c=>c.checked);
+  const label   = document.getElementById(`dd-${key}-label`);
+  const count   = document.getElementById(`dd-${key}-count`);
+  if (checked.length === 0) {
+    label.textContent = 'Tidak ada';
+    count.style.display = 'none';
+  } else if (checked.length === all.length) {
+    label.textContent = key === 'am' ? 'Semua AM' : 'Semua Kategori';
+    count.style.display = 'none';
+  } else {
+    if (key === 'am') {
+      label.textContent = checked.length === 1 ? checked[0].value.split(' ')[0] : `${checked.length} AM dipilih`;
+    } else {
+      label.textContent = `${checked.length} Kategori`;
+    }
+    count.textContent     = checked.length;
+    count.style.display   = 'inline';
+  }
+}
+function selectAllDD(key) {
+  document.querySelectorAll(`#dd-${key}-list input[type=checkbox]`).forEach(c=>{c.checked=true;});
+  updateDDLabel(key); applyFilters();
+}
+function clearAllDD(key) {
+  document.querySelectorAll(`#dd-${key}-list input[type=checkbox]`).forEach(c=>{c.checked=false;});
+  updateDDLabel(key); applyFilters();
+}
+function filterDDItems(key) {
+  const q = document.getElementById(`dd-${key}-search`).value.toLowerCase();
+  document.querySelectorAll(`#dd-${key}-list .dd-item`).forEach(item => {
+    const text = item.querySelector('.dd-item-label').textContent.toLowerCase();
+    item.style.display = text.includes(q) ? '' : 'none';
+  });
+}
+
+// Populate AM dropdown
+function populateAMDD() {
+  const list = document.getElementById('dd-am-list');
+  const ams  = [...new Set(RAW.map(d=>d.am))].sort();
+  list.innerHTML = ams.map(am => `
+    <label class="dd-item">
+      <input type="checkbox" value="${am}" checked onchange="updateDDLabel('am');applyFilters()">
+      <div class="dd-item-label">${am}</div>
+    </label>
+  `).join('');
+}
+
+// =============================================
+// FILTER & RENDER
+// =============================================
+function getFiltered() {
+  const bulan  = document.getElementById('f-bulan').value;
+  const tahun  = parseInt(document.getElementById('f-tahun').value);
+  const divisi = document.getElementById('f-divisi').value;
+  const selAMs = new Set(getChecked('am'));
+  const selKat = new Set(getChecked('kat'));
+  const search = (document.getElementById('search-am')?.value||'').toLowerCase().trim();
+
+  return RAW.filter(d => {
+    const dd = new Date(d.date);
+    if (dd.getFullYear() !== tahun) return false;
+    if (bulan !== 'all' && dd.getMonth()+1 !== parseInt(bulan)) return false;
+    if (divisi !== 'all' && d.div !== divisi) return false;
+    if (!selAMs.has(d.am)) return false;
+    if (search && !d.am.toLowerCase().includes(search) && !d.cust.toLowerCase().includes(search)) return false;
+    return true;
+  }).map(d => ({...d, isKPI: selKat.has(d.cat)}));
+}
+
+function applyFilters() {
+  const data = getFiltered();
+  renderOverview(data);
+  renderTable(data);
+}
+
+// =============================================
+// OVERVIEW
+// =============================================
+function renderOverview(data) {
+  const kpi  = data.filter(d=>d.isKPI);
+  const ams  = [...new Set(data.map(d=>d.am))];
+  const byAM = groupBy(kpi,'am');
+  const reach = ams.filter(am=>(byAM[am]?.length||0)>=KPI).length;
+  const below = ams.length - reach;
+
+  animNum('ov-total', kpi.length);
+  animNum('ov-reach', reach);
+  animNum('ov-below', below);
+  document.getElementById('ov-total-am').textContent = ams.length;
+  document.getElementById('ov-below-sub').textContent =
+    below === 0 ? 'Semua AM mencapai target 🎉' : `${below} AM perlu perhatian lebih`;
+}
+function animNum(id, target) {
+  const el = document.getElementById(id);
+  const from = parseInt(el.textContent)||0;
+  const dur=450; let t=0;
+  const timer = setInterval(()=>{
+    t+=16; const p=Math.min(t/dur,1); const e=1-Math.pow(1-p,3);
+    el.textContent=Math.round(from+(target-from)*e);
+    if(p>=1) clearInterval(timer);
+  },16);
+}
+
+// =============================================
+// TABLE
+// =============================================
+function renderTable(data) {
+  // Ambil AM dari AM_LIST (master), filter hanya sesuai divisi & AM checkbox
+  const selAMs  = new Set(getChecked('am'));
+  const divisi  = document.getElementById('f-divisi').value;
+  const search  = (document.getElementById('search-am')?.value||'').toLowerCase().trim();
+  const masterAMs = AM_LIST
+    .filter(a => selAMs.has(a.name))
+    .filter(a => divisi === 'all' || a.div === divisi)
+    .filter(a => !search || a.name.toLowerCase().includes(search))
+    .map(a => a.name)
+    .sort();
+
+  document.getElementById('tbl-badge').textContent = masterAMs.length + ' AM';
+
+  if (masterAMs.length === 0) {
+    document.getElementById('tbl-body').innerHTML = '<div class="empty-state">Tidak ada data untuk filter yang dipilih.</div>';
+    return;
+  }
+
+  const ams     = masterAMs;
+  const kpiData = data.filter(d=>d.isKPI);
+  const byAMKPI = groupBy(kpiData,'am');
+  const byAMAll = groupBy(data,'am');
+
+  document.getElementById('tbl-body').innerHTML = ams.map(am => {
+    const kpiActs = byAMKPI[am]||[];
+    const allActs = byAMAll[am]||[];
+    const kpiCnt  = kpiActs.length;
+    const pct     = Math.min(Math.round(kpiCnt/KPI*100),100);
+    const sisa    = Math.max(KPI-kpiCnt,0);
+    const amMeta  = AM_LIST.find(a=>a.name===am)||{};
+    const div     = allActs[0]?.div || amMeta.div || '-';
+
+    const colorClass = pct>=100?'pg-green':pct>=70?'pg-amber':'pg-red';
+    const pctColor   = pct>=100?'var(--teal)':pct>=70?'var(--amber)':'var(--red)';
+    const sbClass    = pct>=100?'sb-reach':pct>=70?'sb-close':'sb-below';
+    const sbLabel    = pct>=100?'✓ Tercapai':pct>=70?'Mendekati':'Di Bawah KPI';
+
+
+
+    // Activity rows (sorted by date desc)
+    const sorted = [...allActs].sort((a,b)=>b.dateObj-a.dateObj);
+    const actRows = allActs.length === 0
+      ? `<div style="padding:20px 54px;color:var(--gray-400);font-size:12px;display:flex;align-items:center;gap:8px;">
+           <span style="font-size:16px">📭</span>
+           <span>Tidak ada aktivitas di periode ini. Data mungkin ada di bulan lain atau belum diinput.</span>
+         </div>`
+      : sorted.map((act,i)=>{
+      const dd   = new Date(act.date);
+      const day  = DAYS[dd.getDay()];
+      const mon  = MONTHS[dd.getMonth()+1];
+      const dt   = `${String(dd.getDate()).padStart(2,'0')}/${String(dd.getMonth()+1).padStart(2,'0')}`;
+      const typeKey = act.type.toLowerCase().replace(/[^a-z]/g,'');
+      const catCls  = act.cat==='dengan-pelanggan'?'cat-dp':act.cat==='dengan-proyek'?'cat-pp':'cat-tp';
+      const catLbl  = act.cat==='dengan-pelanggan'?'Dg Pelanggan':act.cat==='dengan-proyek'?'Dg Proyek':'Tanpa Pelanggan';
+      const typeStyle = `background:${TYPE_BG[act.type]||'#f1f5f9'};color:${TYPE_COLORS[act.type]||'#475569'}`;
+      return `
+      <div class="act-item">
+        <div class="act-no">${i+1}</div>
+        <div>
+          <div class="act-date">${dt}</div>
+          <div class="act-day">${day}, ${mon} ${dd.getFullYear()}</div>
+        </div>
+        <div>
+          <div class="act-cust">${act.cust}</div>
+          <div class="act-note">${act.note}</div>
+        </div>
+        <div><span class="type-pill" style="${typeStyle}">${act.type}</span></div>
+        <div><span class="cat-pill ${catCls}">${catLbl}</span></div>
+        <div>${act.isKPI
+          ? '<span class="kpi-yes">✓ Ya</span>'
+          : '<span class="kpi-no">✗ Tidak</span>'
+        }</div>
+      </div>`;
+    }).join('');
+
+    const rowId  = 'row-'+am.replace(/\W+/g,'_');
+    const isOpen = expandedRows.has(am);
+    return `
+    <div class="am-row${isOpen?' expanded':''}" id="${rowId}">
+      <div class="am-main" onclick="toggleRow('${am.replace(/'/g,"\\'")}','${rowId}')">
+        <div class="tog">${isOpen?'−':'+'}</div>
+        <div class="am-name-cell">
+          <div class="am-name-text" title="${am}">${am}</div>
+          <div class="am-name-meta">${div} · ${allActs.length} total aktivitas</div>
+        </div>
+        <div>
+          <div class="prog-track">
+            <div class="prog-fill ${colorClass}" style="width:${pct}%"></div>
+          </div>
+          <div class="prog-meta">
+            <span class="prog-pct" style="color:${pctColor}">${pct}%</span>
+            <span class="prog-kpi">${kpiCnt}/${KPI}</span>
+          </div>
+        </div>
+        <div class="stat">${kpiCnt}</div>
+        <div class="stat">${KPI}</div>
+        <div class="stat${sisa===0?' dim':''}">${sisa===0?'✓':sisa}</div>
+        <div><span class="status-badge ${sbClass}">${sbLabel}</span></div>
+      </div>
+      <div class="act-list">
+        <div class="act-list-head">
+          <div>#</div><div>Tanggal</div><div>Pelanggan &amp; Catatan</div>
+          <div>Tipe Aktivitas</div><div>Kategori</div><div>KPI</div>
+        </div>
+        ${actRows}
+      </div>
+    </div>`;
+  }).join('');
+
+  // Animate progress bars
+  requestAnimationFrame(()=>{
+    document.querySelectorAll('.prog-fill').forEach(el=>{
+      const w=el.style.width; el.style.width='0%';
+      requestAnimationFrame(()=>{ el.style.width=w; });
+    });
+  });
+}
+
+// =============================================
+// INTERACTIONS
+// =============================================
+function toggleRow(am, rowId) {
+  const row = document.getElementById(rowId);
+  if (!row) return;
+  if (expandedRows.has(am)) {
+    expandedRows.delete(am);
+    row.classList.remove('expanded');
+    row.querySelector('.tog').textContent = '+';
+  } else {
+    expandedRows.add(am);
+    row.classList.add('expanded');
+    row.querySelector('.tog').textContent = '−';
+  }
+}
+function expandAll() {
+  document.querySelectorAll('.am-row').forEach(row=>{
+    row.classList.add('expanded');
+    row.querySelector('.tog').textContent='−';
+    const am = row.querySelector('.am-name-text').title;
+    expandedRows.add(am);
+  });
+}
+function collapseAll() {
+  document.querySelectorAll('.am-row').forEach(row=>{
+    row.classList.remove('expanded');
+    row.querySelector('.tog').textContent='+';
+  });
+  expandedRows.clear();
+}
+
+function groupBy(arr,key){
+  return arr.reduce((a,c)=>{(a[c[key]]=a[c[key]]||[]).push(c);return a;},{});
+}
+
+// =============================================
+// INIT
+// =============================================
+populateAMDD();
+updateDDLabel('am');
+updateDDLabel('kat');
+applyFilters();
+</script>
+</body>
+</html>

@@ -1259,6 +1259,243 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
   );
 }
 
+// ─── Activity Slide ──────────────────────────────────────────────────────────────
+
+const ACT_MONTHS_FULL = ["","Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+const ACT_MONTHS_SHORT = ["","Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agt","Sep","Okt","Nov","Des"];
+const ACT_DAYS_ID = ["Min","Sen","Sel","Rab","Kam","Jum","Sab"];
+const ACT_TYPE_STYLE: Record<string,{bg:string;text:string}> = {
+  "Kunjungan":    {bg:"#e3f2fd",text:"#1565C0"},
+  "Administrasi": {bg:"#f3e5f5",text:"#6a1b9a"},
+  "Follow-up":    {bg:"#e8f5e9",text:"#2e7d32"},
+  "Penawaran":    {bg:"#fff3e0",text:"#e65100"},
+  "Koordinasi":   {bg:"#fce4ec",text:"#880e4f"},
+  "Negosiasi":    {bg:"#e0f7fa",text:"#00695c"},
+};
+function actTypeSty(t:string|null){return t&&ACT_TYPE_STYLE[t]?ACT_TYPE_STYLE[t]:{bg:"#f1f5f9",text:"#475569"};}
+function actLabelSty(l:string|null){
+  if(!l) return {cls:"bg-slate-100 text-slate-500",short:"–"};
+  const ll=l.toLowerCase();
+  if(ll.includes("tanpa")) return {cls:"bg-slate-100 text-slate-500",short:"Tanpa Pelanggan"};
+  if(ll.includes("proyek")) return {cls:"bg-teal-50 text-teal-700",short:"Dg Proyek"};
+  return {cls:"bg-blue-50 text-blue-700",short:"Dg Pelanggan"};
+}
+function actFmtDate(d:string|null):{short:string;day:string}{
+  if(!d) return {short:"—",day:""};
+  try{
+    const dt=new Date(d);
+    const dd=String(dt.getDate()).padStart(2,"0");
+    const mm=String(dt.getMonth()+1).padStart(2,"0");
+    return {short:`${dd}/${mm}`,day:`${ACT_DAYS_ID[dt.getDay()]}, ${ACT_MONTHS_SHORT[dt.getMonth()+1]} ${dt.getFullYear()}`};
+  }catch{return {short:d.slice(5,10).replace("-","/"),day:""};}
+}
+
+function ActivitySlide() {
+  const now = new Date();
+  const [filterYear,  setFilterYear]  = useState(String(now.getFullYear()));
+  const [filterMonth, setFilterMonth] = useState(String(now.getMonth()+1));
+  const [filterDivisi, setFilterDivisi] = useState("all");
+  const [expandedAm, setExpandedAm] = useState<Record<string,boolean>>({});
+
+  const [navbarPortalEl, setNavbarPortalEl] = useState<HTMLElement | null>(null);
+  const [mobilePortalEl, setMobilePortalEl] = useState<HTMLElement | null>(null);
+  useEffect(()=>{
+    const find=()=>{
+      const el=document.getElementById("activity-navbar-portal");
+      if(el) setNavbarPortalEl(el);
+      const mel=document.getElementById("activity-navbar-portal-mobile");
+      if(mel) setMobilePortalEl(mel);
+    };
+    find();
+    const t=setTimeout(find,50);
+    return ()=>clearTimeout(t);
+  },[]);
+
+  const yearOptions = [{value:"2026",label:"2026"},{value:"2025",label:"2025"}];
+  const monthOptions = [
+    {value:"all",label:"Semua Bulan"},
+    ...Array.from({length:12},(_,i)=>({value:String(i+1),label:ACT_MONTHS_FULL[i+1]})),
+  ];
+  const divisiOptions = [{value:"all",label:"Semua"},{value:"DPS",label:"DPS"},{value:"DSS",label:"DSS"}];
+
+  const queryUrl = useMemo(()=>{
+    const p=new URLSearchParams({year:filterYear,divisi:filterDivisi});
+    if(filterMonth!=="all") p.set("month",filterMonth);
+    return `/api/activity?${p}`;
+  },[filterYear,filterMonth,filterDivisi]);
+
+  const {data,isLoading} = useQuery<any>({
+    queryKey:["activity-slide",queryUrl],
+    queryFn:async()=>{const r=await fetch(`${BASE_PATH}${queryUrl}`,{credentials:"include"});if(!r.ok)return null;return r.json();},
+    staleTime:60_000,
+  });
+
+  const amList = useMemo(()=>{
+    if(!data) return [];
+    const byAmMap=Object.fromEntries((data.byAm||[]).map((a:any)=>[a.fullname,a]));
+    return (data.masterAms||[])
+      .filter((m:any)=>filterDivisi==="all"||m.divisi===filterDivisi)
+      .map((m:any)=>{
+        const ex=byAmMap[m.nama];
+        return ex||{nik:m.nik,fullname:m.nama,divisi:m.divisi,kpiCount:0,totalCount:0,kpiTarget:20,activities:[]};
+      });
+  },[data,filterDivisi]);
+
+  const stats = useMemo(()=>{
+    const totalKpi=amList.reduce((s:number,a:any)=>s+a.kpiCount,0);
+    const reach=amList.filter((a:any)=>a.kpiCount>=a.kpiTarget).length;
+    return {totalKpi,reach,below:amList.length-reach};
+  },[amList]);
+
+  const periodLabel = filterMonth==="all"?`Tahun ${filterYear}`:`${ACT_MONTHS_FULL[parseInt(filterMonth)]} ${filterYear}`;
+
+  const filterBar = (
+    <>
+      <FSSelectDropdown label="Tahun" value={filterYear} onChange={setFilterYear} options={yearOptions} className="w-24 shrink-0"/>
+      <FSSelectDropdown label="Bulan" value={filterMonth} onChange={setFilterMonth} options={monthOptions} className="w-36 shrink-0"/>
+      <div className="w-px h-9 bg-border/60 self-end shrink-0"/>
+      <FSSelectDropdown label="Divisi" value={filterDivisi} onChange={setFilterDivisi} options={divisiOptions} className="w-28 shrink-0"/>
+    </>
+  );
+
+  return (
+    <div className="p-4 space-y-4">
+      {navbarPortalEl && createPortal(filterBar, navbarPortalEl)}
+      {mobilePortalEl && createPortal(filterBar, mobilePortalEl)}
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">Memuat data aktivitas...</div>
+      ) : !data ? (
+        <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">Belum ada data aktivitas</div>
+      ) : (
+        <>
+          {/* ─── Overview Cards ─── */}
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              {color:"#1565C0",bar:"bg-blue-600",icon:"bg-blue-50",val:"text-blue-700",emoji:"📊",label:"Total Aktivitas (KPI)",value:stats.totalKpi,sub:<>dari <b>{amList.length}</b> AM · {periodLabel}</>},
+              {color:"#00897B",bar:"bg-teal-600",icon:"bg-teal-50",val:"text-teal-700",emoji:"✅",label:"AM Capai KPI",value:stats.reach,sub:<>target <b>≥{amList[0]?.kpiTarget??20}</b> aktivitas / bulan</>},
+              {color:"#E8192C",bar:"bg-red-500",icon:"bg-red-50",val:"text-red-600",emoji:"⚠️",label:"AM Di Bawah KPI",value:stats.below,sub:stats.below===0?"Semua AM mencapai target 🎉":`${stats.below} AM perlu perhatian lebih`},
+            ].map(({bar,icon,val,emoji,label,value,sub},i)=>(
+              <div key={i} className="bg-card border border-border rounded-xl p-4 relative overflow-hidden">
+                <div className={cn("absolute top-0 inset-x-0 h-[3px] rounded-t-xl",bar)}/>
+                <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center text-sm mb-2.5",icon)}>{emoji}</div>
+                <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">{label}</div>
+                <div className={cn("text-3xl font-extrabold font-mono leading-none mb-1",val)}>{value}</div>
+                <div className="text-[11px] text-muted-foreground">{sub}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* ─── Info note ─── */}
+          <div className="text-[10px] text-muted-foreground bg-secondary/50 border-l-[3px] border-primary/30 rounded-md px-3 py-1.5 leading-relaxed">
+            📌 Progress KPI dihitung dari aktivitas <span className="font-semibold text-foreground">Dengan Pelanggan</span> dan <span className="font-semibold text-foreground">Pelanggan dengan Proyek</span>. Kategori <span className="font-semibold">Tanpa Pelanggan</span> tidak terhitung dalam KPI.
+          </div>
+
+          {/* ─── Table ─── */}
+          <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
+            {/* Header */}
+            <div className="grid gap-2 px-3.5 py-2.5 text-[10px] font-bold uppercase tracking-[0.6px] text-white/70 bg-[#0D1B2A]"
+              style={{gridTemplateColumns:"28px 1fr 200px 56px 56px 56px 96px"}}>
+              <div/><div>Nama AM</div><div>Progress KPI</div>
+              <div>Aktivitas</div><div>Target</div><div>Sisa</div><div>Status</div>
+            </div>
+            {amList.length===0?(
+              <div className="text-center py-10 text-sm text-muted-foreground">Tidak ada data untuk filter yang dipilih.</div>
+            ):amList.map((am:any)=>{
+              const pct=Math.min(Math.round(am.kpiCount/am.kpiTarget*100),100);
+              const sisa=Math.max(am.kpiTarget-am.kpiCount,0);
+              const pctColor=pct>=100?"#00897B":pct>=70?"#F57F17":"#E8192C";
+              const barGrad=pct>=100?"linear-gradient(90deg,#00897B,#26c6b9)":pct>=70?"linear-gradient(90deg,#F57F17,#ffb300)":"linear-gradient(90deg,#E8192C,#ef5350)";
+              const isExpanded=expandedAm[am.fullname];
+              return (
+                <div key={am.nik+am.fullname} className="border-b border-border last:border-b-0">
+                  <div
+                    onClick={()=>am.activities.length>0&&setExpandedAm(p=>({...p,[am.fullname]:!p[am.fullname]}))}
+                    className={cn("grid gap-2 px-3.5 py-2.5 items-center transition-colors",
+                      am.activities.length>0?"cursor-pointer":"cursor-default",
+                      isExpanded?"bg-blue-50/70":"hover:bg-secondary/50"
+                    )}
+                    style={{gridTemplateColumns:"28px 1fr 200px 56px 56px 56px 96px"}}
+                  >
+                    <div className={cn("w-[22px] h-[22px] rounded-[6px] border flex items-center justify-center text-xs font-bold flex-shrink-0 transition-all select-none",
+                      am.activities.length===0?"bg-secondary border-border text-muted-foreground/30"
+                        :isExpanded?"bg-blue-600 border-blue-600 text-white"
+                        :"bg-card border-border text-muted-foreground"
+                    )}>
+                      {am.activities.length===0?"•":isExpanded?"−":"+"}
+                    </div>
+                    <div className="overflow-hidden">
+                      <div className="text-xs font-bold text-foreground truncate">{am.fullname}</div>
+                      <div className="text-[10px] text-muted-foreground mt-px">{am.divisi} · {am.activities.length} total aktivitas</div>
+                    </div>
+                    <div>
+                      <div className="h-1.5 bg-secondary rounded-full overflow-hidden mb-1">
+                        <div className="h-full rounded-full transition-all duration-700" style={{width:`${pct}%`,background:barGrad}}/>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-[11px] font-bold font-mono" style={{color:pctColor}}>{pct}%</span>
+                        <span className="text-[10px] text-muted-foreground font-mono">{am.kpiCount}/{am.kpiTarget}</span>
+                      </div>
+                    </div>
+                    <div className="text-sm font-semibold font-mono">{am.kpiCount}</div>
+                    <div className="text-sm font-semibold font-mono">{am.kpiTarget}</div>
+                    <div className={cn("text-sm font-semibold font-mono",sisa===0?"text-muted-foreground/30":"")}>{sisa===0?"✓":sisa}</div>
+                    <div>
+                      {pct>=100
+                        ?<span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-50 text-teal-700">✓ Tercapai</span>
+                        :pct>=70
+                        ?<span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700">Mendekati</span>
+                        :<span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-600">Di Bawah KPI</span>
+                      }
+                    </div>
+                  </div>
+                  {/* Expanded activity detail */}
+                  {isExpanded&&am.activities.length>0&&(
+                    <div className="border-t border-blue-100 bg-secondary/30">
+                      <div className="grid gap-2 text-[9px] font-bold uppercase tracking-[0.6px] text-muted-foreground bg-secondary border-b border-border"
+                        style={{gridTemplateColumns:"24px 80px 1fr 130px 110px 56px",padding:"6px 14px 6px 52px"}}>
+                        <div>#</div><div>Tanggal</div><div>Pelanggan & Catatan</div>
+                        <div>Tipe</div><div>Kategori</div><div>KPI</div>
+                      </div>
+                      {am.activities.map((act:any,i:number)=>{
+                        const {short,day}=actFmtDate(act.activityEndDate);
+                        const ts=actTypeSty(act.activityType);
+                        const ls=actLabelSty(act.label);
+                        return (
+                          <div key={act.id} className="grid gap-2 items-start border-b border-border last:border-b-0 hover:bg-card transition-colors"
+                            style={{gridTemplateColumns:"24px 80px 1fr 130px 110px 56px",padding:"7px 14px 7px 52px"}}>
+                            <div className="text-[10px] text-muted-foreground font-mono pt-px">{i+1}</div>
+                            <div>
+                              <div className="text-[11px] font-semibold font-mono">{short}</div>
+                              <div className="text-[10px] text-muted-foreground">{day}</div>
+                            </div>
+                            <div>
+                              <div className="text-xs font-semibold text-foreground">{act.caName||"–"}</div>
+                              {act.activityNotes&&<div className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">{act.activityNotes}</div>}
+                            </div>
+                            <div><span className="inline-flex px-2 py-0.5 rounded text-[10px] font-semibold" style={{background:ts.bg,color:ts.text}}>{act.activityType||"–"}</span></div>
+                            <div><span className={cn("inline-flex px-2 py-0.5 rounded text-[10px] font-semibold",ls.cls)}>{ls.short}</span></div>
+                            <div>
+                              {act.isKpi
+                                ?<span className="text-[10px] font-bold text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded">✓ Ya</span>
+                                :<span className="text-[10px] font-bold text-muted-foreground bg-secondary px-1.5 py-0.5 rounded">✗ Tidak</span>
+                              }
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Embed Page ────────────────────────────────────────────────────────────
 export default function EmbedPerforma() {
   const [imports, setImports] = useState<any[]>([]);
@@ -1545,6 +1782,8 @@ export default function EmbedPerforma() {
               <p className="text-xs sm:text-sm font-bold text-foreground truncate max-w-[160px] sm:max-w-none">
                 {currentSlide === 1
                   ? <><span className="sm:hidden">AM Sales Funnel</span><span className="hidden sm:inline">SALES FUNNELING LOP MYTENS {funnelSubtitle}</span></>
+                  : currentSlide === 2
+                  ? <><span className="sm:hidden">Sales Activity</span><span className="hidden sm:inline">AM SALES ACTIVITY REPORT</span></>
                   : "AM Performance Report"}
               </p>
             </div>
@@ -1593,6 +1832,12 @@ export default function EmbedPerforma() {
             <>
               <div className="hidden sm:block w-px h-9 bg-border/60 shrink-0 mx-0.5" />
               <div id="funnel-navbar-portal" className="hidden sm:flex items-end gap-2 flex-1 min-w-0 overflow-x-auto" />
+            </>
+          )}
+          {currentSlide === 2 && (
+            <>
+              <div className="hidden sm:block w-px h-9 bg-border/60 shrink-0 mx-0.5" />
+              <div id="activity-navbar-portal" className="hidden sm:flex items-end gap-2 flex-1 min-w-0 overflow-x-auto" />
             </>
           )}
           {/* Slide arrows + fullscreen — always pushed to the right */}
@@ -1663,6 +1908,13 @@ export default function EmbedPerforma() {
             className="sm:hidden flex items-end gap-2 overflow-x-auto px-3 pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
           />
         )}
+        {/* Mobile activity filter row — portal target for ActivitySlide */}
+        {currentSlide === 2 && (
+          <div
+            id="activity-navbar-portal-mobile"
+            className="sm:hidden flex items-end gap-2 overflow-x-auto px-3 pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+          />
+        )}
       </div>
 
       {/* ─── Main Scrollable Content ─────────────────────── */}
@@ -1671,19 +1923,8 @@ export default function EmbedPerforma() {
       {/* ─── Slide: Sales Funnel ──────────────────────────── */}
       {currentSlide === 1 && <FunnelSlide onTitleChange={setFunnelSubtitle} />}
 
-      {/* ─── Slide: Sales Activity (placeholder) ─────────── */}
-      {currentSlide === 2 && (
-        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center p-8">
-          <Activity className="w-16 h-16 text-muted-foreground/30" />
-          <h2 className="text-xl font-bold text-foreground">Sales Activity</h2>
-          <p className="text-sm text-muted-foreground max-w-xs">Visualisasi sales activity sedang dalam pengembangan. Gunakan ← → atau sidebar untuk berpindah slide.</p>
-          <div className="flex gap-2 mt-4">
-            <button onClick={() => setCurrentSlide(1)} className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border border-border hover:bg-secondary transition-colors">
-              <ChevronLeft className="w-3.5 h-3.5" /> Sales Funnel
-            </button>
-          </div>
-        </div>
-      )}
+      {/* ─── Slide: Sales Activity ────────────────────────── */}
+      {currentSlide === 2 && <ActivitySlide />}
 
       {/* ─── Slide: Visualisasi Performa ─────────────────── */}
       {currentSlide === 0 && (

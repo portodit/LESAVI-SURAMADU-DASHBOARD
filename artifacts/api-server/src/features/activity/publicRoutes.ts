@@ -48,7 +48,11 @@ router.get("/public/activity", async (req, res): Promise<void> => {
   if (divisi && String(divisi) !== "all") {
     acts = acts.filter(a => a.divisi === String(divisi));
   }
-  if (year && month && String(month) !== "all") {
+  const months = req.query.months ? String(req.query.months).split(",").filter(Boolean) : null;
+  if (year && months && months.length > 0) {
+    const prefixes = months.map(m => `${year}-${m.padStart(2, "0")}`);
+    acts = acts.filter(a => prefixes.some(p => a.activityEndDate?.startsWith(p)));
+  } else if (year && month && String(month) !== "all") {
     const prefix = `${year}-${String(month).padStart(2, "0")}`;
     acts = acts.filter(a => a.activityEndDate?.startsWith(prefix));
   } else if (year) {

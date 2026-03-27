@@ -779,11 +779,14 @@ export default function PerformaVis() {
                     <tr className="bg-red-700 text-white font-black uppercase tracking-wide text-xs">
                       <th className="px-4 py-2.5 w-6 rounded-tl-lg"></th>
                       <th className="px-4 py-2.5">Nama AM</th>
-                      <th className="px-3 py-2.5 text-center">Rank</th>
                       <th className={cn("px-4 py-2.5 text-right", filterTipeRank === "Real Revenue" && "underline underline-offset-2")}>Target {filterTipeRevenue}</th>
                       <th className={cn("px-4 py-2.5 text-right", filterTipeRank === "Real Revenue" && "underline underline-offset-2")}>Real {filterTipeRevenue}</th>
                       <th className={cn("px-3 py-2.5 text-right", filterTipeRank === "Ach CM" && "underline underline-offset-2")}>CM %</th>
-                      <th className={cn("px-3 py-2.5 text-right rounded-tr-lg", filterTipeRank === "Ach YTD" && "underline underline-offset-2")}>YTD %</th>
+                      <th className={cn("px-3 py-2.5 text-right", filterTipeRank === "Ach YTD" && "underline underline-offset-2")}>YTD %</th>
+                      <th className="px-3 py-2.5 text-center">Customer</th>
+                      <th className="px-3 py-2.5 text-center rounded-tr-lg underline underline-offset-2">
+                        {filterTipeRank === "Ach CM" ? "RANK CM" : filterTipeRank === "Ach YTD" ? "RANK YTD" : "RANK REV"}
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/50">
@@ -829,7 +832,6 @@ export default function PerformaVis() {
                                 </div>
                               </div>
                             </td>
-                            <td className="px-3 py-2.5 text-center font-bold text-foreground">{row.displayRank}</td>
                             <td className="px-4 py-2.5 text-right text-foreground tabular-nums">{formatRupiah(row.cmTarget)}</td>
                             <td className="px-4 py-2.5 text-right font-medium text-foreground tabular-nums">{formatRupiah(row.cmReal)}</td>
                             <td className={cn("px-3 py-2.5 text-right font-bold tabular-nums", row.cmAch >= 1 ? "text-green-600" : row.cmAch >= 0.8 ? "text-orange-500" : "text-red-600")}>
@@ -838,10 +840,12 @@ export default function PerformaVis() {
                             <td className={cn("px-3 py-2.5 text-right font-bold tabular-nums", row.ytdAch >= 1 ? "text-green-600" : row.ytdAch >= 0.8 ? "text-blue-600" : "text-red-600")}>
                               {(row.ytdAch * 100).toFixed(1).replace(".", ",")}%
                             </td>
+                            <td className="px-3 py-2.5 text-center text-muted-foreground font-semibold">{customers.length}</td>
+                            <td className="px-3 py-2.5 text-center font-bold text-foreground">{row.displayRank}</td>
                           </tr>
                           {isExpanded && hasCustomers && (
                             <tr className="bg-rose-50/40 dark:bg-rose-950/10">
-                              <td colSpan={7} className="px-0 pb-3 pt-0">
+                              <td colSpan={8} className="px-0 pb-3 pt-0">
                                 <div className="mx-4 mt-2 mb-1 border-2 border-rose-200 dark:border-rose-800/50 rounded-xl overflow-hidden shadow-sm">
                                   <table className="w-full text-xs">
                                     <thead>
@@ -896,7 +900,7 @@ export default function PerformaVis() {
                   <tfoot>
                     <tr className="bg-secondary/60 border-t-2 border-border">
                       <td className="px-2 py-3" />
-                      <td className="px-4 py-3 font-bold text-sm text-foreground" colSpan={2}>Total ({amTableData.length} AM)</td>
+                      <td className="px-4 py-3 font-bold text-sm text-foreground">Total ({amTableData.length} AM)</td>
                       <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground font-semibold text-sm">{formatRupiah(totals.cmTarget)}</td>
                       <td className="px-4 py-2.5 text-right tabular-nums text-foreground font-bold text-sm">{formatRupiah(totals.cmReal)}</td>
                       <td className={cn("px-3 py-2.5 text-right tabular-nums", totals.cmAch >= 100 ? "text-green-600" : totals.cmAch >= 80 ? "text-orange-500" : "text-red-600")}>
@@ -907,6 +911,10 @@ export default function PerformaVis() {
                         <div className="font-black text-sm">{totals.ytdAch.toFixed(1).replace(".", ",")}%</div>
                         <div className="text-[10px] font-semibold mt-0.5">{totals.ytdAch >= 100 ? "Melebihi Target" : totals.ytdAch >= 80 ? "Mendekati" : "Di Bawah Target"}</div>
                       </td>
+                      <td className="px-3 py-2.5 text-center tabular-nums text-foreground font-semibold text-sm">
+                        {filteredAmData.reduce((s, r) => s + (r.customers || []).length, 0)}
+                      </td>
+                      <td />
                     </tr>
                   </tfoot>
                 </table>

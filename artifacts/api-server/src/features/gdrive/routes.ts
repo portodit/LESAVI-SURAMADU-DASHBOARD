@@ -1,8 +1,8 @@
 import { Router, type IRouter } from "express";
 import { db, appSettingsTable, dataImportsTable, accountManagersTable } from "@workspace/db";
 import { requireAuth } from "../../shared/auth";
-import { parseExcelBuffer, detectPeriod, extractSnapshotDateFromUrl, cleanFunnelRows, cleanActivityRows, parseIndonesianNumber, slugify } from "../import/excel";
-import XLSX from "xlsx";
+import { parseExcelBuffer, parseRaw2DArray, detectPeriod, extractSnapshotDateFromUrl, cleanFunnelRows, cleanActivityRows, parseIndonesianNumber, slugify } from "../import/excel";
+import type { ParsedRow } from "../import/excel";
 import { desc, eq, and, sql } from "drizzle-orm";
 
 const router: IRouter = Router();
@@ -44,12 +44,16 @@ function isSupportedFile(name: string, mimeType: string): boolean {
   );
 }
 
-async function downloadDriveFile(fileId: string, mimeType: string, apiKey: string): Promise<Buffer> {
+/**
+ * Download file dari Drive dan langsung return ParsedRow[].
+ * Untuk Google Sheets: gunakan Sheets API v4 → parse 2D array langsung (tanpa XLSX, hemat RAM).
+ * Untuk file Excel (.xlsx): download buffer → parse dengan XLSX.
+ */
+async function downloadDriveFileAsRows(fileId: string, mimeType: string, apiKey: string): Promise<ParsedRow[]> {
   if (mimeType === GOOGLE_SHEET_MIME) {
-    // Google Sheets native — gunakan Sheets API (tidak ada batas ukuran file)
-    return downloadGoogleSheetAsBuffer(fileId, apiKey);
+    return downloadGoogleSheetRows(fileId, apiKey);
   }
-  // File biasa (Excel) — download langsung
+  // File biasa (Excel) — download lalu parse
   const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${apiKey}`;
   const res = await fetch(url);
   if (!res.ok) {
@@ -57,14 +61,15 @@ async function downloadDriveFile(fileId: string, mimeType: string, apiKey: strin
     throw new Error(`Gagal download file dari Drive: ${res.status} ${res.statusText}${body ? ` — ${body.slice(0, 200)}` : ""}`);
   }
   const ab = await res.arrayBuffer();
-  return Buffer.from(ab);
+  const buffer = Buffer.from(ab);
+  return parseExcelBuffer(buffer);
 }
 
 /**
- * Baca Google Sheets via Sheets API v4 (tidak ada limit ukuran)
- * dan konversi ke XLSX buffer supaya bisa diproses parseExcelBuffer().
+ * Baca Google Sheets via Sheets API v4 dan parse langsung ke ParsedRow[].
+ * TIDAK menggunakan XLSX library sama sekali — hemat RAM ~10x dibanding konversi ke buffer dulu.
  */
-async function downloadGoogleSheetAsBuffer(spreadsheetId: string, apiKey: string): Promise<Buffer> {
+async function downloadGoogleSheetRows(spreadsheetId: string, apiKey: string): Promise<ParsedRow[]> {
   // 1) Ambil nama sheet pertama
   const metaRes = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?key=${apiKey}&fields=sheets.properties`
@@ -87,12 +92,8 @@ async function downloadGoogleSheetAsBuffer(spreadsheetId: string, apiKey: string
   const valData: any = await valRes.json();
   const rawRows: any[][] = valData.values ?? [];
 
-  // 3) Konversi 2-D array ke XLSX buffer supaya pipeline parseExcelBuffer tetap sama
-  const ws = XLSX.utils.aoa_to_sheet(rawRows);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, sheetTitle);
-  const xlsxBuf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
-  return Buffer.from(xlsxBuf);
+  // 3) Parse 2-D array langsung ke ParsedRow[] — tidak ada konversi XLSX, hemat RAM besar
+  return parseRaw2DArray(rawRows);
 }
 
 // ── GET /api/gdrive/list?type=performance ────────────────────────────────────
@@ -146,9 +147,8 @@ router.post("/gdrive/sync", requireAuth, async (req, res): Promise<void> => {
       ? excelFiles.find(f => f.id === explicitFileId) || excelFiles[0]
       : excelFiles[0];
 
-    const buffer = await downloadDriveFile(targetFile.id, targetFile.mimeType, apiKey);
-    const rows = parseExcelBuffer(buffer);
-    if (rows.length === 0) { res.status(400).json({ error: "File Excel kosong atau tidak dapat dibaca" }); return; }
+    const rows = await downloadDriveFileAsRows(targetFile.id, targetFile.mimeType, apiKey);
+    if (rows.length === 0) { res.status(400).json({ error: "File Excel/Sheets kosong atau tidak dapat dibaca" }); return; }
 
     const sourceUrl = `https://drive.google.com/file/d/${targetFile.id}`;
     const period = detectPeriod(rows, targetFile.name);

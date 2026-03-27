@@ -52,6 +52,40 @@ export function parseExcelBuffer(buffer: Buffer, sheetName?: string): ParsedRow[
   return XLSX.utils.sheet_to_json(worksheet, { defval: null, raw: false }) as ParsedRow[];
 }
 
+/**
+ * Convert a 2-D array (e.g. from Google Sheets API) directly to ParsedRow[].
+ * Same smart-title-row detection as parseExcelBuffer — but no XLSX library involved,
+ * so memory usage is ~10x lower for large Google Sheets imports.
+ */
+export function parseRaw2DArray(rawRows: any[][]): ParsedRow[] {
+  if (rawRows.length < 2) return [];
+  const row0 = rawRows[0] as any[];
+  const row0NonNull = row0.filter(v => v !== null && v !== "" && v !== undefined).length;
+
+  let headers: string[];
+  let dataRows: any[][];
+
+  if (row0NonNull === 1 && rawRows.length > 2) {
+    // First row is a title row — use row 1 as header
+    headers = rawRows[1] as string[];
+    dataRows = rawRows.slice(2);
+  } else {
+    // First row is the header
+    headers = rawRows[0] as string[];
+    dataRows = rawRows.slice(1);
+  }
+
+  return dataRows
+    .filter(row => row.some(v => v !== null && v !== "" && v !== undefined))
+    .map(row => {
+      const obj: ParsedRow = {};
+      headers.forEach((h, i) => {
+        if (h != null && h !== "") obj[String(h)] = row[i] ?? null;
+      });
+      return obj;
+    });
+}
+
 /** Parse comma-formatted Indonesian number string → number */
 export function parseIndonesianNumber(val: any): number {
   if (val === null || val === undefined || val === "") return 0;

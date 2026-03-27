@@ -6,7 +6,7 @@ import { cn } from "@/shared/lib/utils";
 import {
   LayoutDashboard, Upload, BarChart2, Filter, Activity,
   Users, MessageSquare, Settings, LogOut, ChevronDown,
-  Menu, X, Code2, Copy, Check, ExternalLink, PanelLeftClose, PanelLeftOpen
+  Menu, X, Code2, Copy, Check, ExternalLink
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -273,22 +273,6 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 
       {/* User + collapse toggle area */}
       <div className={cn("shrink-0 border-t border-border py-3", collapsed && !isMobile ? "px-1.5" : "px-2.5")}>
-        {/* Collapse toggle button (desktop only) */}
-        {!isMobile && (
-          <button
-            onClick={() => setCollapsed(prev => !prev)}
-            title={collapsed ? "Perluas sidebar" : "Ciutkan sidebar"}
-            className={cn(
-              "w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/70 transition-colors mb-1",
-              collapsed ? "justify-center" : "justify-start"
-            )}
-          >
-            {collapsed
-              ? <PanelLeftOpen className="w-4 h-4 shrink-0" />
-              : <><PanelLeftClose className="w-4 h-4 shrink-0" /><span>Ciutkan</span></>
-            }
-          </button>
-        )}
 
         {(!collapsed || isMobile) && (
           <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl mb-1 bg-secondary/50 border border-border/50">

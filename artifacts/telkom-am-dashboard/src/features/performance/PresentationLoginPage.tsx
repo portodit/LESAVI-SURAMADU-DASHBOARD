@@ -46,20 +46,21 @@ export default function PresentationLoginPage() {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gray-50 font-sans px-4">
-
+    <div className="min-h-screen w-full flex items-center justify-center bg-gray-50 font-sans px-4 py-8">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-gray-100 px-8 py-10">
 
         {/* Logo */}
-        <div className="mb-8 flex items-center gap-3.5">
-          <img
-            src={`${import.meta.env.BASE_URL}logo-tr3.png`}
-            alt="Logo TR3"
-            className="h-12 object-contain"
-          />
-          <div className="leading-tight">
-            <p className="text-base font-display font-bold text-gray-900 tracking-tight leading-snug">LESA VI · WITEL SURAMADU</p>
-            <p className="text-[11px] font-semibold tracking-[0.15em] text-[#cc0000] uppercase">AM Performance Dashboard</p>
+        <div className="mb-8">
+          <div className="flex items-center gap-3.5">
+            <img
+              src={`${import.meta.env.BASE_URL}logo-tr3.png`}
+              alt="Logo TR3"
+              className="h-12 object-contain"
+            />
+            <div className="leading-tight">
+              <p className="text-base font-display font-bold text-gray-900 tracking-tight leading-snug">LESA VI · WITEL SURAMADU</p>
+              <p className="text-[11px] font-semibold tracking-[0.15em] text-[#cc0000] uppercase">AM Performance Dashboard</p>
+            </div>
           </div>
         </div>
 
@@ -115,7 +116,6 @@ export default function PresentationLoginPage() {
           &copy; {new Date().getFullYear()} Telkom Indonesia · TREG 3 Suramadu · LESA VI
         </p>
       </div>
-
     </div>
   );
 }

@@ -13,6 +13,7 @@ import gDriveRouter from "../features/gdrive/routes";
 import publicAmRouter from "../features/am/publicRoutes";
 import publicPerformanceRouter from "../features/performance/publicRoutes";
 import publicFunnelRouter from "../features/funnel/publicRoutes";
+import publicActivityRouter from "../features/activity/publicRoutes";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use(gDriveRouter);
 router.use(publicAmRouter);
 router.use(publicPerformanceRouter);
 router.use(publicFunnelRouter);
+router.use(publicActivityRouter);
 
 export default router;

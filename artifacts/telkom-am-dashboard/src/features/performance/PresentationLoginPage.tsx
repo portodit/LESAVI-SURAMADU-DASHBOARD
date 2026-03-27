@@ -58,7 +58,6 @@ export default function PresentationLoginPage() {
               className="h-12 object-contain"
             />
             <div className="leading-tight">
-              <p className="text-base font-display font-bold text-gray-900 tracking-tight leading-snug">LESA VI · WITEL SURAMADU</p>
               <p className="text-[11px] font-semibold tracking-[0.15em] text-[#cc0000] uppercase">AM Performance Dashboard</p>
             </div>
           </div>

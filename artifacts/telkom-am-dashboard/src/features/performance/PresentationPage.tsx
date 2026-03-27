@@ -1122,7 +1122,7 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
           </div>
         </div>
         {/* Tabel punya scroll container sendiri — sticky thead top-0 bekerja di dalam sini */}
-        <div className="overflow-auto" style={{maxHeight:`calc(100dvh - ${fsDetailToolbarH + 120}px)`}}>
+        <div className="overflow-auto" style={{maxHeight:`clamp(280px, calc(100svh - ${fsDetailToolbarH + 200}px), 800px)`}}>
           <table className="w-full text-left text-sm border-collapse" style={{minWidth:"820px"}}>
             <thead className="sticky top-0 z-10">
               <tr className="bg-red-700 text-white font-black uppercase tracking-wide text-xs">
@@ -1301,6 +1301,8 @@ function ActivitySlide() {
   const [filterDivisi, setFilterDivisi] = useState("all");
   const [filterSnapId, setFilterSnapId] = useState<string>("all");
   const [expandedAm, setExpandedAm] = useState<Record<string,boolean>>({});
+  const [actSearch, setActSearch] = useState("");
+  const [actExpandAll, setActExpandAll] = useState<boolean|null>(null);
 
   const [navbarPortalEl, setNavbarPortalEl] = useState<HTMLElement | null>(null);
   const [mobilePortalEl, setMobilePortalEl] = useState<HTMLElement | null>(null);
@@ -1322,7 +1324,7 @@ function ActivitySlide() {
   const {data:actSnaps=[]} = useQuery<any[]>({
     queryKey:["activity-snapshots-slide"],
     queryFn:async()=>{
-      const r=await fetch(`${BASE_PATH}/api/activity/snapshots`,{credentials:"include"});
+      const r=await fetch(`${BASE_PATH}/api/public/activity/snapshots`);
       if(!r.ok) return [];
       return r.json();
     },
@@ -1427,12 +1429,12 @@ function ActivitySlide() {
     const p=new URLSearchParams({year:filterYear,divisi:filterDivisi});
     if(filterMonth!=="all") p.set("month",filterMonth);
     if(filterSnapId!=="all") p.set("import_id",filterSnapId);
-    return `/api/activity?${p}`;
+    return `/api/public/activity?${p}`;
   },[filterYear,filterMonth,filterDivisi,filterSnapId]);
 
   const {data,isLoading} = useQuery<any>({
     queryKey:["activity-slide",queryUrl],
-    queryFn:async()=>{const r=await fetch(`${BASE_PATH}${queryUrl}`,{credentials:"include"});if(!r.ok)return null;return r.json();},
+    queryFn:async()=>{const r=await fetch(`${BASE_PATH}${queryUrl}`);if(!r.ok)return null;return r.json();},
     staleTime:60_000,
   });
 
@@ -1441,11 +1443,12 @@ function ActivitySlide() {
     const byAmMap=Object.fromEntries((data.byAm||[]).map((a:any)=>[a.fullname,a]));
     return (data.masterAms||[])
       .filter((m:any)=>filterDivisi==="all"||m.divisi===filterDivisi)
+      .filter((m:any)=>!actSearch||m.nama.toLowerCase().includes(actSearch.toLowerCase()))
       .map((m:any)=>{
         const ex=byAmMap[m.nama];
         return ex||{nik:m.nik,fullname:m.nama,divisi:m.divisi,kpiCount:0,totalCount:0,kpiTarget:20,activities:[]};
       });
-  },[data,filterDivisi]);
+  },[data,filterDivisi,actSearch]);
 
   const stats = useMemo(()=>{
     const totalKpi=amList.reduce((s:number,a:any)=>s+a.kpiCount,0);
@@ -1504,7 +1507,29 @@ function ActivitySlide() {
           </div>
 
           {/* ─── Table ─── */}
-          <div className="bg-card border border-border rounded-xl overflow-x-auto shadow-sm">
+          <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
+            {/* Toolbar */}
+            <div className="px-4 py-3 border-b border-border bg-secondary/20 flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <span className="text-sm font-bold text-foreground">Monitoring KPI Aktivitas</span>
+                <span className="bg-secondary border border-border text-foreground text-xs font-bold px-2 py-0.5 rounded-full shrink-0">{amList.length} AM</span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <div className="h-8 flex items-center gap-2 bg-background border border-border rounded-lg px-3 focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/20 transition-colors min-w-[140px]">
+                  <Search className="w-3 h-3 text-muted-foreground shrink-0"/>
+                  <input type="text" placeholder="Cari nama AM…" value={actSearch} onChange={e=>setActSearch(e.target.value)}
+                    className="border-none outline-none text-xs text-foreground placeholder:text-muted-foreground/60 bg-transparent flex-1 min-w-0"/>
+                </div>
+                <button onClick={()=>setActExpandAll(prev=>prev===true?false:true)}
+                  className="h-8 px-3 rounded-lg text-xs font-semibold border border-border bg-secondary hover:border-primary/40 hover:text-primary text-foreground transition-colors flex items-center gap-1.5">
+                  {actExpandAll===true
+                    ?<><Minimize2 className="w-3 h-3"/> Collapse Semua</>
+                    :<><Expand className="w-3 h-3"/> Expand Semua</>
+                  }
+                </button>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
             <div style={{minWidth:"560px"}}>
             {/* Header */}
             <div className="grid text-xs font-black uppercase tracking-wide text-white"
@@ -1521,13 +1546,13 @@ function ActivitySlide() {
               const pct=Math.min(Math.round(kpiCount/am.kpiTarget*100),100);
               const sisa=Math.max(am.kpiTarget-kpiCount,0);
               const hasActs=(am.activities||[]).length>0;
-              const isExpanded=expandedAm[am.fullname];
+              const isExpanded=actExpandAll!==null?actExpandAll:(expandedAm[am.fullname]||false);
               const progressGrad=pct>=100?"from-emerald-500 to-emerald-400":pct>=70?"from-amber-500 to-amber-400":"from-red-600 to-red-500";
               const pctClr=pct>=100?"text-emerald-600 dark:text-emerald-400":pct>=70?"text-amber-600 dark:text-amber-400":"text-red-600 dark:text-red-400";
               return (
                 <div key={am.nik+am.fullname} className="border-b border-border/50 last:border-b-0">
                   <div
-                    onClick={()=>setExpandedAm(p=>({...p,[am.fullname]:!p[am.fullname]}))}
+                    onClick={()=>{setActExpandAll(null);setExpandedAm(p=>({...p,[am.fullname]:!p[am.fullname]}));}}
                     className={cn("grid items-center px-4 py-3 cursor-pointer transition-colors group",
                       isExpanded?"bg-primary/5 border-b border-primary/10":"hover:bg-secondary/40")}
                     style={{gridTemplateColumns:ACT_GRID_COLS}}
@@ -1640,6 +1665,7 @@ function ActivitySlide() {
               );
             })}
             </div>{/* end minWidth wrapper */}
+            </div>{/* end overflow-x-auto */}
           </div>
         </>
       )}
@@ -2159,10 +2185,10 @@ export default function EmbedPerforma() {
                   </div>
                 </div>
               </div>
-              <div className="overflow-x-auto">
+              <div className="overflow-auto" style={{maxHeight:"clamp(400px, 65vh, 1000px)"}}>
                 <div className="min-w-[600px]">
                 <table className="w-full text-xs text-left">
-                  <thead className="sticky z-10" style={{top: perfToolbarH}}>
+                  <thead className="sticky top-0 z-10">
                     <tr className="bg-red-700 text-white">
                       <th className="px-3 py-3 w-5 rounded-tl-lg"></th>
                       <th className="px-4 py-3 text-left text-xs font-black uppercase tracking-wide">Nama AM</th>

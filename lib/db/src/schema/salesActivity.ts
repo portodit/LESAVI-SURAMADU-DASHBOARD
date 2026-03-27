@@ -1,11 +1,11 @@
-import { pgTable, text, serial, timestamp, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
 export const salesActivityTable = pgTable("sales_activity", {
   id: serial("id").primaryKey(),
   nik: text("nik").notNull(),
-  fullname: text("fullname").notNull(),
+  fullname: text("fullname"),
   divisi: text("divisi"),
   segmen: text("segmen"),
   regional: text("regional"),
@@ -26,7 +26,9 @@ export const salesActivityTable = pgTable("sales_activity", {
   snapshotDate: text("snapshot_date"),
   importId: integer("import_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => ({
+  uniqActivity: unique("sales_activity_nik_createdat_unique").on(t.nik, t.createdatActivity),
+}));
 
 export const insertSalesActivitySchema = createInsertSchema(salesActivityTable).omit({ id: true, createdAt: true });
 export type InsertSalesActivity = z.infer<typeof insertSalesActivitySchema>;

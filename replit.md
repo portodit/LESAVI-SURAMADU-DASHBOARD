@@ -108,12 +108,43 @@ artifacts-monorepo/
 - `--font-sans`: Inter (body text, UI elements) — via Google Fonts
 - `--font-display`: Satoshi (headings, brand names, bold labels) — via Fontshare CDN
 
+## Sales Activity Data Cleaning Rules (Power Query Power BI)
+
+Prosedur cleaning data Sales Activity sesuai alur Power Query Power BI (folder: `Sales_Activity_Suramadu`):
+
+**Power Query Steps:**
+1. Filter `Folder Path` contains `"Sales_Activity_Suramadu"` — hanya baca file dari subfolder ini
+2. Filter hidden files dihapus (`[Attributes][Hidden] <> true`)
+3. Read & gabungkan semua file di folder (Folder connector — stack semua file menjadi 1 tabel)
+4. Expand semua kolom dari setiap file
+5. Set tipe kolom: `nik` → `Int64`, `createdat/start/end_date` → `datetime` (bukan `date`)
+6. Filter: `([divisi] = "DPS" or [divisi] = "DSS") and ([witel] = "SURAMADU")` → target 1300+ baris
+
+**Perbedaan kritis vs Pipeline (Sales Funnel):**
+- Folder berbeda: `Sales_Activity_Suramadu` (bukan `Sales_Funnel_Suramadu`)
+- Tidak ada fix AM manual (Reni→Havea) — sistem mencatat berdasarkan login user aktif
+- Tidak ada filter `is_report` — semua aktivitas ditampilkan
+- Kolom tanggal bertipe `datetime` (ada jam:menit:detik), bukan `date`
+- Tidak ada dedup by LOP — dedup by `(nik, createdat_activity)` datetime
+
+**Implementasi di sistem:**
+- `cleanActivityRows` di `excel.ts`: filter witel+divisi, validasi NIK numerik, simpan datetime penuh
+- `fullname` **tidak** diwajibkan (Power BI tidak men-drop baris tanpa fullname)
+- GDrive sync: loop semua file di folder (bukan hanya `excelFiles[0]`)
+- Unique constraint `(nik, createdat_activity)` di DB untuk dedup antar import
+- Datetime filter API: `activityEndDate?.startsWith("YYYY-MM")` bekerja untuk kedua format (date-only maupun datetime)
+
+**Kolom lengkap (20 kolom):**
+`nik, fullname, divisi, segmen, regional, witel, nipnas, ca_name, activity_type, label, lopid, createdat, activity_start_date, activity_end_date, pic_jobtitle, pic_name, pic_role, pic_phone, activity_notes`
+
+**KPI Activity:** label yang **tidak** mengandung kata "tanpa" = KPI. Target default 20 per bulan.
+
 ## GSheets Integration Notes
 
 - Spreadsheet: `1ojCi6dbJKCSPZU_cWozEByDwzYbZ6hVaf3n9aDibiVk` (LESA VI SURAMADU)
 - Auto-detects sheet patterns: `TREG3_SALES_FUNNEL_`, `TREG3_ACTIVITY_`, `PERFORMANSI_`
 - **Funnel GSheets**: nationwide TREG3 data; `nik_handling` is EMPTY for all SURAMADU rows; `nik_pembuat_lop` uses DSO/support NIKs (not AM NIKs). Import keeps ALL `witel=SURAMADU + is_report=Y` rows (~3007). Per-AM funnel attribution only works via Excel upload.
-- **Activity GSheets**: correct AM attribution via `nik` column; divisi filter DPS/DSS applied; gives ~719 SURAMADU AM activity rows.
+- **Activity GSheets/Drive**: correct AM attribution via `nik` column; divisi filter DPS/DSS applied; GDrive sync sekarang baca **SEMUA file** di folder (bukan hanya file terbaru), mengikuti perilaku Power BI Folder connector. Target: 1300+ baris total setelah import semua file.
 - **Performance GSheets**: aggregates by NIK+PERIODE; skips DGS; gives 132 rows (11 AM × multiple months from PERFORMANSI data).
 - **parseDate**: handles dd/MM/yyyy (GSheets format), Excel serial, and ISO formats.
 
@@ -124,7 +155,7 @@ artifacts-monorepo/
 - `app_settings` — Application configuration (Telegram bot token, etc.)
 - `data_imports` — Import history log
 - `performance_data` — AM performance metrics
-- `sales_activity` — Sales activity records (new cols: nipnas, regional, pic_role, pic_phone, createdat_activity)
+- `sales_activity` — Sales activity records. Unique constraint: `(nik, createdat_activity)` untuk dedup antar import. `fullname` nullable (Power BI tidak filter baris tanpa fullname). Datetime fields (`createdat_activity`, `activity_start_date`, `activity_end_date`) disimpan lengkap dengan jam:menit:detik.
 - `sales_funnel` — Sales funnel data
 - `telegram_logs` — Telegram message send logs
 

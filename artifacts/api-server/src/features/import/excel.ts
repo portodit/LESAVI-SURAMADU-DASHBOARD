@@ -303,6 +303,42 @@ export function cleanFunnelRows(rows: ParsedRow[], opts?: { skipDivisiFilter?: b
 
 // ─── Activity Data Cleaning ────────────────────────────────────────────────────
 
+/**
+ * Parse a datetime value from Excel/GSheets, preserving the full datetime string
+ * (tidak dipotong jadi date-only).
+ *
+ * Power BI menyimpan activity_end_date, activity_start_date, dan createdat sebagai
+ * `datetime` (bukan `date`). Kita harus simpan lengkap termasuk jam/menit/detik
+ * agar:
+ *   1. Filter bulan di API tetap benar (`startsWith("YYYY-MM")` bekerja pada datetime string)
+ *   2. Unique constraint `(nik, createdat_activity)` bisa membedakan dua aktivitas
+ *      yang terjadi pada hari yang sama
+ */
+function parseRawDateTimeStr(val: any): string {
+  if (!val) return "";
+  // Date object dari XLSX cellDates:true — convert ke "YYYY-MM-DD HH:mm:ss" dalam waktu lokal server
+  if (val instanceof Date) {
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${val.getFullYear()}-${pad(val.getMonth() + 1)}-${pad(val.getDate())} ${pad(val.getHours())}:${pad(val.getMinutes())}:${pad(val.getSeconds())}`;
+  }
+  const s = String(val).trim();
+  if (!s) return "";
+  // Jika sudah dalam format datetime ISO/SQL, kembalikan apa adanya (ganti T dengan spasi)
+  if (/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/.test(s)) return s.replace("T", " ").slice(0, 19);
+  // Format US: "M/D/YYYY H:MM:SS AM/PM" (dari XLSX raw:false)
+  const usMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4}),?\s+(\d{1,2}):(\d{2}):?(\d{2})?\s*(AM|PM)?/i);
+  if (usMatch) {
+    const [, mm, dd, yyyy, hRaw, min, sec = "00", ampm] = usMatch;
+    let h = parseInt(hRaw, 10);
+    if (ampm?.toUpperCase() === "PM" && h < 12) h += 12;
+    if (ampm?.toUpperCase() === "AM" && h === 12) h = 0;
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${yyyy}-${pad(parseInt(mm))}-${pad(parseInt(dd))} ${pad(h)}:${min}:${sec.padStart(2, "0")}`;
+  }
+  // Fallback ke parseDate (tanpa jam) kalau tidak bisa parse datetime
+  return parseDate(val);
+}
+
 export interface CleanedActivityRow {
   nik: string;
   fullname: string;
@@ -325,22 +361,36 @@ export interface CleanedActivityRow {
   activityNotes: string;
 }
 
+/**
+ * Prosedur cleaning data Sales Activity — mengikuti langkah Power Query Power BI:
+ *
+ * 1. Filter witel = SURAMADU (contains, case-insensitive)
+ * 2. Filter divisi = "DPS" atau "DSS"
+ * 3. Validasi NIK numerik (Int64 — baris dengan NIK non-numerik di-skip)
+ * 4. Simpan datetime penuh (termasuk jam) untuk createdat, start_date, end_date
+ *
+ * TIDAK ada filter fullname — Power BI tidak men-drop baris dengan fullname kosong.
+ * TIDAK ada dedup — dedup dilakukan di DB layer via unique constraint (nik, createdat_activity).
+ */
 export function cleanActivityRows(rows: ParsedRow[]): CleanedActivityRow[] {
   return rows
     .map(r => {
-      // ── STEP: Filter witel = SURAMADU AND divisi = DPS/DSS
+      // ── STEP 1: Filter witel = SURAMADU AND divisi = DPS/DSS
+      // (identik dengan Power Query: each ([divisi] = "DPS" or [divisi] = "DSS") and ([witel] = "SURAMADU"))
       const witel = cleanUpper(r.witel);
       const divisi = clean(r.divisi).toUpperCase();
 
       if (!witel.includes("SURAMADU")) return null;
       if (divisi !== "DPS" && divisi !== "DSS") return null;
 
-      // ── STEP: Validate NIK (must be numeric)
+      // ── STEP 2: Validasi NIK numerik
+      // Power BI menggunakan Int64.Type untuk kolom nik — baris dengan NIK tidak-numerik
+      // menghasilkan error dan di-drop oleh RemoveRowsWithErrors (jika ada) atau diabaikan.
       const nikRaw = toIntSafe(r.nik);
       if (nikRaw === null) return null;
 
+      // ── STEP 3: fullname boleh kosong (tidak di-filter Power BI)
       const fullname = clean(r.fullname);
-      if (!fullname) return null;
 
       return {
         nik: String(nikRaw),
@@ -354,9 +404,10 @@ export function cleanActivityRows(rows: ParsedRow[]): CleanedActivityRow[] {
         activityType: clean(r.activity_type),
         label: clean(r.label),
         lopid: clean(r.lopid),
-        createdatActivity: parseDate(r.createdat) || clean(r.createdat),
-        activityStartDate: parseDate(r.activity_start_date) || clean(r.activity_start_date),
-        activityEndDate: parseDate(r.activity_end_date) || clean(r.activity_end_date),
+        // ── Simpan datetime penuh (jam:menit:detik), bukan date-only
+        createdatActivity: parseRawDateTimeStr(r.createdat),
+        activityStartDate: parseRawDateTimeStr(r.activity_start_date),
+        activityEndDate: parseRawDateTimeStr(r.activity_end_date),
         picName: clean(r.pic_name),
         picJobtitle: clean(r.pic_jobtitle),
         picRole: clean(r.pic_role),

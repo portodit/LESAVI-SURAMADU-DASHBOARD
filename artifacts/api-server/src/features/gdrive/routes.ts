@@ -161,8 +161,31 @@ router.post("/gdrive/sync", requireAuth, async (req, res): Promise<void> => {
       const result = await importFunnelRows(rows, sourceUrl, period, snapshotDate, targetFile.name);
       res.json({ ...result, fileName: targetFile.name, fileModified: targetFile.modifiedTime, snapshotDate });
     } else if (type === "activity") {
-      const result = await importActivityRows(rows, sourceUrl, period, snapshotDate, targetFile.name);
-      res.json({ ...result, fileName: targetFile.name, fileModified: targetFile.modifiedTime, snapshotDate });
+      // ── Untuk activity: jika tidak ada explicitFileId, import SEMUA file di folder
+      // (mengikuti perilaku Power BI Folder connector yang menggabungkan semua file)
+      // Duplikat dihindari via unique constraint (nik, createdat_activity) + onConflictDoNothing
+      if (explicitFileId) {
+        const result = await importActivityRows(rows, sourceUrl, period, snapshotDate, targetFile.name);
+        res.json({ ...result, fileName: targetFile.name, fileModified: targetFile.modifiedTime, snapshotDate });
+      } else {
+        let totalImported = 0;
+        const fileResults: Array<{ file: string; imported: number; period: string }> = [];
+        for (const file of excelFiles) {
+          try {
+            const fileRows = await downloadDriveFileAsRows(file.id, file.mimeType, apiKey);
+            if (fileRows.length === 0) continue;
+            const filePeriod = detectPeriod(fileRows, file.name);
+            const fileSnapshotDate = extractSnapshotDateFromUrl(file.name) || new Date().toISOString().slice(0, 10);
+            const fileUrl = `https://drive.google.com/file/d/${file.id}`;
+            const result = await importActivityRows(fileRows, fileUrl, filePeriod, fileSnapshotDate, file.name);
+            totalImported += result.imported;
+            fileResults.push({ file: file.name, imported: result.imported, period: filePeriod });
+          } catch (fileErr: any) {
+            fileResults.push({ file: file.name, imported: 0, period: "" });
+          }
+        }
+        res.json({ imported: totalImported, filesProcessed: fileResults.length, files: fileResults, snapshotDate: new Date().toISOString().slice(0, 10) });
+      }
     } else {
       res.status(400).json({ error: `Sync untuk tipe '${type}' belum didukung` });
     }

@@ -32,7 +32,7 @@ function fmtNilaiCompact(n: number): string {
 }
 const MONTHS_LABEL = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
 const MONTHS_FULL  = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
-const TIPE_RANK = ["Ach MTD","Real Revenue","YTD"];
+const TIPE_RANK = ["Ach CM","Real Revenue","YTD"];
 const TIPE_REVENUE = ["Reguler","Sustain","Scaling","NGTMA"];
 
 function periodeLabel(ym: string) {
@@ -1248,7 +1248,7 @@ export default function EmbedPerforma() {
   const [filterPeriodes, setFilterPeriodes] = useState<Set<string>>(new Set());
   const [filterDivisi, setFilterDivisi] = useState("All");
   const [filterNamaAms, setFilterNamaAms] = useState<Set<string>>(new Set());
-  const [filterTipeRank, setFilterTipeRank] = useState("Ach MTD");
+  const [filterTipeRank, setFilterTipeRank] = useState("Ach CM");
   const [filterTipeRevenue, setFilterTipeRevenue] = useState("Reguler");
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
@@ -1343,6 +1343,16 @@ export default function EmbedPerforma() {
   }, [filterPeriodes]);
   const cmMonth = useMemo(() => cmPeriode ? parseInt(cmPeriode.split("-")[1]) : null, [cmPeriode]);
   const cmYear = useMemo(() => cmPeriode ? cmPeriode.split("-")[0] : null, [cmPeriode]);
+
+  const ytdPeriodeLabel = useMemo(() => {
+    if (filterPeriodes.size <= 1) return cmPeriode ? periodeLabel(cmPeriode) : "—";
+    const sorted = [...filterPeriodes].sort();
+    const fY = sorted[0].split("-")[0], lY = sorted[sorted.length-1].split("-")[0];
+    const fM = MONTHS_LABEL[parseInt(sorted[0].split("-")[1])-1];
+    const lM = MONTHS_LABEL[parseInt(sorted[sorted.length-1].split("-")[1])-1];
+    const range = fY === lY ? `${fM}–${lM} ${lY}` : `${fM} ${fY}–${lM} ${lY}`;
+    return `${filterPeriodes.size} Periode (${range})`;
+  }, [filterPeriodes, cmPeriode]);
 
   // amTableData
   const amTableData = useMemo(() => {
@@ -1669,14 +1679,14 @@ export default function EmbedPerforma() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
               <TrophyCard colorScheme="gold"
                 title="TOP AM BY CURRENT MONTH"
-                subtitle={topCm ? `Divisi ${topCm.divisi} · ${cmPeriode ? periodeLabel(cmPeriode) : "—"}` : ""}
+                subtitle={topCm ? `Divisi ${topCm.divisi} · CM ${cmPeriode ? periodeLabel(cmPeriode) : "—"}` : ""}
                 am={topCm} value={topCm ? `${(topCm.cmAch * 100).toFixed(1).replace(".", ",")}%` : "–"}
                 realValue={topCm ? formatRupiah(topCm.cmReal) : undefined}
                 targetValue={topCm ? formatRupiah(topCm.cmTarget) : undefined}
               />
               <TrophyCard colorScheme="blue"
                 title="TOP AM BY YEAR TO DATE"
-                subtitle={topYtd ? `Divisi ${topYtd.divisi} · ${filterPeriodes.size > 1 ? `${filterPeriodes.size} Periode` : cmPeriode ? periodeLabel(cmPeriode) : "—"}` : ""}
+                subtitle={topYtd ? `Divisi ${topYtd.divisi} · YTD ${ytdPeriodeLabel}` : ""}
                 am={topYtd} value={topYtd ? `${(topYtd.ytdAch * 100).toFixed(1).replace(".", ",")}%` : "–"}
                 realValue={topYtd ? formatRupiah(topYtd.ytdReal) : undefined}
                 targetValue={topYtd ? formatRupiah(topYtd.ytdTarget) : undefined}
@@ -1737,18 +1747,20 @@ export default function EmbedPerforma() {
                 </div>
               </div>
               <div className="p-3">
-                <div className="border border-border rounded-lg [overflow:clip]">
-                <div className="overflow-auto" style={{maxHeight:`calc(100dvh - ${perfToolbarH + 120}px)`}}>
+                <div className="border border-border rounded-lg">
                 <table className="w-full text-xs text-left">
-                  <thead className="sticky top-0 z-10">
+                  <thead className="sticky z-10" style={{top: perfToolbarH}}>
                     <tr className="bg-red-700 text-white">
                       <th className="px-3 py-3 w-5 rounded-tl-lg"></th>
                       <th className="px-4 py-3 text-left text-xs font-black uppercase tracking-wide">Nama AM</th>
-                      <th className="px-3 py-3 text-center text-xs font-black uppercase tracking-wide">Rank</th>
                       <th className={cn("px-4 py-3 text-right text-xs font-black uppercase tracking-wide", filterTipeRank === "Real Revenue" && "underline underline-offset-2")}>Target {filterTipeRevenue}</th>
                       <th className={cn("px-4 py-3 text-right text-xs font-black uppercase tracking-wide", filterTipeRank === "Real Revenue" && "underline underline-offset-2")}>Real {filterTipeRevenue}</th>
-                      <th className={cn("px-3 py-3 text-right text-xs font-black uppercase tracking-wide", filterTipeRank === "Ach MTD" && "underline underline-offset-2")}>CM %</th>
-                      <th className={cn("px-3 py-3 text-right text-xs font-black uppercase tracking-wide rounded-tr-lg", filterTipeRank === "YTD" && "underline underline-offset-2")}>YTD %</th>
+                      <th className={cn("px-3 py-3 text-right text-xs font-black uppercase tracking-wide", filterTipeRank === "Ach CM" && "underline underline-offset-2")}>CM %</th>
+                      <th className={cn("px-3 py-3 text-right text-xs font-black uppercase tracking-wide", filterTipeRank === "YTD" && "underline underline-offset-2")}>YTD %</th>
+                      <th className="px-3 py-3 text-center text-xs font-black uppercase tracking-wide">Customer</th>
+                      <th className={cn("px-3 py-3 text-center text-xs font-black uppercase tracking-wide rounded-tr-lg", "underline underline-offset-2")}>
+                        {filterTipeRank === "Ach CM" ? "RANK CM" : filterTipeRank === "YTD" ? "RANK YTD" : "RANK REV"}
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/50">
@@ -1788,7 +1800,6 @@ export default function EmbedPerforma() {
                                 </div>
                               </div>
                             </td>
-                            <td className="px-3 py-2 text-center font-bold text-foreground">{row.displayRank}</td>
                             <td className="px-4 py-2 text-right text-foreground tabular-nums">{formatRupiah(row.cmTarget)}</td>
                             <td className="px-4 py-2 text-right font-medium tabular-nums">{formatRupiah(row.cmReal)}</td>
                             <td className={cn("px-3 py-2 text-right font-bold tabular-nums", row.cmAch >= 1 ? "text-green-600" : row.cmAch >= 0.8 ? "text-orange-500" : "text-red-600")}>
@@ -1797,10 +1808,12 @@ export default function EmbedPerforma() {
                             <td className={cn("px-3 py-2 text-right font-bold tabular-nums", row.ytdAch >= 1 ? "text-green-600" : row.ytdAch >= 0.8 ? "text-blue-600" : "text-red-600")}>
                               {(row.ytdAch * 100).toFixed(1).replace(".", ",")}%
                             </td>
+                            <td className="px-3 py-2 text-center text-muted-foreground font-semibold">{(row.customers || []).length}</td>
+                            <td className="px-3 py-2 text-center font-bold text-foreground">{row.displayRank}</td>
                           </tr>
                           {isExpanded && hasCustomers && (
                             <tr className="bg-rose-50/40 dark:bg-rose-950/10">
-                              <td colSpan={7} className="px-0 pb-3 pt-0">
+                              <td colSpan={8} className="px-0 pb-3 pt-0">
                                 <div className="mx-4 mt-2 mb-1 border-2 border-rose-200 dark:border-rose-800/50 rounded-xl overflow-hidden shadow-sm">
                                   <table className="w-full text-xs">
                                     <thead>
@@ -1855,7 +1868,7 @@ export default function EmbedPerforma() {
                   <tfoot>
                     <tr className="bg-secondary/60 border-t-2 border-border">
                       <td className="px-2 py-3" />
-                      <td className="px-4 py-3 font-bold text-sm text-foreground" colSpan={2}>Total ({amTableData.length} AM)</td>
+                      <td className="px-4 py-3 font-bold text-sm text-foreground">Total ({amTableData.length} AM)</td>
                       <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground font-semibold text-sm">{formatRupiah(totals.cmTarget)}</td>
                       <td className="px-4 py-2.5 text-right tabular-nums text-foreground font-bold text-sm">{formatRupiah(totals.cmReal)}</td>
                       <td className={cn("px-3 py-2.5 text-right tabular-nums", totals.cmAch >= 100 ? "text-green-600" : totals.cmAch >= 80 ? "text-orange-500" : "text-red-600")}>
@@ -1866,10 +1879,13 @@ export default function EmbedPerforma() {
                         <div className="font-black text-sm">{totals.ytdAch.toFixed(1).replace(".", ",")}%</div>
                         <div className="text-[10px] font-semibold mt-0.5">{totals.ytdAch >= 100 ? "Melebihi Target" : totals.ytdAch >= 80 ? "Mendekati" : "Di Bawah Target"}</div>
                       </td>
+                      <td className="px-3 py-2.5 text-center tabular-nums text-muted-foreground font-semibold text-sm">
+                        {filteredAmData.reduce((s, r) => s + (r.customers || []).length, 0)}
+                      </td>
+                      <td />
                     </tr>
                   </tfoot>
                 </table>
-              </div>
               </div>
               </div>
             </div>

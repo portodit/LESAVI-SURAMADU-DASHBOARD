@@ -14,7 +14,7 @@ import { id as idLocale } from "date-fns/locale";
 
 const MONTHS_LABEL = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
 const MONTHS_FULL  = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
-const TIPE_RANK = ["Ach MTD","Ach YTD","Real Revenue"];
+const TIPE_RANK = ["Ach CM","Ach YTD","Real Revenue"];
 const TIPE_REVENUE = ["Reguler","Sustain","Scaling","NGTMA"];
 
 function EmptyState() {
@@ -293,7 +293,7 @@ export default function PerformaVis() {
   const [filterPeriodes, setFilterPeriodes] = useState<Set<string>>(new Set()); // "YYYY-MM"
   const [filterDivisi, setFilterDivisi] = useState("All");
   const [filterNamaAms, setFilterNamaAms] = useState<Set<string>>(new Set());
-  const [filterTipeRank, setFilterTipeRank] = useState("Ach MTD");
+  const [filterTipeRank, setFilterTipeRank] = useState("Ach CM");
   const [filterTipeRevenue, setFilterTipeRevenue] = useState("Reguler");
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [expandAll, setExpandAll] = useState(false);
@@ -782,7 +782,7 @@ export default function PerformaVis() {
                       <th className="px-3 py-2.5 text-center">Rank</th>
                       <th className={cn("px-4 py-2.5 text-right", filterTipeRank === "Real Revenue" && "underline underline-offset-2")}>Target {filterTipeRevenue}</th>
                       <th className={cn("px-4 py-2.5 text-right", filterTipeRank === "Real Revenue" && "underline underline-offset-2")}>Real {filterTipeRevenue}</th>
-                      <th className={cn("px-3 py-2.5 text-right", filterTipeRank === "Ach MTD" && "underline underline-offset-2")}>CM %</th>
+                      <th className={cn("px-3 py-2.5 text-right", filterTipeRank === "Ach CM" && "underline underline-offset-2")}>CM %</th>
                       <th className={cn("px-3 py-2.5 text-right rounded-tr-lg", filterTipeRank === "Ach YTD" && "underline underline-offset-2")}>YTD %</th>
                     </tr>
                   </thead>

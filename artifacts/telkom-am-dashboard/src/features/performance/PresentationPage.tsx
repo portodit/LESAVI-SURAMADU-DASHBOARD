@@ -1737,7 +1737,7 @@ export default function EmbedPerforma() {
                 </div>
               </div>
               <div className="p-3">
-                <div className="border border-border rounded-lg overflow-hidden">
+                <div className="border border-border rounded-lg [overflow:clip]">
                 <div className="overflow-auto" style={{maxHeight:`calc(100dvh - ${perfToolbarH + 120}px)`}}>
                 <table className="w-full text-xs text-left">
                   <thead className="sticky top-0 z-10">

@@ -1404,6 +1404,8 @@ function ActivitySlide() {
   const [filterDivisi, setFilterDivisi] = useState("all");
   const [filterSnapId, setFilterSnapId] = useState<string>("all");
   const [filterKategori, setFilterKategori] = useState<Set<string>>(new Set());
+  const snapInitialized = useRef(false);
+  const kategoriInitialized = useRef(false);
   const [expandedAm, setExpandedAm] = useState<Record<string,boolean>>({});
   const [actSearch, setActSearch] = useState("");
   const [actExpandAll, setActExpandAll] = useState<boolean|null>(null);
@@ -1436,7 +1438,6 @@ function ActivitySlide() {
   });
 
   const snapOptions = useMemo(()=>[
-    {value:"all",label:"Semua import"},
     ...(Array.isArray(actSnaps)?actSnaps:[]).map((s:any)=>{
       let lbl = s.period||`Import #${s.id}`;
       if(s.snapshotDate){
@@ -1448,6 +1449,14 @@ function ActivitySlide() {
       return {value:String(s.id),label:lbl};
     }),
   ],[actSnaps]);
+
+  // Auto-select snapshot terbaru saat pertama kali data snapshot tersedia
+  useEffect(()=>{
+    if(Array.isArray(actSnaps)&&actSnaps.length>0&&!snapInitialized.current){
+      snapInitialized.current=true;
+      setFilterSnapId(String(actSnaps[0].id));
+    }
+  },[actSnaps]);
 
   // ─── Query ──────────────────────────────────────────────────────────────
   const queryUrl = useMemo(()=>{
@@ -1494,6 +1503,15 @@ function ActivitySlide() {
 
   const allLabels = useMemo(()=>data?.distinctLabels||[],[data]);
 
+  // Inisialisasi filterKategori: pilih label KPI (tanpa "Tanpa Pelanggan") saat data pertama muat
+  useEffect(()=>{
+    if(data?.distinctLabels&&!kategoriInitialized.current){
+      kategoriInitialized.current=true;
+      const kpiLabels=(data.distinctLabels as string[]).filter(l=>!l.toLowerCase().includes("tanpa"));
+      if(kpiLabels.length>0) setFilterKategori(new Set(kpiLabels));
+    }
+  },[data?.distinctLabels]);
+
   // ─── Filter bar ─────────────────────────────────────────────────────────
   const filterBar = (
     <>
@@ -1523,36 +1541,35 @@ function ActivitySlide() {
           {/* ─── Overview Cards ─── */}
           <div className="grid grid-cols-3 gap-3">
             {/* Card 1: Total KPI */}
-            <div className="bg-secondary/50 border border-border rounded-xl p-4 flex items-start gap-3">
+            <div className="bg-white border border-border rounded-xl p-4 flex items-start gap-3">
               <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0 bg-primary/10 text-primary">🎯</div>
               <div className="flex-1 min-w-0">
-                <div className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-1">Total Aktivitas KPI</div>
-                <div className="flex items-end gap-3 flex-wrap">
+                <div className="text-sm font-bold text-foreground uppercase tracking-wide mb-1">Total Aktivitas KPI</div>
+                <div className="flex items-center gap-3 flex-wrap">
                   <div className="text-3xl font-black tabular-nums leading-tight text-foreground">{stats.totalKpi}</div>
-                  <div className="flex flex-col gap-0.5 pb-0.5">
-                    <span className="text-sm font-bold text-emerald-700 dark:text-emerald-400 leading-tight">{stats.totalDgPelanggan} dg pelanggan</span>
-                    <span className="text-sm font-bold text-blue-700 dark:text-blue-400 leading-tight">{stats.totalDgProyek} dg proyek</span>
-                  </div>
+                  <span className="text-sm font-bold text-foreground/70 leading-tight">
+                    {stats.totalDgPelanggan} dg pelanggan · {stats.totalDgProyek} dg proyek
+                  </span>
                 </div>
-                <div className="text-xs font-semibold text-foreground/70 mt-1">dari <strong className="text-foreground">{amList.length}</strong> AM · {periodLabel}</div>
+                <div className="text-sm font-semibold text-foreground mt-1">dari <strong>{amList.length}</strong> AM · {periodLabel}</div>
               </div>
             </div>
             {/* Card 2: AM Capai KPI */}
-            <div className="bg-secondary/50 border border-border rounded-xl p-4 flex items-start gap-3">
+            <div className="bg-white border border-border rounded-xl p-4 flex items-start gap-3">
               <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0 bg-emerald-100 text-emerald-600 dark:bg-emerald-950/30">✅</div>
               <div className="flex-1 min-w-0">
-                <div className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-1">AM Capai KPI</div>
+                <div className="text-sm font-bold text-foreground uppercase tracking-wide mb-1">AM Capai KPI</div>
                 <div className="text-3xl font-black tabular-nums leading-tight text-foreground">{stats.reach}</div>
-                <div className="text-xs font-semibold text-foreground/70 mt-1">target <strong className="text-foreground">≥{amList[0]?.kpiTarget??20}</strong> aktivitas / bulan</div>
+                <div className="text-sm font-bold text-foreground mt-1">target <strong className="text-primary">≥{amList[0]?.kpiTarget??20} aktivitas</strong> / bulan</div>
               </div>
             </div>
             {/* Card 3: AM Di Bawah KPI */}
-            <div className="bg-secondary/50 border border-border rounded-xl p-4 flex items-start gap-3">
+            <div className="bg-white border border-border rounded-xl p-4 flex items-start gap-3">
               <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0 bg-red-50 text-red-500 dark:bg-red-950/30">⚠️</div>
               <div className="flex-1 min-w-0">
-                <div className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-1">AM Di Bawah KPI</div>
+                <div className="text-sm font-bold text-foreground uppercase tracking-wide mb-1">AM Di Bawah KPI</div>
                 <div className="text-3xl font-black tabular-nums leading-tight text-foreground">{stats.below}</div>
-                <div className="text-xs font-semibold text-foreground/70 mt-1">{stats.below===0?"Semua AM mencapai target 🎉":`${stats.below} AM perlu perhatian`}</div>
+                <div className="text-sm font-bold text-primary mt-1">{stats.below===0?"Semua AM mencapai target 🎉":`${stats.below} AM perlu perhatian lebih`}</div>
               </div>
             </div>
           </div>

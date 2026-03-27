@@ -1342,7 +1342,6 @@ function ActivitySlide() {
     return {totalKpi,reach,below:amList.length-reach};
   },[amList]);
 
-  const ACT_MONTHS_SHORT = ["","Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agt","Sep","Okt","Nov","Des"];
   const periodLabel = filterMonth==="all"?`Tahun ${filterYear}`:`${ACT_MONTHS_FULL[parseInt(filterMonth)]} ${filterYear}`;
 
   // Period display for filter bar

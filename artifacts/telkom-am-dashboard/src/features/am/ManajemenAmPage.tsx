@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Plus, Pencil, Trash2, Users, Wifi, WifiOff, Search, X,
-  MessageSquare, ShieldCheck, AlertTriangle, RefreshCw
+  MessageSquare, ShieldCheck, AlertTriangle, RefreshCw, UserCog
 } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
@@ -19,6 +19,7 @@ interface AM {
   id: number;
   nik: string;
   nama: string;
+  role: string;
   divisi: string;
   segmen: string | null;
   witel: string;
@@ -32,6 +33,7 @@ interface AM {
 interface AmFormData {
   nik: string;
   nama: string;
+  role: string;
   divisi: string;
   segmen: string;
   witel: string;
@@ -40,7 +42,7 @@ interface AmFormData {
 }
 
 const EMPTY_FORM: AmFormData = {
-  nik: "", nama: "", divisi: "DPS", segmen: "",
+  nik: "", nama: "", role: "AM", divisi: "DPS", segmen: "",
   witel: "SURAMADU", telegramChatId: "", kpiActivity: "30",
 };
 
@@ -150,12 +152,14 @@ function AmFormDialog({ open, onClose, onSubmit, initial, loading, mode }: {
     return (v: string) => setForm(f => ({ ...f, [field]: v }));
   }
 
+  const isManager = form.role === "MANAGER";
+
   function validate(): boolean {
     const errs: Partial<AmFormData> = {};
     if (!form.nik.trim()) errs.nik = "NIK wajib diisi";
     else if (!/^\d+$/.test(form.nik.trim())) errs.nik = "NIK harus berupa angka";
     if (!form.nama.trim()) errs.nama = "Nama wajib diisi";
-    if (!form.divisi) errs.divisi = "Divisi wajib dipilih";
+    if (!isManager && !form.divisi) errs.divisi = "Divisi wajib dipilih";
     const kpi = Number(form.kpiActivity);
     if (!form.kpiActivity || isNaN(kpi) || kpi < 0) errs.kpiActivity = "KPI harus angka ≥ 0";
     setErrors(errs);
@@ -173,7 +177,9 @@ function AmFormDialog({ open, onClose, onSubmit, initial, loading, mode }: {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
             <Users className="w-4 h-4 text-primary" />
-            {mode === "add" ? "Tambah Account Manager" : "Edit Account Manager"}
+            {mode === "add"
+              ? `Tambah ${isManager ? "Manager" : "Account Manager"}`
+              : `Edit ${isManager ? "Manager" : "Account Manager"}`}
           </DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground">
             {mode === "add"
@@ -183,6 +189,25 @@ function AmFormDialog({ open, onClose, onSubmit, initial, loading, mode }: {
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 py-1">
+
+          {/* Role Selector */}
+          <FormField label="Role">
+            <div className="flex gap-2">
+              {[{v:"AM",label:"Account Manager"},{v:"MANAGER",label:"Manager"}].map(opt=>(
+                <button
+                  key={opt.v} type="button"
+                  onClick={()=>setForm(f=>({...f,role:opt.v}))}
+                  className={cn(
+                    "flex-1 py-2 px-3 rounded-lg border text-sm font-semibold transition-colors",
+                    form.role===opt.v
+                      ? "bg-primary text-white border-primary"
+                      : "bg-secondary text-muted-foreground border-border hover:border-primary/40"
+                  )}
+                >{opt.label}</button>
+              ))}
+            </div>
+          </FormField>
+
           <div className="grid grid-cols-2 gap-4">
             <FormField label="NIK" required error={errors.nik}>
               <Input
@@ -192,74 +217,80 @@ function AmFormDialog({ open, onClose, onSubmit, initial, loading, mode }: {
                 className={errors.nik ? "border-destructive" : ""}
               />
             </FormField>
-            <FormField label="Divisi" required error={errors.divisi}>
-              <SelectField
-                value={form.divisi}
-                onChange={setSelect("divisi")}
-                options={[
-                  { value: "DPS", label: "DPS" },
-                  { value: "DSS", label: "DSS" },
-                ]}
-              />
-            </FormField>
+            {!isManager && (
+              <FormField label="Divisi" required error={errors.divisi}>
+                <SelectField
+                  value={form.divisi}
+                  onChange={setSelect("divisi")}
+                  options={[
+                    { value: "DPS", label: "DPS" },
+                    { value: "DSS", label: "DSS" },
+                  ]}
+                />
+              </FormField>
+            )}
           </div>
 
           <FormField label="Nama Lengkap" required error={errors.nama}>
             <Input
               value={form.nama} onChange={set("nama")}
-              placeholder="mis. CAESAR RIO ANGGINA TORUAN"
+              placeholder={isManager ? "mis. RENI WULANDARI" : "mis. CAESAR RIO ANGGINA TORUAN"}
               className={errors.nama ? "border-destructive" : ""}
             />
           </FormField>
 
-          <div className="grid grid-cols-2 gap-4">
-            <FormField label="Segmen">
-              <SelectField
-                value={form.segmen}
-                onChange={setSelect("segmen")}
-                options={[
-                  { value: "", label: "— Pilih Segmen —" },
-                  { value: "Enterprise", label: "Enterprise" },
-                  { value: "Government", label: "Government" },
-                  { value: "SME", label: "SME" },
-                ]}
-              />
-            </FormField>
-            <FormField label="Witel">
-              <SelectField
-                value={form.witel}
-                onChange={setSelect("witel")}
-                options={[
-                  { value: "SURAMADU", label: "SURAMADU" },
-                  { value: "SURABAYA", label: "SURABAYA" },
-                  { value: "MADURA", label: "MADURA" },
-                ]}
-              />
-            </FormField>
-          </div>
+          {!isManager && (
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField label="Segmen">
+                  <SelectField
+                    value={form.segmen}
+                    onChange={setSelect("segmen")}
+                    options={[
+                      { value: "", label: "— Pilih Segmen —" },
+                      { value: "Enterprise", label: "Enterprise" },
+                      { value: "Government", label: "Government" },
+                      { value: "SME", label: "SME" },
+                    ]}
+                  />
+                </FormField>
+                <FormField label="Witel">
+                  <SelectField
+                    value={form.witel}
+                    onChange={setSelect("witel")}
+                    options={[
+                      { value: "SURAMADU", label: "SURAMADU" },
+                      { value: "SURABAYA", label: "SURABAYA" },
+                      { value: "MADURA", label: "MADURA" },
+                    ]}
+                  />
+                </FormField>
+              </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <FormField label="KPI Activity (hari/bulan)" error={errors.kpiActivity}>
-              <Input
-                type="number" min="0" max="365"
-                value={form.kpiActivity} onChange={set("kpiActivity")}
-                placeholder="30"
-                className={errors.kpiActivity ? "border-destructive" : ""}
-              />
-            </FormField>
-            <FormField label="Telegram Chat ID">
-              <Input
-                value={form.telegramChatId} onChange={set("telegramChatId")}
-                placeholder="mis. 123456789"
-              />
-            </FormField>
-          </div>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField label="KPI Activity (hari/bulan)" error={errors.kpiActivity}>
+                  <Input
+                    type="number" min="0" max="365"
+                    value={form.kpiActivity} onChange={set("kpiActivity")}
+                    placeholder="30"
+                    className={errors.kpiActivity ? "border-destructive" : ""}
+                  />
+                </FormField>
+                <FormField label="Telegram Chat ID">
+                  <Input
+                    value={form.telegramChatId} onChange={set("telegramChatId")}
+                    placeholder="mis. 123456789"
+                  />
+                </FormField>
+              </div>
+            </>
+          )}
 
           <DialogFooter className="pt-2 gap-2 sm:gap-2">
             <Button type="button" variant="outline" onClick={onClose} disabled={loading}>Batal</Button>
             <Button type="submit" disabled={loading}>
               {loading && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
-              {mode === "add" ? "Tambah AM" : "Simpan Perubahan"}
+              {mode === "add" ? `Tambah ${isManager ? "Manager" : "AM"}` : "Simpan Perubahan"}
             </Button>
           </DialogFooter>
         </form>
@@ -271,6 +302,7 @@ function AmFormDialog({ open, onClose, onSubmit, initial, loading, mode }: {
 // ─── AM Table Row ─────────────────────────────────────────────────────────────
 
 function AmRow({ am, onEdit, onDelete }: { am: AM; onEdit: () => void; onDelete: () => void }) {
+  const isManager = am.role === "MANAGER";
   return (
     <tr className="border-b border-border/50 hover:bg-secondary/30 transition-colors group">
       <td className="px-4 py-3 font-mono text-xs font-semibold text-muted-foreground whitespace-nowrap">
@@ -278,14 +310,17 @@ function AmRow({ am, onEdit, onDelete }: { am: AM; onEdit: () => void; onDelete:
       </td>
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-            <span className="text-[10px] font-black text-primary">
+          <div className={cn(
+            "w-8 h-8 rounded-full border flex items-center justify-center shrink-0",
+            isManager ? "bg-orange-50 border-orange-200" : "bg-primary/10 border-primary/20"
+          )}>
+            <span className={cn("text-[10px] font-black", isManager ? "text-orange-600" : "text-primary")}>
               {am.nama.split(" ").slice(0, 2).map(n => n[0]).join("")}
             </span>
           </div>
           <div className="min-w-0">
-            <p className="font-semibold text-sm text-foreground leading-tight truncate max-w-[220px]">{am.nama}</p>
-            {am.crossWitel && (
+            <p className="font-semibold text-sm text-foreground leading-tight truncate max-w-[200px]">{am.nama}</p>
+            {am.crossWitel && !isManager && (
               <span className="text-[10px] text-amber-600 font-bold">Cross Witel</span>
             )}
           </div>
@@ -294,25 +329,38 @@ function AmRow({ am, onEdit, onDelete }: { am: AM; onEdit: () => void; onDelete:
       <td className="px-4 py-3">
         <Badge className={cn(
           "text-[11px] font-bold",
-          am.divisi === "DPS"
-            ? "bg-blue-100 text-blue-700 border-blue-200"
-            : "bg-violet-100 text-violet-700 border-violet-200"
+          isManager
+            ? "bg-orange-100 text-orange-700 border-orange-200"
+            : "bg-emerald-100 text-emerald-700 border-emerald-200"
         )}>
-          {am.divisi}
+          {isManager ? "MANAGER" : "AM"}
         </Badge>
       </td>
+      {!isManager ? (
+        <td className="px-4 py-3">
+          <Badge className={cn(
+            "text-[11px] font-bold",
+            am.divisi === "DPS"
+              ? "bg-blue-100 text-blue-700 border-blue-200"
+              : "bg-violet-100 text-violet-700 border-violet-200"
+          )}>
+            {am.divisi}
+          </Badge>
+        </td>
+      ) : (
+        <td className="px-4 py-3 text-xs text-muted-foreground">–</td>
+      )}
       <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">
-        {am.segmen || <span className="text-border">–</span>}
-      </td>
-      <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">
-        {am.witel}
+        {isManager ? <span className="text-muted-foreground/40">–</span> : (am.segmen || <span className="text-border">–</span>)}
       </td>
       <td className="px-4 py-3 text-center">
-        <span className="font-mono text-sm font-semibold text-foreground">{am.kpiActivity}</span>
-        <span className="text-xs text-muted-foreground ml-1">hr</span>
+        {isManager
+          ? <span className="text-muted-foreground/40 text-xs">–</span>
+          : <><span className="font-mono text-sm font-semibold text-foreground">{am.kpiActivity}</span><span className="text-xs text-muted-foreground ml-1">hr</span></>
+        }
       </td>
       <td className="px-4 py-3">
-        {am.telegramConnected ? (
+        {isManager ? <span className="text-xs text-muted-foreground/40">–</span> : am.telegramConnected ? (
           <div className="flex items-center gap-1.5">
             <Wifi className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
             <span className="text-xs font-semibold text-emerald-600">Terhubung</span>
@@ -330,7 +378,7 @@ function AmRow({ am, onEdit, onDelete }: { am: AM; onEdit: () => void; onDelete:
             variant="ghost" size="sm"
             onClick={onEdit}
             className="h-7 w-7 p-0 hover:bg-primary/10 hover:text-primary"
-            title="Edit AM"
+            title="Edit"
           >
             <Pencil className="w-3.5 h-3.5" />
           </Button>
@@ -338,7 +386,7 @@ function AmRow({ am, onEdit, onDelete }: { am: AM; onEdit: () => void; onDelete:
             variant="ghost" size="sm"
             onClick={onDelete}
             className="h-7 w-7 p-0 hover:bg-destructive/10 hover:text-destructive"
-            title="Hapus AM"
+            title="Hapus"
           >
             <Trash2 className="w-3.5 h-3.5" />
           </Button>
@@ -374,6 +422,7 @@ export default function ManajemenAmPage() {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [filterDivisi, setFilterDivisi] = useState<"all" | "DPS" | "DSS">("all");
+  const [filterRole, setFilterRole] = useState<"all" | "AM" | "MANAGER">("all");
 
   const [showAdd, setShowAdd] = useState(false);
   const [editTarget, setEditTarget] = useState<AM | null>(null);
@@ -393,11 +442,12 @@ export default function ManajemenAmPage() {
       body: JSON.stringify({
         nik: data.nik.trim(),
         nama: data.nama.trim().toUpperCase(),
-        divisi: data.divisi,
-        segmen: data.segmen || null,
-        witel: data.witel,
-        telegramChatId: data.telegramChatId || null,
-        kpiActivity: Number(data.kpiActivity),
+        role: data.role,
+        divisi: data.role === "MANAGER" ? "DPS" : data.divisi,
+        segmen: data.role === "MANAGER" ? null : (data.segmen || null),
+        witel: data.role === "MANAGER" ? "SURAMADU" : data.witel,
+        telegramChatId: data.role === "MANAGER" ? null : (data.telegramChatId || null),
+        kpiActivity: data.role === "MANAGER" ? 0 : Number(data.kpiActivity),
       }),
     }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["am-list"] }); setShowAdd(false); setFormError(null); },
@@ -411,11 +461,12 @@ export default function ManajemenAmPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           nama: data.nama.trim().toUpperCase(),
-          divisi: data.divisi,
-          segmen: data.segmen || null,
-          witel: data.witel,
-          telegramChatId: data.telegramChatId || null,
-          kpiActivity: Number(data.kpiActivity),
+          role: data.role,
+          divisi: data.role === "MANAGER" ? undefined : data.divisi,
+          segmen: data.role === "MANAGER" ? null : (data.segmen || null),
+          witel: data.role === "MANAGER" ? undefined : data.witel,
+          telegramChatId: data.role === "MANAGER" ? undefined : (data.telegramChatId || null),
+          kpiActivity: data.role === "MANAGER" ? undefined : Number(data.kpiActivity),
         }),
       }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["am-list"] }); setEditTarget(null); setFormError(null); },
@@ -427,7 +478,11 @@ export default function ManajemenAmPage() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["am-list"] }); setDeleteTarget(null); },
   });
 
+  const amOnly = ams.filter(a => a.role !== "MANAGER");
+  const managerOnly = ams.filter(a => a.role === "MANAGER");
+
   const filtered = ams.filter(am => {
+    if (filterRole !== "all" && am.role !== filterRole) return false;
     if (filterDivisi !== "all" && am.divisi !== filterDivisi) return false;
     if (search) {
       const q = search.toLowerCase();
@@ -436,14 +491,14 @@ export default function ManajemenAmPage() {
     return true;
   });
 
-  const telegramCount = ams.filter(a => a.telegramConnected).length;
-  const dpsCount = ams.filter(a => a.divisi === "DPS").length;
-  const dssCount = ams.filter(a => a.divisi === "DSS").length;
+  const telegramCount = amOnly.filter(a => a.telegramConnected).length;
+  const dpsCount = amOnly.filter(a => a.divisi === "DPS").length;
+  const dssCount = amOnly.filter(a => a.divisi === "DSS").length;
 
   function toFormData(am: AM): AmFormData {
     return {
-      nik: am.nik, nama: am.nama, divisi: am.divisi,
-      segmen: am.segmen || "", witel: am.witel,
+      nik: am.nik, nama: am.nama, role: am.role || "AM",
+      divisi: am.divisi, segmen: am.segmen || "", witel: am.witel,
       telegramChatId: am.telegramChatId || "",
       kpiActivity: String(am.kpiActivity),
     };
@@ -455,12 +510,12 @@ export default function ManajemenAmPage() {
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-display font-bold text-foreground">Manajemen Account Manager</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">Kelola daftar AM, data Telegram, dan target aktivitas</p>
+          <h2 className="text-xl font-display font-bold text-foreground">Manajemen Lesa</h2>
+          <p className="text-sm text-muted-foreground mt-0.5">Kelola data Account Manager dan Manager Witel Suramadu</p>
         </div>
         <Button onClick={() => { setFormError(null); setShowAdd(true); }} className="gap-2 shrink-0">
           <Plus className="w-4 h-4" />
-          Tambah AM
+          Tambah Anggota
         </Button>
       </div>
 
@@ -468,25 +523,25 @@ export default function ManajemenAmPage() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard
           icon={<Users className="w-5 h-5 text-primary" />}
-          label="Total AM" value={ams.length}
-          sub="account manager aktif"
+          label="Total AM" value={amOnly.length}
+          sub={`${dpsCount} DPS · ${dssCount} DSS`}
           color="bg-primary/10"
         />
         <StatCard
-          icon={<ShieldCheck className="w-5 h-5 text-blue-600" />}
-          label="DPS" value={dpsCount}
-          sub={`${dssCount} DSS`}
-          color="bg-blue-50 dark:bg-blue-950/30"
+          icon={<UserCog className="w-5 h-5 text-orange-600" />}
+          label="Manager" value={managerOnly.length}
+          sub="LESA & Witel"
+          color="bg-orange-50 dark:bg-orange-950/30"
         />
         <StatCard
           icon={<MessageSquare className="w-5 h-5 text-emerald-600" />}
-          label="Telegram" value={telegramCount}
-          sub={`dari ${ams.length} AM`}
+          label="Telegram Aktif" value={telegramCount}
+          sub={`dari ${amOnly.length} AM`}
           color="bg-emerald-50 dark:bg-emerald-950/30"
         />
         <StatCard
           icon={<WifiOff className="w-5 h-5 text-amber-600" />}
-          label="Belum Terhubung" value={ams.length - telegramCount}
+          label="Belum Terhubung" value={amOnly.length - telegramCount}
           sub="perlu koneksi Telegram"
           color="bg-amber-50 dark:bg-amber-950/30"
         />
@@ -494,24 +549,47 @@ export default function ManajemenAmPage() {
 
       {/* Table Card */}
       <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
-        {/* Table Header / Filter Bar */}
+        {/* Filter Bar */}
         <div className="px-4 py-3 border-b border-border bg-secondary/20 flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-1.5">
-            {(["all", "DPS", "DSS"] as const).map(d => (
+          {/* Role tabs */}
+          <div className="flex items-center gap-1">
+            {([
+              {v:"all",label:"Semua"},
+              {v:"AM",label:"AM"},
+              {v:"MANAGER",label:"Manager"},
+            ] as const).map(opt => (
               <button
-                key={d}
-                onClick={() => setFilterDivisi(d)}
+                key={opt.v}
+                onClick={() => setFilterRole(opt.v)}
                 className={cn(
                   "h-7 px-3 rounded-lg text-xs font-semibold transition-colors",
-                  filterDivisi === d
+                  filterRole === opt.v
                     ? "bg-primary text-white"
                     : "bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80"
                 )}
-              >
-                {d === "all" ? "Semua" : d}
-              </button>
+              >{opt.label}</button>
             ))}
           </div>
+
+          {/* Divisi filter (only when showing AM) */}
+          {filterRole !== "MANAGER" && (
+            <div className="flex items-center gap-1">
+              {(["all", "DPS", "DSS"] as const).map(d => (
+                <button
+                  key={d}
+                  onClick={() => setFilterDivisi(d)}
+                  className={cn(
+                    "h-7 px-3 rounded-lg text-xs font-semibold transition-colors",
+                    filterDivisi === d
+                      ? "bg-blue-600 text-white"
+                      : "bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80"
+                  )}
+                >
+                  {d === "all" ? "All Divisi" : d}
+                </button>
+              ))}
+            </div>
+          )}
 
           <div className="relative flex-1 max-w-xs">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
@@ -530,7 +608,7 @@ export default function ManajemenAmPage() {
           </div>
 
           <span className="text-xs text-muted-foreground ml-auto shrink-0">
-            {filtered.length} dari {ams.length} AM
+            {filtered.length} dari {ams.length} anggota
           </span>
         </div>
 
@@ -539,14 +617,14 @@ export default function ManajemenAmPage() {
           <table className="w-full text-left text-sm border-collapse">
             <thead>
               <tr className="bg-red-700 text-white text-xs font-black uppercase tracking-wide">
-                <th className="px-4 py-3 rounded-tl-none whitespace-nowrap w-24">NIK</th>
+                <th className="px-4 py-3 whitespace-nowrap w-24">NIK</th>
                 <th className="px-4 py-3 min-w-[200px]">Nama</th>
+                <th className="px-4 py-3 w-24">Role</th>
                 <th className="px-4 py-3 w-20">Divisi</th>
                 <th className="px-4 py-3 w-28">Segmen</th>
-                <th className="px-4 py-3 w-28">Witel</th>
                 <th className="px-4 py-3 w-24 text-center">KPI</th>
                 <th className="px-4 py-3 w-32">Telegram</th>
-                <th className="px-4 py-3 w-20 rounded-tr-none">Aksi</th>
+                <th className="px-4 py-3 w-20">Aksi</th>
               </tr>
             </thead>
             <tbody>
@@ -555,7 +633,7 @@ export default function ManajemenAmPage() {
                   <tr key={i} className="border-b border-border/50">
                     {[...Array(8)].map((_, j) => (
                       <td key={j} className="px-4 py-3">
-                        <div className="h-4 bg-secondary rounded animate-pulse" style={{ width: `${[60, 160, 40, 70, 80, 30, 80, 50][j]}px` }} />
+                        <div className="h-4 bg-secondary rounded animate-pulse" style={{ width: `${[60, 160, 60, 40, 70, 30, 80, 50][j]}px` }} />
                       </td>
                     ))}
                   </tr>
@@ -564,7 +642,7 @@ export default function ManajemenAmPage() {
                 <tr><td colSpan={8} className="text-center py-12">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <AlertTriangle className="w-6 h-6 text-destructive" />
-                    <p className="text-sm">Gagal memuat data AM</p>
+                    <p className="text-sm">Gagal memuat data</p>
                   </div>
                 </td></tr>
               ) : filtered.length === 0 ? (
@@ -572,11 +650,11 @@ export default function ManajemenAmPage() {
                   <div className="flex flex-col items-center gap-3 text-muted-foreground">
                     <Users className="w-8 h-8 opacity-30" />
                     <p className="text-sm font-medium">
-                      {search || filterDivisi !== "all" ? "Tidak ada AM yang cocok" : "Belum ada data AM"}
+                      {search || filterDivisi !== "all" || filterRole !== "all" ? "Tidak ada anggota yang cocok" : "Belum ada data"}
                     </p>
-                    {!search && filterDivisi === "all" && (
+                    {!search && filterDivisi === "all" && filterRole === "all" && (
                       <Button size="sm" onClick={() => setShowAdd(true)}>
-                        <Plus className="w-3.5 h-3.5" /> Tambah AM Pertama
+                        <Plus className="w-3.5 h-3.5" /> Tambah Anggota Pertama
                       </Button>
                     )}
                   </div>
@@ -594,7 +672,7 @@ export default function ManajemenAmPage() {
         </div>
       </div>
 
-      {/* Add AM Dialog */}
+      {/* Add Dialog */}
       <AmFormDialog
         open={showAdd}
         onClose={() => setShowAdd(false)}
@@ -606,7 +684,7 @@ export default function ManajemenAmPage() {
         <div className="text-sm text-destructive text-center">{formError}</div>
       )}
 
-      {/* Edit AM Dialog */}
+      {/* Edit Dialog */}
       <AmFormDialog
         open={!!editTarget}
         onClose={() => setEditTarget(null)}

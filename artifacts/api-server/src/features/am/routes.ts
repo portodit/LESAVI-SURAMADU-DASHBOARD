@@ -18,15 +18,22 @@ router.get("/am", requireAuth, async (req, res): Promise<void> => {
 });
 
 router.post("/am", requireAuth, async (req, res): Promise<void> => {
-  const { nik, nama, divisi, segmen, witel, telegramChatId, kpiActivity } = req.body;
-  if (!nik || !nama || !divisi) {
-    res.status(400).json({ error: "NIK, nama, dan divisi wajib diisi" });
+  const { nik, nama, role, divisi, segmen, witel, telegramChatId, kpiActivity } = req.body;
+  if (!nik || !nama) {
+    res.status(400).json({ error: "NIK dan nama wajib diisi" });
+    return;
+  }
+  const resolvedRole = (role === "MANAGER" ? "MANAGER" : "AM");
+  if (resolvedRole === "AM" && !divisi) {
+    res.status(400).json({ error: "Divisi wajib diisi untuk role AM" });
     return;
   }
 
   const slug = slugify(nama);
   const [am] = await db.insert(accountManagersTable).values({
-    nik, nama, slug, divisi, segmen: segmen || null,
+    nik, nama, slug, role: resolvedRole,
+    divisi: divisi || "DPS",
+    segmen: segmen || null,
     witel: witel || "SURAMADU",
     telegramChatId: telegramChatId || null,
     kpiActivity: kpiActivity || 30,
@@ -46,10 +53,11 @@ router.get("/am/:id", requireAuth, async (req, res): Promise<void> => {
 router.patch("/am/:id", requireAuth, async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
-  const { nama, divisi, segmen, witel, telegramChatId, kpiActivity } = req.body;
+  const { nama, role, divisi, segmen, witel, telegramChatId, kpiActivity } = req.body;
 
   const updates: Partial<typeof accountManagersTable.$inferInsert> = {};
   if (nama !== undefined) { updates.nama = nama; updates.slug = slugify(nama); }
+  if (role !== undefined) updates.role = role === "MANAGER" ? "MANAGER" : "AM";
   if (divisi !== undefined) updates.divisi = divisi;
   if (segmen !== undefined) updates.segmen = segmen;
   if (witel !== undefined) updates.witel = witel;

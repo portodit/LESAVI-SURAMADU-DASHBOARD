@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, performanceDataTable, dataImportsTable } from "@workspace/db";
+import { db, performanceDataTable, dataImportsTable, accountManagersTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 
 const router: IRouter = Router();
@@ -53,6 +53,16 @@ router.get("/public/import-history", async (req, res): Promise<void> => {
     .orderBy(desc(dataImportsTable.id));
 
   res.json(history.map(h => ({ ...h, createdAt: h.createdAt.toISOString() })));
+});
+
+router.get("/public/am", async (req, res): Promise<void> => {
+  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  const ams = await db
+    .select({ nik: accountManagersTable.nik, nama: accountManagersTable.nama, divisi: accountManagersTable.divisi, role: accountManagersTable.role })
+    .from(accountManagersTable)
+    .orderBy(accountManagersTable.nama);
+  res.json(ams);
 });
 
 export default router;

@@ -27,16 +27,16 @@ export default function PresentationLoginPage() {
     }
     setIsLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/public/performance`);
+      const res = await fetch(`${API_BASE}/api/public/am`);
       if (!res.ok) throw new Error("Gagal mengambil data");
       const data: any[] = await res.json();
       const found = data.find((row: any) => String(row.nik).trim() === trimmedNik);
       if (!found) {
-        setError("NIK tidak ditemukan. Pastikan NIK Anda sudah terdaftar sebagai AM.");
+        setError("NIK tidak ditemukan. Pastikan NIK Anda sudah terdaftar.");
         setIsLoading(false);
         return;
       }
-      storePresentationSession(found.nik, found.namaAm ?? found.nama_am ?? trimmedNik);
+      storePresentationSession(found.nik, found.nama ?? trimmedNik);
       setLocation("/presentation");
     } catch {
       setError("Terjadi kesalahan. Silakan coba lagi.");
@@ -46,30 +46,27 @@ export default function PresentationLoginPage() {
   };
 
   return (
-    <div className="min-h-screen w-full flex font-sans">
+    <div className="min-h-screen w-full flex items-center justify-center bg-gray-50 font-sans px-4">
 
-      {/* ─── Left: Form Panel ──────────────────────────────── */}
-      <div className="relative z-10 flex flex-col justify-center w-full lg:w-[45%] xl:w-[40%] bg-white px-8 sm:px-12 xl:px-16 py-12 shrink-0">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-gray-100 px-8 py-10">
 
         {/* Logo */}
-        <div className="mb-10">
-          <div className="flex items-center gap-3.5">
-            <img
-              src={`${import.meta.env.BASE_URL}logo-tr3.png`}
-              alt="Logo TR3"
-              className="h-14 object-contain"
-            />
-            <div className="leading-tight">
-              <p className="text-lg font-display font-bold text-gray-900 tracking-tight leading-snug">LESA VI · WITEL SURAMADU</p>
-              <p className="text-[11px] font-semibold tracking-[0.15em] text-[#cc0000] uppercase">AM Performance Dashboard</p>
-            </div>
+        <div className="mb-8 flex items-center gap-3.5">
+          <img
+            src={`${import.meta.env.BASE_URL}logo-tr3.png`}
+            alt="Logo TR3"
+            className="h-12 object-contain"
+          />
+          <div className="leading-tight">
+            <p className="text-base font-display font-bold text-gray-900 tracking-tight leading-snug">LESA VI · WITEL SURAMADU</p>
+            <p className="text-[11px] font-semibold tracking-[0.15em] text-[#cc0000] uppercase">AM Performance Dashboard</p>
           </div>
         </div>
 
         {/* Heading */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-display font-bold text-gray-900 mb-1.5">Akses Presentasi</h1>
-          <p className="text-sm text-gray-500">Masukkan NIK Anda untuk mengakses halaman presentasi performa AM.</p>
+        <div className="mb-7">
+          <h1 className="text-2xl font-display font-bold text-gray-900 mb-1.5">Masuk ke Dashboard</h1>
+          <p className="text-sm text-gray-500">Masukkan NIK Anda untuk mengakses dashboard monitoring performa AM Witel Suramadu.</p>
         </div>
 
         {/* Form */}
@@ -108,65 +105,15 @@ export default function PresentationLoginPage() {
             {isLoading ? (
               <><Loader2 className="w-4 h-4 animate-spin" /> Memverifikasi...</>
             ) : (
-              "Masuk ke Presentasi"
+              "Masuk ke Dashboard"
             )}
           </button>
         </form>
 
         {/* Footer */}
-        <p className="mt-12 text-xs text-gray-400 text-center">
+        <p className="mt-8 text-xs text-gray-400 text-center">
           &copy; {new Date().getFullYear()} Telkom Indonesia · TREG 3 Suramadu · LESA VI
         </p>
-      </div>
-
-      {/* ─── Right: Photo Panel ────────────────────────────── */}
-      <div className="hidden lg:flex flex-1 relative overflow-hidden">
-
-        {/* Background Photo */}
-        <img
-          src={`${import.meta.env.BASE_URL}telkom-building.webp`}
-          alt="Gedung Telkom Indonesia"
-          className="absolute inset-0 w-full h-full object-cover object-center"
-        />
-
-        {/* Red overlay */}
-        <div className="absolute inset-0 bg-[#cc0000]/70 mix-blend-multiply" />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/60" />
-
-        {/* Top badge */}
-        <div className="absolute top-8 left-8 right-8 flex items-center justify-between">
-          <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl px-4 py-2">
-            <p className="text-white/90 text-xs font-semibold tracking-widest uppercase">Telkom Indonesia · TREG 3</p>
-          </div>
-        </div>
-
-        {/* Bottom branding text */}
-        <div className="absolute bottom-0 left-0 right-0 p-10">
-          <div className="max-w-lg">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-0.5 bg-[#cc0000]" />
-              <span className="text-white/70 text-xs font-bold uppercase tracking-[0.2em]">Witel Suramadu · LESA VI</span>
-            </div>
-            <h2 className="text-4xl xl:text-5xl font-display font-bold text-white leading-tight mb-3">
-              Pantau Performa.<br />Raih Target.
-            </h2>
-            <p className="text-white/70 text-sm leading-relaxed">
-              Dashboard terpadu untuk monitoring Account Manager — revenue, funneling, activity, dan reminder otomatis via Telegram.
-            </p>
-            <div className="flex items-center gap-6 mt-8">
-              {[
-                { label: "Account Manager", value: "30+" },
-                { label: "Divisi Aktif", value: "4" },
-                { label: "Update Real-time", value: "✓" },
-              ].map(stat => (
-                <div key={stat.label}>
-                  <p className="text-2xl font-display font-bold text-white">{stat.value}</p>
-                  <p className="text-white/60 text-xs mt-0.5">{stat.label}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
       </div>
 
     </div>

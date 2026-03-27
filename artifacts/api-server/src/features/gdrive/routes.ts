@@ -184,56 +184,186 @@ async function getAmSlugMap() {
 }
 
 async function importPerformanceRows(rows: any[], sourceUrl: string, period: string | null, snapshotDateFull: string, fileName: string) {
+  // Deteksi format RAW (per-pelanggan per-bulan) vs pre-aggregated
   const isRawFormat = rows.length > 0 && ("PERIODE" in rows[0] || "NAMA_AM" in rows[0]);
-  const slugMap = await getAmSlugMap();
+
+  type CustomerEntry = {
+    nip: string; pelanggan: string; proporsi: number;
+    group: string; industri: string; lsegmen: string; ssegmen: string;
+    witelCc: string; telda: string; regional: string; divisiCc: string; kawasan: string;
+    Reguler: { target: number; real: number };
+    Sustain: { target: number; real: number };
+    Scaling: { target: number; real: number };
+    NGTMA: { target: number; real: number };
+    targetTotal: number; realTotal: number;
+  };
+  type AmEntry = {
+    nik: string; namaAm: string; divisi: string; witel: string; levelAm: string;
+    tahun: number; bulan: number;
+    target: number; real: number;
+    tReg: number; rReg: number; tSustain: number; rSustain: number;
+    tScaling: number; rScaling: number; tNgtma: number; rNgtma: number;
+    customers: CustomerEntry[];
+  };
 
   let toInsert: any[] = [];
+
   if (isRawFormat) {
-    type Entry = { nik: string; nama: string; targetRev: number; realRev: number; periode: string };
-    const grouped: Record<string, Entry> = {};
-    for (const row of rows) {
-      const nik = String(row["NIK"] || row["NIP"] || "").trim();
-      const nama = String(row["NAMA_AM"] || row["NAMA"] || "").trim();
-      const periodeRaw = String(row["PERIODE"] || "").trim();
-      const target = parseIndonesianNumber(row["TARGET_REVENUE"] ?? row["TARGET"] ?? 0);
-      const real = parseIndonesianNumber(row["REAL_REVENUE"] ?? row["REAL"] ?? 0);
-      if (!nik && !nama) continue;
-      const key = `${nik}|${periodeRaw}`;
-      if (!grouped[key]) grouped[key] = { nik, nama, targetRev: 0, realRev: 0, periode: periodeRaw };
-      grouped[key].targetRev += target;
-      grouped[key].realRev += real;
+    // Format RAW: satu baris per pelanggan per bulan, agregasi per NIK + PERIODE
+    const amMap = new Map<string, AmEntry>();
+
+    for (const r of rows) {
+      const nik = String(r.NIK || r.nik || "").trim();
+      const namaAm = String(r.NAMA_AM || r.nama_am || "").trim();
+      const divisiRaw = String(r.DIVISI_AM || r.divisi || "").trim();
+      const periodeStr = String(r.PERIODE || "").trim();
+      if (!nik || !namaAm || !periodeStr || periodeStr.length < 6) continue;
+      if (divisiRaw.toUpperCase() === "DGS") continue;
+
+      const key = `${nik}__${periodeStr}`;
+
+      const tReg     = parseIndonesianNumber(r.TARGET_REVENUE ?? r.target_revenue);
+      const rReg     = parseIndonesianNumber(r.REAL_REVENUE ?? r.real_revenue);
+      const tSustain = parseIndonesianNumber(r.TARGET_SUSTAIN ?? r.target_sustain ?? 0);
+      const rSustain = parseIndonesianNumber(r.REAL_SUSTAIN ?? r.real_sustain ?? 0);
+      const tScaling = parseIndonesianNumber(r.TARGET_SCALING ?? r.target_scaling ?? 0);
+      const rScaling = parseIndonesianNumber(r.REAL_SCALING ?? r.real_scaling ?? 0);
+      const tNgtma   = parseIndonesianNumber(r.TARGET_NGTMA ?? r.target_ngtma ?? 0);
+      const rNgtma   = parseIndonesianNumber(r.REAL_NGTMA ?? r.real_ngtma ?? 0);
+      const targetTotal = tReg + tSustain + tScaling + tNgtma;
+      const realTotal   = rReg + rSustain + rScaling + rNgtma;
+
+      // Parse tahun/bulan dari PERIODE (e.g. "202603" → tahun=2026, bulan=3)
+      const tahun = parseInt(periodeStr.slice(0, 4), 10);
+      const bulan = parseInt(periodeStr.slice(4, 6), 10);
+
+      const pelanggan = String(r.STANDARD_NAME || r.NAMA_PELANGGAN || r.PELANGGAN || r.pelanggan || r.nama_account || "").trim();
+      const nip = String(r.NIP_NAS || r.nip_nas || r.NIP || "").trim();
+      const proporsi = parseFloat(String(r.PROPORSI ?? r.proporsi ?? 0)) || 0;
+
+      if (!amMap.has(key)) {
+        amMap.set(key, {
+          nik, namaAm, divisi: divisiRaw,
+          witel: String(r.WITEL_AM || r.witel || "SURAMADU").trim(),
+          levelAm: String(r.LEVEL_AM || r.level_am || "").trim(),
+          tahun, bulan,
+          target: 0, real: 0,
+          tReg: 0, rReg: 0, tSustain: 0, rSustain: 0,
+          tScaling: 0, rScaling: 0, tNgtma: 0, rNgtma: 0,
+          customers: [],
+        });
+      }
+      const entry = amMap.get(key)!;
+      entry.target += targetTotal; entry.real += realTotal;
+      entry.tReg += tReg; entry.rReg += rReg;
+      entry.tSustain += tSustain; entry.rSustain += rSustain;
+      entry.tScaling += tScaling; entry.rScaling += rScaling;
+      entry.tNgtma += tNgtma; entry.rNgtma += rNgtma;
+      if (pelanggan || nip) {
+        entry.customers.push({
+          nip, pelanggan, proporsi,
+          group: String(r.GROUP || r.group || "").trim(),
+          industri: String(r.INDUSTRI || r.industri || "").trim(),
+          lsegmen: String(r.LSEGMEN || r.lsegmen || "").trim(),
+          ssegmen: String(r.SSEGMEN || r.ssegmen || "").trim(),
+          witelCc: String(r.WITEL_CC || r.witel_cc || "").trim(),
+          telda: String(r.TELDA || r.telda || "").trim(),
+          regional: String(r.REGIONAL || r.regional || "").trim(),
+          divisiCc: String(r.DIVISI_CC || r.divisi_cc || "").trim(),
+          kawasan: String(r.KAWASAN || r.kawasan || "").trim(),
+          Reguler: { target: tReg, real: rReg },
+          Sustain: { target: tSustain, real: rSustain },
+          Scaling: { target: tScaling, real: rScaling },
+          NGTMA: { target: tNgtma, real: rNgtma },
+          targetTotal, realTotal,
+        });
+      }
     }
-    toInsert = Object.values(grouped).map(e => ({
-      nik: e.nik || null,
-      namaAm: e.nama,
-      amSlug: slugMap[e.nik] || slugify(e.nama),
-      periode: e.periode || period || new Date().toISOString().slice(0, 7),
-      targetRevenue: e.targetRev,
-      realRevenue: e.realRev,
-    }));
+
+    toInsert = [...amMap.values()].map(entry => {
+      const achRate = entry.target > 0 ? entry.real / entry.target : 0;
+      return {
+        nik: entry.nik,
+        namaAm: entry.namaAm,
+        divisi: entry.divisi,
+        witelAm: entry.witel || null,
+        levelAm: entry.levelAm || null,
+        tahun: entry.tahun,
+        bulan: entry.bulan,
+        targetRevenue: entry.target,
+        realRevenue: entry.real,
+        targetReguler: entry.tReg,
+        realReguler: entry.rReg,
+        targetSustain: entry.tSustain,
+        realSustain: entry.rSustain,
+        targetScaling: entry.tScaling,
+        realScaling: entry.rScaling,
+        targetNgtma: entry.tNgtma,
+        realNgtma: entry.rNgtma,
+        achRate, achRateYtd: achRate, rankAch: 0,
+        statusWarna: achRate >= 1 ? "hijau" : achRate >= 0.8 ? "oranye" : "merah",
+        snapshotDate: snapshotDateFull,
+        komponenDetail: entry.customers.length > 0 ? JSON.stringify(entry.customers) : null,
+      };
+    }).filter(r => r.nik && r.namaAm);
   } else {
-    toInsert = rows.map(row => ({
-      nik: String(row["NIK"] || row["NIP"] || "").trim() || null,
-      namaAm: String(row["NAMA"] || row["NAMA_AM"] || "").trim(),
-      amSlug: slugMap[String(row["NIK"] || "").trim()] || slugify(String(row["NAMA"] || row["NAMA_AM"] || "")),
-      periode: period || new Date().toISOString().slice(0, 7),
-      targetRevenue: parseIndonesianNumber(row["TARGET"] ?? row["TARGET_REVENUE"] ?? 0),
-      realRevenue: parseIndonesianNumber(row["REAL"] ?? row["REAL_REVENUE"] ?? 0),
-    })).filter(r => r.namaAm);
+    // Format pre-aggregated: satu baris per AM
+    const [y, m] = (period || new Date().toISOString().slice(0, 7)).split("-").map(Number);
+    toInsert = rows.filter((r: any) => {
+      const div = String(r.DIVISI_AM || r.divisi || "").trim().toUpperCase();
+      return div !== "DGS";
+    }).map((r: any) => {
+      const achRate = parseFloat(String(r["Ach Rate Dinamis MTD"] || r.ach_rate || 0)) || 0;
+      return {
+        nik: String(r.NIK || r.nik || ""),
+        namaAm: String(r.NAMA_AM || r.nama_am || "").trim(),
+        divisi: String(r.DIVISI_AM || r.divisi || "").trim(),
+        witelAm: null, levelAm: null,
+        tahun: y, bulan: m,
+        targetRevenue: parseIndonesianNumber(r["Target Revenue Dinamis"] || r.target_revenue),
+        realRevenue: parseIndonesianNumber(r["Real Revenue Dinamis"] || r.real_revenue),
+        achRate, achRateYtd: achRate, rankAch: 0,
+        statusWarna: String(r["AM Hijau"] === "1" ? "hijau" : r["AM Oranye"] === "1" ? "oranye" : "merah"),
+        snapshotDate: snapshotDateFull,
+      };
+    }).filter((r: any) => r.nik && r.namaAm);
   }
 
+  if (toInsert.length === 0) {
+    return { imported: 0, importId: null, period, message: "Tidak ada baris valid setelah aggregasi" };
+  }
+
+  // Deteksi periode dari baris pertama hasil aggregasi (untuk RAW format)
+  const firstRow = toInsert[0];
+  const resolvedPeriod = period ||
+    (isRawFormat && firstRow.tahun && firstRow.bulan
+      ? `${firstRow.tahun}-${String(firstRow.bulan).padStart(2, "0")}`
+      : new Date().toISOString().slice(0, 7));
+
   const [importRecord] = await db.insert(dataImportsTable).values({
-    type: "performance", sourceUrl, period: period || new Date().toISOString().slice(0, 7),
+    type: "performance", sourceUrl, period: resolvedPeriod,
     rowsImported: toInsert.length, snapshotDate: snapshotDateFull,
   }).returning();
 
-  if (toInsert.length > 0) {
-    for (const row of toInsert) {
-      await db.insert(performanceDataTable).values({ ...row, importId: importRecord.id })
-        .onConflictDoNothing();
-    }
+  const BATCH = 200;
+  for (let i = 0; i < toInsert.length; i += BATCH) {
+    await db.insert(performanceDataTable)
+      .values(toInsert.slice(i, i + BATCH).map(row => ({ ...row, importId: importRecord.id })))
+      .onConflictDoNothing();
   }
-  return { imported: toInsert.length, importId: importRecord.id, period };
+
+  // Auto-populate account_managers dari NIK baru
+  const existing = await db.select({ nik: accountManagersTable.nik }).from(accountManagersTable);
+  const existingNiks = new Set(existing.map((a: any) => a.nik));
+  const newAMs = toInsert.filter(r => !existingNiks.has(r.nik) && r.nik && r.namaAm).map(r => ({
+    nik: r.nik, nama: r.namaAm, slug: slugify(r.namaAm),
+    divisi: r.divisi || "DPS", witel: r.witelAm || "SURAMADU",
+  }));
+  for (let i = 0; i < newAMs.length; i += 50) {
+    await db.insert(accountManagersTable).values(newAMs.slice(i, i + 50)).onConflictDoNothing();
+  }
+
+  return { imported: toInsert.length, importId: importRecord.id, period: resolvedPeriod };
 }
 
 /** Ensure value is a plain string (or null) — guards against Date objects from cellDates:true */

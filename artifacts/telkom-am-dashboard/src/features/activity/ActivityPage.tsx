@@ -381,14 +381,14 @@ function OverviewCard({ icon, label, value, sub, accent }: {
   icon: React.ReactNode; label: string; value: number | string; sub: React.ReactNode; accent: string;
 }) {
   return (
-    <div className="bg-secondary/50 border border-border rounded-xl p-4 flex items-start gap-4 overflow-hidden relative">
-      <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0", accent)}>
+    <div className="bg-white border border-border rounded-xl p-4 flex items-start gap-3 overflow-hidden relative">
+      <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center shrink-0", accent)}>
         {icon}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-1">{label}</div>
-        <div className="text-3xl font-black tabular-nums leading-tight tracking-tight text-foreground">{value}</div>
-        <div className="text-[11px] text-muted-foreground mt-0.5">{sub}</div>
+        <div className="text-sm font-bold text-foreground uppercase tracking-wide mb-1">{label}</div>
+        <div className="text-3xl font-black tabular-nums leading-tight text-foreground">{value}</div>
+        <div className="text-sm font-bold text-foreground mt-1">{sub}</div>
       </div>
     </div>
   );
@@ -626,7 +626,7 @@ function AmRowControlled({ am, kpiLabels, forceExpand }: {
 
 export default function ActivityPage() {
   const now = new Date();
-  const [snapshotId, setSnapshotId] = useState<string>("all");
+  const [snapshotId, setSnapshotId] = useState<string>("");
   const [year, setYear] = useState(String(now.getFullYear()));
   const [month, setMonth] = useState(String(now.getMonth() + 1));
   const [divisi, setDivisi] = useState("all");
@@ -634,6 +634,8 @@ export default function ActivityPage() {
   const [selectedAms, setSelectedAms] = useState<Set<string> | null>(null);
   const [selectedLabels, setSelectedLabels] = useState<Set<string> | null>(null);
   const [expandAll, setExpandAll] = useState<boolean | null>(null);
+  const snapInitialized = useRef(false);
+  const labelsInitialized = useRef(false);
 
   // ─── Snapshots ───────────────────────────────────────────────────────
   const { data: snapshots = [] } = useQuery<ActivitySnapshot[]>({
@@ -642,16 +644,24 @@ export default function ActivityPage() {
     staleTime: 60_000,
   });
 
-  const snapshotOptions = useMemo(() => [
-    { value: "all", label: "Semua import" },
-    ...(Array.isArray(snapshots) ? snapshots : []).map(s => ({ value: String(s.id), label: snapLabel(s) })),
-  ], [snapshots]);
+  const snapshotOptions = useMemo(() =>
+    (Array.isArray(snapshots) ? snapshots : []).map(s => ({ value: String(s.id), label: snapLabel(s) })),
+    [snapshots]
+  );
+
+  // Auto-select snapshot terbaru saat pertama kali data muat
+  useEffect(() => {
+    if (!snapInitialized.current && snapshotOptions.length > 0) {
+      snapInitialized.current = true;
+      setSnapshotId(snapshotOptions[0].value);
+    }
+  }, [snapshotOptions]);
 
   // ─── Activity data ────────────────────────────────────────────────────
   const queryKey = useMemo(() => {
     const p = new URLSearchParams({ year, divisi });
     if (month !== "all") p.set("month", month);
-    if (snapshotId !== "all") p.set("import_id", snapshotId);
+    if (snapshotId) p.set("import_id", snapshotId);
     return `/api/activity?${p}`;
   }, [year, month, divisi, snapshotId]);
 
@@ -659,6 +669,7 @@ export default function ActivityPage() {
     queryKey: [queryKey],
     queryFn: () => apiFetch<ActivityData>(queryKey),
     staleTime: 60_000,
+    enabled: !!snapshotId,
   });
 
   const amOptions = useMemo(() =>
@@ -669,17 +680,34 @@ export default function ActivityPage() {
     [data?.masterAms, divisi]
   );
 
-  const labelOptions = useMemo(() => data?.distinctLabels ?? [], [data?.distinctLabels]);
+  // Kumpulkan semua label dari aktivitas (termasuk "Tanpa Pelanggan")
+  const labelOptions = useMemo(() => {
+    const fromDistinct = data?.distinctLabels ?? [];
+    const fromActivities = Array.from(new Set(
+      (data?.byAm ?? []).flatMap(a => a.activities.map(act => act.label).filter(Boolean) as string[])
+    ));
+    const merged = Array.from(new Set([...fromDistinct, ...fromActivities]));
+    return merged.sort((a, b) => {
+      const aT = a.toLowerCase().includes("tanpa");
+      const bT = b.toLowerCase().includes("tanpa");
+      if (aT && !bT) return 1;
+      if (!aT && bT) return -1;
+      return a.localeCompare(b);
+    });
+  }, [data]);
 
   useEffect(() => {
     if (data && selectedAms === null) setSelectedAms(new Set(amOptions));
   }, [data, amOptions, selectedAms]);
 
+  // Init kategori: hanya KPI (non-tanpa) yang tercentang default
   useEffect(() => {
-    if (data && selectedLabels === null) {
-      setSelectedLabels(new Set(data.distinctLabels ?? []));
+    if (data && !labelsInitialized.current && labelOptions.length > 0) {
+      labelsInitialized.current = true;
+      const kpiOnly = new Set(labelOptions.filter(l => !l.toLowerCase().includes("tanpa")));
+      setSelectedLabels(kpiOnly);
     }
-  }, [data, selectedLabels]);
+  }, [data, labelOptions]);
 
   const filteredAms = useMemo(() => {
     if (!data) return [];
@@ -741,13 +769,13 @@ export default function ActivityPage() {
       <div className="bg-card border border-border rounded-xl shadow-sm p-4">
         <div className="flex items-end gap-3 flex-wrap">
 
-          {/* Snapshot filter — sama dengan Sales Funnel */}
+          {/* Snapshot filter */}
           <SelectDropdown
             label="Snapshot"
             value={snapshotId}
-            onChange={v => { setSnapshotId(v); setSelectedAms(null); }}
-            options={snapshotOptions.length > 1 ? snapshotOptions : [{ value: "all", label: "Semua import" }]}
-            disabled={snapshots.length === 0}
+            onChange={v => { setSnapshotId(v); setSelectedAms(null); labelsInitialized.current = false; setSelectedLabels(null); }}
+            options={snapshotOptions.length > 0 ? snapshotOptions : [{ value: "", label: "Memuat..." }]}
+            disabled={snapshotOptions.length === 0}
             className="w-44 shrink-0"
           />
 

@@ -1076,10 +1076,10 @@ export default function FunnelPage() {
             </button>
           </div>
         </div>
-        {/* overflow-y:clip supaya sticky thead tetap kerja walaupun overflow-x:auto aktif */}
-        <div className="overflow-x-auto" style={{overflowY: "clip"}}>
+        {/* Tabel punya scroll container sendiri — sticky thead bekerja di dalam sini, baris tidak bisa muncul di atas thead */}
+        <div className="overflow-auto" style={{ maxHeight: `calc(100dvh - ${detailToolbarH + 180}px)` }}>
           <table className="w-full text-left text-sm border-collapse" style={{minWidth:"820px"}}>
-            <thead className="sticky z-10" style={{ top: detailToolbarH }}>
+            <thead className="sticky top-0 z-10">
               <tr className="bg-red-700 text-white font-black uppercase tracking-wide text-xs">
                 <th className="px-4 py-3 min-w-[320px]">AM / Fase / Proyek</th>
                 <th className="px-3 py-3 whitespace-nowrap w-28">KATEGORI</th>

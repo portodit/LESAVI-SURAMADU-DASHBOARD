@@ -1294,6 +1294,109 @@ function actFmtDate(d:string|null):{short:string;day:string}{
 // Column grid for ActivitySlide table
 const ACT_GRID_COLS = "32px 1fr 240px 80px 72px 64px 110px";
 
+function ActivityPeriodeDropdown({filterYear,setFilterYear,filterMonths,setFilterMonths}:{
+  filterYear:string; setFilterYear:(y:string)=>void;
+  filterMonths:Set<string>; setFilterMonths:(m:Set<string>)=>void;
+}) {
+  const YEARS = ["2026","2025","2024"];
+  const [open,setOpen] = useState(false);
+  const [pos,setPos] = useState({top:0,left:0});
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const dropRef = useRef<HTMLDivElement>(null);
+  useEffect(()=>{
+    const h=(e:MouseEvent)=>{
+      if(triggerRef.current&&!triggerRef.current.contains(e.target as Node)&&
+         dropRef.current&&!dropRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown",h); return()=>document.removeEventListener("mousedown",h);
+  },[]);
+  const allSelected = filterMonths.size===0;
+  const displayLabel = allSelected
+    ? `${filterYear} (semua bulan)`
+    : filterMonths.size===1
+      ? `${ACT_MONTHS_FULL[parseInt([...filterMonths][0])]} ${filterYear}`
+      : `${filterYear} · ${filterMonths.size} bulan`;
+  const toggleYearCheckbox=(y:string)=>{
+    if(y!==filterYear){setFilterYear(y);setFilterMonths(new Set());return;}
+    if(allSelected) setFilterMonths(new Set([String(new Date().getMonth()+1)]));
+    else setFilterMonths(new Set());
+  };
+  const toggleMonth=(m:string)=>{
+    if(allSelected){setFilterMonths(new Set([m]));return;}
+    const n=new Set(filterMonths);
+    if(n.has(m)) n.delete(m); else n.add(m);
+    if(n.size===0||n.size===12) setFilterMonths(new Set());
+    else setFilterMonths(n);
+  };
+  const toggleOpen=()=>{
+    if(triggerRef.current){const r=triggerRef.current.getBoundingClientRect();setPos({top:r.bottom+4,left:r.left});}
+    setOpen(o=>!o);
+  };
+  return (
+    <div className="flex flex-col gap-1 shrink-0 w-44" ref={triggerRef}>
+      <label className="text-xs font-display font-bold text-foreground uppercase tracking-wide">Periode</label>
+      <button type="button" onClick={toggleOpen}
+        className={cn("h-9 px-3 bg-secondary/50 border border-border rounded-lg text-sm flex items-center gap-1.5 w-full transition-colors text-left",open&&"border-primary/50 ring-2 ring-primary/20")}>
+        <span className="flex-1 truncate font-medium text-foreground">{displayLabel}</span>
+        {!allSelected&&<span className="bg-primary text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none shrink-0">{filterMonths.size}</span>}
+        <ChevronDown className={cn("w-3.5 h-3.5 text-muted-foreground shrink-0 transition-transform",open&&"rotate-180")}/>
+      </button>
+      {open&&createPortal(
+        <div ref={dropRef} style={{position:"fixed",top:pos.top,left:pos.left,zIndex:9999}}
+          className="bg-card border border-border rounded-xl shadow-xl w-52 overflow-hidden">
+          <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-secondary/30">
+            <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">PERIODE</span>
+            <div className="flex gap-1.5">
+              <button onClick={()=>setFilterMonths(new Set())} className="text-[11px] text-primary font-semibold hover:underline">Semua</button>
+              <span className="text-muted-foreground text-[11px]">·</span>
+              <button onClick={()=>{setFilterYear(String(new Date().getFullYear()));setFilterMonths(new Set([String(new Date().getMonth()+1)]));}} className="text-[11px] text-muted-foreground font-semibold hover:underline">Reset</button>
+            </div>
+          </div>
+          <div className="max-h-72 overflow-y-auto py-1">
+            {YEARS.map(y=>{
+              const isActive=y===filterYear;
+              const yearAllSel=isActive&&allSelected;
+              const yearPartial=isActive&&!allSelected;
+              return (
+                <React.Fragment key={y}>
+                  <div className="flex items-center gap-2 px-3 py-2 hover:bg-secondary transition-colors cursor-pointer">
+                    <span onClick={()=>toggleYearCheckbox(y)}
+                      className={cn("w-4 h-4 rounded border shrink-0 flex items-center justify-center",
+                        yearAllSel?"bg-primary border-primary":yearPartial?"border-primary bg-primary/10":"border-border")}>
+                      {yearAllSel&&<span className="text-white text-[9px] font-black">✓</span>}
+                      {yearPartial&&<span className="text-primary text-[9px] font-black leading-none">–</span>}
+                    </span>
+                    <span className={cn("flex-1 text-sm font-semibold",isActive?"text-primary":"text-foreground")}
+                      onClick={()=>{if(!isActive){setFilterYear(y);setFilterMonths(new Set());}else toggleYearCheckbox(y);}}>
+                      {y}
+                    </span>
+                  </div>
+                  {isActive&&ACT_MONTHS_FULL.slice(1).map((mName,idx)=>{
+                    const mNum=String(idx+1);
+                    const checked=!allSelected&&filterMonths.has(mNum);
+                    return (
+                      <button key={mNum} onClick={()=>toggleMonth(mNum)}
+                        className={cn("w-full text-left pl-9 pr-3 py-1.5 text-sm hover:bg-secondary flex items-center gap-2 transition-colors",
+                          checked?"font-medium text-primary bg-primary/5":"text-foreground")}>
+                        <span className={cn("w-3.5 h-3.5 rounded border shrink-0 flex items-center justify-center",
+                          checked?"bg-primary border-primary":"border-border")}>
+                          {checked&&<span className="text-white text-[8px] font-black">✓</span>}
+                        </span>
+                        {mName}
+                      </button>
+                    );
+                  })}
+                </React.Fragment>
+              );
+            })}
+          </div>
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+}
+
 function ActivitySlide() {
   const now = new Date();
   const [filterYear,  setFilterYear]  = useState(String(now.getFullYear()));
@@ -1346,47 +1449,6 @@ function ActivitySlide() {
     }),
   ],[actSnaps]);
 
-  // ─── Period Components ─────────────────────────────────────────────────
-  const [yearOpen, setYearOpen] = useState(false);
-  const [yearPos, setYearPos] = useState({top:0,left:0,minW:0});
-  const yearTriggerRef = useRef<HTMLDivElement>(null);
-  const yearDropRef = useRef<HTMLDivElement>(null);
-  useEffect(()=>{
-    const h=(e:MouseEvent)=>{
-      if(yearTriggerRef.current&&!yearTriggerRef.current.contains(e.target as Node)&&
-         yearDropRef.current&&!yearDropRef.current.contains(e.target as Node)) setYearOpen(false);
-    };
-    document.addEventListener("mousedown",h);
-    return()=>document.removeEventListener("mousedown",h);
-  },[]);
-
-  const YearDropdown = (
-    <div ref={yearTriggerRef} className="flex flex-col gap-1 shrink-0">
-      <label className="text-xs font-display font-bold text-foreground uppercase tracking-wide">Tahun</label>
-      <button type="button" onClick={()=>{
-        if(yearTriggerRef.current){const r=yearTriggerRef.current.getBoundingClientRect();setYearPos({top:r.bottom+4,left:r.left,minW:r.width});}
-        setYearOpen(o=>!o);
-      }} className={cn("h-9 px-3 bg-secondary/50 border border-border rounded-lg text-sm flex items-center gap-1.5 w-full transition-colors text-left",yearOpen&&"border-primary/50 ring-2 ring-primary/20")}>
-        <span className="flex-1 truncate font-medium text-foreground">{filterYear}</span>
-        <ChevronDown className={cn("w-3.5 h-3.5 text-muted-foreground shrink-0 transition-transform",yearOpen&&"rotate-180")}/>
-      </button>
-      {yearOpen&&createPortal(
-        <div ref={yearDropRef} style={{position:"fixed",top:yearPos.top,left:yearPos.left,minWidth:yearPos.minW,zIndex:9999}}
-          className="bg-card border border-border rounded-xl shadow-xl py-1">
-          {["2026","2025","2024"].map(y=>(
-            <button key={y} onClick={()=>{setFilterYear(y);setYearOpen(false);}}
-              className={cn("w-full text-left px-3 py-2 text-sm hover:bg-secondary transition-colors flex items-center gap-2",
-                filterYear===y?"font-semibold text-primary bg-primary/5":"text-foreground")}>
-              {filterYear===y&&<span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0"/>}
-              {filterYear!==y&&<span className="w-1.5 shrink-0"/>}
-              {y}
-            </button>
-          ))}
-        </div>,document.body
-      )}
-    </div>
-  );
-
   // ─── Query ──────────────────────────────────────────────────────────────
   const queryUrl = useMemo(()=>{
     const p=new URLSearchParams({year:filterYear,divisi:filterDivisi});
@@ -1430,7 +1492,6 @@ function ActivitySlide() {
     return `${months.map(m=>ACT_MONTHS_SHORT[parseInt(m)]).join(", ")} ${filterYear}`;
   },[filterMonths,filterYear]);
 
-  const allMonthNums = useMemo(()=>ACT_MONTHS_SHORT.slice(1).map((_,i)=>String(i+1)),[]);
   const allLabels = useMemo(()=>data?.distinctLabels||[],[data]);
 
   // ─── Filter bar ─────────────────────────────────────────────────────────
@@ -1438,10 +1499,9 @@ function ActivitySlide() {
     <>
       <FSSelectDropdown label="Snapshot" value={filterSnapId} onChange={setFilterSnapId}
         options={snapOptions} className="w-44 shrink-0"/>
-      {YearDropdown}
-      <FSCheckboxDropdown label="Bulan" options={allMonthNums} selected={filterMonths} onChange={setFilterMonths}
-        labelFn={m=>ACT_MONTHS_SHORT[parseInt(m)]} summaryLabel="bulan" className="w-36 shrink-0"
-        placeholder="Semua bulan"/>
+      <ActivityPeriodeDropdown
+        filterYear={filterYear} setFilterYear={setFilterYear}
+        filterMonths={filterMonths} setFilterMonths={setFilterMonths}/>
       <FSCheckboxDropdown label="Kategori Aktivitas" options={allLabels} selected={filterKategori} onChange={setFilterKategori}
         summaryLabel="kategori" className="w-44 shrink-0" placeholder="Semua"/>
       <FSSelectDropdown label="Divisi" value={filterDivisi} onChange={setFilterDivisi}

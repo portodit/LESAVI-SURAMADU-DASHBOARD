@@ -784,6 +784,18 @@ export default function FunnelPage() {
     setExpandedAm({}); setExpandedPhase({}); setAllExpanded(false);
   }, [groupedByAm, importId]);
 
+  // Ukur tinggi toolbar detail secara dinamis agar sticky thead pas di bawahnya
+  const detailToolbarRef = useRef<HTMLDivElement>(null);
+  const [detailToolbarH, setDetailToolbarH] = useState(80);
+  useEffect(() => {
+    const el = detailToolbarRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setDetailToolbarH(el.offsetHeight));
+    ro.observe(el);
+    setDetailToolbarH(el.offsetHeight);
+    return () => ro.disconnect();
+  }, []);
+
   function toggleAmRow(key: string) {
     setExpandedAm(p => ({ ...p, [key]: !p[key] }));
   }
@@ -1036,7 +1048,7 @@ export default function FunnelPage() {
       {/* Detail Table — hanya di "all" mode */}
       {viewMode !== "split" && <div className="bg-card border border-border rounded-xl shadow-sm">
         {/* Sticky toolbar — tanpa rounded agar mulus saat floating */}
-        <div className="sticky top-0 z-20 bg-card/95 backdrop-blur-sm px-4 py-3 border-b border-border flex items-center justify-between gap-3 flex-wrap">
+        <div ref={detailToolbarRef} className="sticky top-0 z-20 bg-card/95 backdrop-blur-sm px-4 py-3 border-b border-border flex items-center justify-between gap-3 flex-wrap">
           <h3 className="text-sm font-display font-semibold text-foreground flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-primary" />
             Detail Funnel per AM
@@ -1067,7 +1079,7 @@ export default function FunnelPage() {
         {/* overflow-y:clip supaya sticky thead tetap kerja walaupun overflow-x:auto aktif */}
         <div className="overflow-x-auto" style={{overflowY: "clip"}}>
           <table className="w-full text-left text-sm border-collapse" style={{minWidth:"820px"}}>
-            <thead className="sticky top-[60px] z-10">
+            <thead className="sticky z-10" style={{ top: detailToolbarH }}>
               <tr className="bg-red-700 text-white font-black uppercase tracking-wide text-xs">
                 <th className="px-4 py-3 min-w-[320px]">AM / Fase / Proyek</th>
                 <th className="px-3 py-3 whitespace-nowrap w-28">KATEGORI</th>

@@ -175,8 +175,7 @@ function PeriodeDropdown({ year, month, onYearChange, onMonthChange, className }
   const [pos, setPos] = useState({ top: 0, left: 0 });
   const triggerRef = useRef<HTMLDivElement>(null);
   const dropRef = useRef<HTMLDivElement>(null);
-
-  const years = ["2026", "2025", "2024"];
+  const YEARS = ["2026", "2025", "2024"];
 
   useEffect(() => {
     const h = (e: MouseEvent) => {
@@ -197,66 +196,71 @@ function PeriodeDropdown({ year, month, onYearChange, onMonthChange, className }
 
   const displayText = month === "all"
     ? `${year} (semua bulan)`
-    : `${MONTHS_SHORT[parseInt(month)]} ${year}`;
+    : `${MONTHS_FULL[parseInt(month)]} ${year}`;
+
+  const handleYearClick = (y: string) => {
+    if (y !== year) { onYearChange(y); onMonthChange("all"); }
+    else { onMonthChange(month === "all" ? String(new Date().getMonth() + 1) : "all"); }
+  };
 
   return (
     <div className={cn("flex flex-col gap-1", className)} ref={triggerRef}>
       <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Periode</label>
-      <button
-        type="button" onClick={toggle}
-        className={cn(
-          "h-9 px-3 bg-secondary/50 border border-border rounded-lg text-sm flex items-center gap-1.5 w-full transition-colors text-left min-w-[180px]",
-          open && "border-primary/50 ring-2 ring-primary/20"
-        )}
-      >
+      <button type="button" onClick={toggle}
+        className={cn("h-9 px-3 bg-secondary/50 border border-border rounded-lg text-sm flex items-center gap-1.5 w-full transition-colors text-left min-w-[180px]",
+          open && "border-primary/50 ring-2 ring-primary/20")}>
         <span className="flex-1 truncate font-medium text-foreground">{displayText}</span>
         <ChevronDown className={cn("w-3.5 h-3.5 text-muted-foreground shrink-0 transition-transform", open && "rotate-180")} />
       </button>
       {open && createPortal(
         <div ref={dropRef} style={{ position: "fixed", top: pos.top, left: pos.left, zIndex: 9999 }}
-          className="bg-card border border-border rounded-xl shadow-xl w-[240px] overflow-hidden">
-
-          {/* Header */}
+          className="bg-card border border-border rounded-xl shadow-xl w-52 overflow-hidden">
           <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-secondary/30">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Periode</span>
-            <button onClick={() => { onMonthChange("all"); setOpen(false); }}
-              className="text-[11px] text-primary font-bold hover:underline">Semua · Reset</button>
-          </div>
-
-          {/* Year row */}
-          <div className="flex items-center gap-1.5 px-3 py-2 border-b border-border/50">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide flex-1">Tahun</span>
-            <div className="flex gap-1">
-              {years.map(y => (
-                <button key={y} onClick={() => onYearChange(y)}
-                  className={cn(
-                    "px-2 py-0.5 rounded text-xs font-bold transition-colors",
-                    year === y ? "bg-primary text-white" : "bg-secondary text-muted-foreground hover:text-foreground"
-                  )}>{y}</button>
-              ))}
+            <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">PERIODE</span>
+            <div className="flex gap-1.5">
+              <button onClick={() => { onMonthChange("all"); }} className="text-[11px] text-primary font-semibold hover:underline">Semua</button>
+              <span className="text-muted-foreground text-[11px]">·</span>
+              <button onClick={() => { onYearChange(String(new Date().getFullYear())); onMonthChange(String(new Date().getMonth()+1)); setOpen(false); }}
+                className="text-[11px] text-muted-foreground font-semibold hover:underline">Reset</button>
             </div>
           </div>
-
-          {/* Month checkboxes (single select) */}
-          <div className="px-3 pt-2 pb-3">
-            <div className="grid grid-cols-3 gap-1">
-              {MONTHS_SHORT.slice(1).map((m, i) => {
-                const val = String(i + 1);
-                const isSelected = month === val;
-                return (
-                  <button key={val}
-                    onClick={() => { onMonthChange(val); setOpen(false); }}
-                    className={cn(
-                      "py-1.5 px-1.5 rounded-lg text-xs font-semibold transition-colors text-center flex items-center justify-center gap-1",
-                      isSelected ? "bg-primary text-white" : "hover:bg-secondary text-foreground"
-                    )}
-                  >
-                    {isSelected && <span className="w-2 h-2 rounded-sm bg-white/80 shrink-0 flex items-center justify-center"><span className="text-primary text-[8px] font-black">✓</span></span>}
-                    {m}
-                  </button>
-                );
-              })}
-            </div>
+          <div className="max-h-72 overflow-y-auto py-1">
+            {YEARS.map(y => {
+              const isActive = y === year;
+              const yearAllSel = isActive && month === "all";
+              const yearPartial = isActive && month !== "all";
+              return (
+                <React.Fragment key={y}>
+                  <div className="flex items-center gap-2 px-3 py-2 hover:bg-secondary transition-colors cursor-pointer">
+                    <span onClick={() => handleYearClick(y)}
+                      className={cn("w-4 h-4 rounded border shrink-0 flex items-center justify-center",
+                        yearAllSel ? "bg-primary border-primary" : yearPartial ? "border-primary bg-primary/10" : "border-border")}>
+                      {yearAllSel && <span className="text-white text-[9px] font-black">✓</span>}
+                      {yearPartial && <span className="text-primary text-[9px] font-black leading-none">–</span>}
+                    </span>
+                    <span className={cn("flex-1 text-sm font-semibold", isActive ? "text-primary" : "text-foreground")}
+                      onClick={() => { if (!isActive) { onYearChange(y); onMonthChange("all"); } else handleYearClick(y); }}>
+                      {y}
+                    </span>
+                  </div>
+                  {isActive && MONTHS_FULL.slice(1).map((mName, idx) => {
+                    const mNum = String(idx + 1);
+                    const checked = month === mNum;
+                    return (
+                      <button key={mNum} onClick={() => { onMonthChange(mNum); setOpen(false); }}
+                        className={cn("w-full text-left pl-9 pr-3 py-1.5 text-sm hover:bg-secondary flex items-center gap-2 transition-colors",
+                          checked ? "font-medium text-primary bg-primary/5" : "text-foreground")}>
+                        <span className={cn("w-3.5 h-3.5 rounded border shrink-0 flex items-center justify-center",
+                          checked ? "bg-primary border-primary" : "border-border")}>
+                          {checked && <span className="text-white text-[8px] font-black">✓</span>}
+                        </span>
+                        {mName}
+                      </button>
+                    );
+                  })}
+                </React.Fragment>
+              );
+            })}
           </div>
         </div>,
         document.body

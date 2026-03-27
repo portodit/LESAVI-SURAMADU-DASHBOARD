@@ -1539,7 +1539,7 @@ function ActivitySlide() {
       ) : (
         <>
           {/* ─── Overview Cards ─── */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {/* Card 1: Total KPI */}
             <div className="bg-white border border-border rounded-xl p-4 flex items-start gap-3">
               <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0 bg-primary/10 text-primary">🎯</div>
@@ -1547,8 +1547,8 @@ function ActivitySlide() {
                 <div className="text-sm font-bold text-foreground uppercase tracking-wide mb-1">Total Aktivitas KPI</div>
                 <div className="flex items-center gap-3 flex-wrap">
                   <div className="text-3xl font-black tabular-nums leading-tight text-foreground">{stats.totalKpi}</div>
-                  <span className="text-sm font-bold text-foreground/70 leading-tight">
-                    {stats.totalDgPelanggan} dg pelanggan · {stats.totalDgProyek} dg proyek
+                  <span className="text-sm font-bold text-foreground/70 leading-snug">
+                    {stats.totalDgPelanggan} dg pelanggan<br className="sm:hidden"/>{" · "}{stats.totalDgProyek} dg proyek
                   </span>
                 </div>
                 <div className="text-sm font-semibold text-foreground mt-1">dari <strong>{amList.length}</strong> AM · {periodLabel}</div>

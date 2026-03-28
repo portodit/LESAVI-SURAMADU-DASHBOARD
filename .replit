@@ -65,3 +65,8 @@ timeoutMs = 20000
 
 [nix]
 channel = "stable-25_05"
+
+[userenv]
+
+[userenv.shared]
+GOOGLE_API_KEY = "AIzaSyBHMj9LSM_4CbtY2zs9U9AHJtHL0_36jNQ"

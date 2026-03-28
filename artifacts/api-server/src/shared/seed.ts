@@ -1,6 +1,14 @@
 import { db, accountManagersTable, appSettingsTable, salesFunnelTargetTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
+// Default Google Drive folder IDs (TREG3 Suramadu production folders)
+const DEFAULT_GDRIVE_FOLDERS = {
+  gDriveFolderPerformance: "1qt32nVLMT6Xd3HRXHIZvW4PPN3osuOjX",
+  gDriveFolderFunnel:      "1BX1uNVRo7EtqmFdvVQxgtACh21M0-4BT",
+  gDriveFolderActivity:    "1sFgsmn016jDQGrIXaRuygj_CTgKKGP16",
+  gDriveFolderTarget:      "1O082T_jUbeY5hoaDMJtF-cwH3HfOJDee",
+};
+
 const DEFAULT_AMS = [
   { nik: "401431", nama: "NYARI KUSUMANINGRUM",                     slug: "nyari-kusumaningrum",                      tipe: "LESA", divisi: "DPS", witel: "SURAMADU", kpiActivity: 30, aktif: true, crossWitel: true },
   { nik: "402478", nama: "ANA RUKMANA",                              slug: "ana-rukmana",                              tipe: "LESA", divisi: "DPS", witel: "SURAMADU", kpiActivity: 30, aktif: true, crossWitel: false },
@@ -47,8 +55,11 @@ export async function ensureDefaultSeed(): Promise<void> {
     await db.insert(accountManagersTable).values(DEFAULT_MANAGER as any);
   }
 
-  const existingSettings = await db.select({ id: appSettingsTable.id }).from(appSettingsTable).limit(1);
+  const googleApiKey = process.env.GOOGLE_API_KEY || null;
+
+  const existingSettings = await db.select({ id: appSettingsTable.id, gSheetsApiKey: appSettingsTable.gSheetsApiKey }).from(appSettingsTable).limit(1);
   if (existingSettings.length === 0) {
+    // Fresh install: seed everything including API key and Drive folders
     await db.insert(appSettingsTable).values({
       autoSendOnImport: true,
       kpiActivityDefault: 30,
@@ -56,7 +67,33 @@ export async function ensureDefaultSeed(): Promise<void> {
       gSheetsSyncEnabled: false,
       gSheetsSyncHourWib: 5,
       gSheetsSyncIntervalDays: 1,
+      gSheetsApiKey: googleApiKey,
+      ...DEFAULT_GDRIVE_FOLDERS,
+      gDriveSyncEnabled: false,
+      gDriveSyncHourWib: 7,
+      gDriveSyncIntervalDays: 1,
     });
+  } else {
+    // Settings already exist — patch missing fields from env/defaults without overwriting user data
+    const current = existingSettings[0];
+    const patches: Record<string, any> = {};
+
+    // Apply Google API key from env if DB is still empty
+    if (!current.gSheetsApiKey && googleApiKey) {
+      patches.gSheetsApiKey = googleApiKey;
+    }
+
+    // Apply default Drive folder IDs if missing (patch only, don't overwrite)
+    const existingFull = await db.select().from(appSettingsTable).limit(1);
+    const s = existingFull[0] as any;
+    if (!s.gDriveFolderPerformance) patches.gDriveFolderPerformance = DEFAULT_GDRIVE_FOLDERS.gDriveFolderPerformance;
+    if (!s.gDriveFolderFunnel)      patches.gDriveFolderFunnel      = DEFAULT_GDRIVE_FOLDERS.gDriveFolderFunnel;
+    if (!s.gDriveFolderActivity)    patches.gDriveFolderActivity    = DEFAULT_GDRIVE_FOLDERS.gDriveFolderActivity;
+    if (!s.gDriveFolderTarget)      patches.gDriveFolderTarget      = DEFAULT_GDRIVE_FOLDERS.gDriveFolderTarget;
+
+    if (Object.keys(patches).length > 0) {
+      await db.update(appSettingsTable).set(patches).where(eq(appSettingsTable.id, current.id));
+    }
   }
 
   const existingTargets = await db.select({ id: salesFunnelTargetTable.id }).from(salesFunnelTargetTable).limit(1);

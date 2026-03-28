@@ -62,7 +62,7 @@ function ProtectedApp() {
         <Route path="/visualisasi/performa" component={PerformaVis} />
         <Route path="/visualisasi/funnel" component={FunnelVis} />
         <Route path="/visualisasi/activity" component={ActivityVis} />
-        <Route path="/am" component={ManajemenAmPage} />
+        <Route path="/manajemen-akun" component={ManajemenAmPage} />
         <Route path="/corporate-customers" component={CorporateCustomerPage} />
         <Route path="/telegram" component={TelegramBot} />
         <Route path="/pengaturan" component={PengaturanPage} />

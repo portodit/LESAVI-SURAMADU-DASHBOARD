@@ -88,7 +88,7 @@ const NAV_ITEMS = [
       { href: "/visualisasi/activity", label: "Sales Activity", icon: Activity, pageTitle: "AM Sales Activity Report · LESA VI Witel Suramadu" },
     ]
   },
-  { href: "/am", label: "Manajemen Akun", icon: Users },
+  { href: "/manajemen-akun", label: "Manajemen Akun", icon: Users },
   { href: "/corporate-customers", label: "Corporate Customer", icon: Building2 },
   { href: "/telegram", label: "Kirim Telegram", icon: MessageSquare },
   { href: "/pengaturan", label: "Pengaturan", icon: Settings },

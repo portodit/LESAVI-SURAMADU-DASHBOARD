@@ -39,7 +39,7 @@ export default function Login() {
       {/* ── Background image (always present, behind everything) ── */}
       <div className="absolute inset-0 z-0">
         <img
-          src={`${import.meta.env.BASE_URL}login-bg-new.png`}
+          src={`${import.meta.env.BASE_URL}login-bg.jpg`}
           alt=""
           className="h-full w-full object-cover"
           style={{ objectPosition: "65% 50%" }}

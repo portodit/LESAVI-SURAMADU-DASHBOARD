@@ -82,9 +82,11 @@ router.post("/import/performance", requireAuth, async (req, res): Promise<void> 
       const divisiRaw = String(r.DIVISI_AM || r.divisi || "").trim();
       const periodeStr = String(r.PERIODE || "").trim(); // "202601"
       if (!nik || !namaAm || !periodeStr || periodeStr.length < 6) continue;
-      if (divisiRaw.toUpperCase() === "DGS") continue; // Skip DGS rows
+      if (!divisiRaw) continue; // skip rows dengan divisi kosong
 
-      const key = `${nik}__${periodeStr}`;
+      // Key menyertakan divisi agar AM yang handle >1 divisi (DPS+DSS, DGS+DSS, dll)
+      // disimpan sebagai rekord terpisah — bukan digabung jadi satu
+      const key = `${nik}__${periodeStr}__${divisiRaw.toUpperCase()}`;
 
       // Revenue per tipe
       const tReg = parseIndonesianNumber(r.TARGET_REVENUE ?? r.target_revenue);
@@ -181,8 +183,10 @@ router.post("/import/performance", requireAuth, async (req, res): Promise<void> 
     const [y, m] = importPeriodOrig.split("-").map(Number);
 
     toInsert = rows.filter((r: any) => {
-      const div = String(r.DIVISI_AM || r.divisi || "").trim().toUpperCase();
-      return div !== "DGS";
+      // Simpan semua divisi (DPS, DSS, DGS, dll) — jangan skip apapun
+      // AM bisa handle >1 divisi sekaligus
+      const div = String(r.DIVISI_AM || r.divisi || "").trim();
+      return div !== ""; // hanya skip baris tanpa divisi
     }).map((r: any) => ({
       nik: String(r.NIK || r.nik || ""),
       namaAm: String(r.NAMA_AM || r.nama_am || r.STANDARD_NAME || "").trim(),

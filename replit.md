@@ -22,6 +22,13 @@ ANA RUKMANA (402478), CAESAR RIO ANGGINA TORUAN (405690), ERVINA HANDAYANI (9200
 - **Idempotent**: upsert by NIK — aman dijalankan berulang kali
 - Seeds both `master_am` and `account_managers` tables with 13 active AMs
 
+## Multi-Divisi AM Support
+Import performa, funnel, dan activity sekarang mendukung AM yang handle >1 divisi sekaligus:
+- **Performa RAW format**: key aggregasi diubah dari `nik__periode` → `nik__periode__divisi`, sehingga DPS dan DSS (atau DGS) disimpan sebagai rekord terpisah di `performance_data`.
+- **Performa original format**: filter DGS dihapus — semua divisi valid (DPS, DSS, DGS) disimpan.
+- **Funnel**: filter divisi diubah dari `DPS/DSS saja` → `DPS/DSS/DGS`.
+- **Activity**: filter divisi diubah dari `DPS/DSS saja` → `DPS/DSS/DGS`.
+
 ## GSheets Funnel Import Cleaning Rules (exact Power BI Power Query match)
 GSheets `1czGSp` = 76,808 rows nationwide SIMLOP+SIGMA dump. Source mirrors local Excel "Sales_Funnel_Suramadu" that Power BI reads.
 Power Query steps (from .pbix):

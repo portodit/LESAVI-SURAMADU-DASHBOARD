@@ -47,3 +47,6 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Seed build output
+artifacts/api-server/dist-seeds/

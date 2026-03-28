@@ -7,7 +7,15 @@
     "dev": "export NODE_ENV=development && pnpm run build && pnpm run start",
     "build": "node ./build.mjs",
     "start": "node --max-old-space-size=1024 ./dist/index.mjs",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "seed:build": "node ./build-seeds.mjs",
+    "seed": "pnpm run seed:build && node ./dist-seeds/index.mjs",
+    "seed:truncate": "pnpm run seed:build && node ./dist-seeds/index.mjs --truncate",
+    "seed:accounts": "pnpm run seed:build && node ./dist-seeds/index.mjs accounts",
+    "seed:funnel-targets": "pnpm run seed:build && node ./dist-seeds/index.mjs funnel-targets",
+    "seed:performance": "pnpm run seed:build && node ./dist-seeds/index.mjs performance",
+    "seed:activity": "pnpm run seed:build && node ./dist-seeds/index.mjs activity",
+    "seed:funnel": "pnpm run seed:build && node ./dist-seeds/index.mjs funnel"
   },
   "dependencies": {
     "@google/genai": "^1.46.0",

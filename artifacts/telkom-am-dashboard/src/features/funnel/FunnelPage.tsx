@@ -1135,7 +1135,9 @@ export default function FunnelPage() {
           </div>
         </div>
         {/* Tabel punya scroll container sendiri — sticky thead bekerja di dalam sini, baris tidak bisa muncul di atas thead */}
-        <div className="overflow-auto" style={{ maxHeight: `calc(100dvh - ${detailToolbarH + 180}px)` }}>
+        <div className="p-3">
+          <div className="border border-border overflow-hidden">
+          <div className="overflow-auto" style={{ maxHeight: `calc(100dvh - ${detailToolbarH + 180}px)` }}>
           <table className="w-full text-left text-sm border-collapse" style={{minWidth:"820px"}}>
             <thead className="sticky top-0 z-10">
               <tr className="bg-red-700 text-white font-black uppercase tracking-wide text-xs">
@@ -1150,6 +1152,8 @@ export default function FunnelPage() {
               {renderAmTbodyContent(groupedByAm, search || hasActiveFilter || hasDetailFilter ? "Tidak ada data yang cocok dengan filter" : "Belum ada data funnel")}
             </tbody>
           </table>
+          </div>
+          </div>
         </div>
       </div>}
 
@@ -1228,6 +1232,8 @@ export default function FunnelPage() {
                   </div>
                 </div>
                 {/* AM Tree Table — overflow-x luar, overflow-y dalam */}
+                <div className="p-3">
+                <div className="border border-border overflow-hidden">
                 <div className="overflow-x-auto">
                   <div className="overflow-y-auto" style={{ maxHeight: "clamp(220px, 46vh, 540px)" }}>
                     <table className="w-full text-left text-sm border-collapse" style={{ minWidth: "600px" }}>
@@ -1245,6 +1251,8 @@ export default function FunnelPage() {
                       </tbody>
                     </table>
                   </div>
+                </div>
+                </div>
                 </div>
               </div>
             );

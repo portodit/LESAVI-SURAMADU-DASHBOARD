@@ -865,7 +865,7 @@ export default function ActivityPage() {
       </div>
 
       {/* ─── Table Section ─── */}
-      <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
+      <div className="bg-card border border-border rounded-xl shadow-sm">
 
         {/* Table toolbar */}
         <div className="px-4 py-3 border-b border-border bg-secondary/20 flex items-center gap-3 flex-wrap">
@@ -898,6 +898,10 @@ export default function ActivityPage() {
             </button>
           </div>
         </div>
+
+        {/* Table inner wrapper */}
+        <div className="p-3">
+        <div className="border border-border overflow-hidden">
 
         {/* Table header */}
         <div
@@ -954,6 +958,8 @@ export default function ActivityPage() {
             />
           ))
         )}
+        </div>
+        </div>
       </div>
     </div>
   );

@@ -772,19 +772,19 @@ export default function PerformaVis() {
                 </div>
               </div>
               <div className="p-3">
-                <div className="border border-border rounded-lg overflow-visible">
+                <div className="border border-border overflow-visible">
                 <div className="[overflow-x:clip]">
                 <table className="w-full text-left text-xs">
                   <thead>
                     <tr className="bg-red-700 text-white font-black uppercase tracking-wide text-xs">
-                      <th className="px-4 py-2.5 w-6 rounded-tl-lg"></th>
+                      <th className="px-4 py-2.5 w-6"></th>
                       <th className="px-4 py-2.5">Nama AM</th>
                       <th className={cn("px-4 py-2.5 text-right", filterTipeRank === "Real Revenue" && "underline underline-offset-2")}>Target {filterTipeRevenue}</th>
                       <th className={cn("px-4 py-2.5 text-right", filterTipeRank === "Real Revenue" && "underline underline-offset-2")}>Real {filterTipeRevenue}</th>
                       <th className={cn("px-3 py-2.5 text-right", filterTipeRank === "Ach CM" && "underline underline-offset-2")}>CM %</th>
                       <th className={cn("px-3 py-2.5 text-right", filterTipeRank === "Ach YTD" && "underline underline-offset-2")}>YTD %</th>
                       <th className="px-3 py-2.5 text-center">Customer</th>
-                      <th className="px-3 py-2.5 text-center rounded-tr-lg underline underline-offset-2">
+                      <th className="px-3 py-2.5 text-center underline underline-offset-2">
                         {filterTipeRank === "Ach CM" ? "RANK CM" : filterTipeRank === "Ach YTD" ? "RANK YTD" : "RANK REV"}
                       </th>
                     </tr>

@@ -656,7 +656,7 @@ export default function ManajemenAmPage() {
       </div>
 
       {/* Table Card */}
-      <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
+      <div className="bg-card border border-border rounded-xl shadow-sm">
 
         {/* Filter Bar */}
         <div className="px-4 py-3 border-b border-border bg-secondary/20 flex items-center gap-3 flex-wrap">
@@ -724,10 +724,12 @@ export default function ManajemenAmPage() {
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto">
+        <div className="p-3">
+          <div className="border border-border overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-left text-sm border-collapse">
             <thead>
-              <tr className="bg-primary text-primary-foreground text-xs font-black uppercase tracking-wide">
+              <tr className="bg-red-700 text-white text-xs font-black uppercase tracking-wide">
                 <th className="px-4 py-3 whitespace-nowrap w-28">NIK</th>
                 <th className="px-4 py-3 min-w-[200px]">Nama</th>
                 <th className="px-4 py-3 w-24">Role</th>
@@ -739,7 +741,7 @@ export default function ManajemenAmPage() {
                 <th className="px-4 py-3 w-32">Aksi</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-border/50">
               {isLoading ? (
                 [...Array(5)].map((_, i) => (
                   <tr key={i} className="border-b border-border/50">
@@ -783,6 +785,8 @@ export default function ManajemenAmPage() {
               ))}
             </tbody>
           </table>
+          </div>
+          </div>
         </div>
       </div>
 

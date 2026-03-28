@@ -48,15 +48,31 @@ export default function PresentationLoginPage() {
   return (
     <div className="relative flex min-h-screen w-full overflow-hidden">
 
-      {/* ── Background image (always present, behind everything) ── */}
-      <div className="absolute inset-0 z-0">
-        <img
-          src={`${import.meta.env.BASE_URL}login-bg.jpg`}
-          alt=""
-          className="h-full w-full object-cover object-center"
-        />
-        <div className="absolute inset-0 bg-[#cc0000]/70 mix-blend-multiply" />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/60" />
+      {/* ── Background: white base + image only on the right panel ── */}
+      <div className="absolute inset-0 z-0 bg-white">
+        {/* Image confined to the right panel so object-center truly centers the building */}
+        <div
+          className="absolute top-0 bottom-0 right-0 hidden lg:block"
+          style={{ left: "42%" }}
+        >
+          <img
+            src={`${import.meta.env.BASE_URL}login-bg.jpg`}
+            alt=""
+            className="h-full w-full object-cover object-center"
+          />
+          <div className="absolute inset-0 bg-[#cc0000]/70 mix-blend-multiply" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/60" />
+        </div>
+        {/* Mobile: full-screen background */}
+        <div className="absolute inset-0 lg:hidden">
+          <img
+            src={`${import.meta.env.BASE_URL}login-bg.jpg`}
+            alt=""
+            className="h-full w-full object-cover object-center"
+          />
+          <div className="absolute inset-0 bg-[#cc0000]/70 mix-blend-multiply" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/60" />
+        </div>
       </div>
 
       {/* ── Form card ── */}

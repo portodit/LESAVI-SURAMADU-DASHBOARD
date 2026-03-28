@@ -6,7 +6,7 @@ import { cn } from "@/shared/lib/utils";
 import {
   LayoutDashboard, Upload, BarChart2, Filter, Activity,
   Users, MessageSquare, Settings, LogOut, ChevronDown,
-  Menu, X, Code2, Copy, Check, ExternalLink
+  Menu, X, Code2, Copy, Check, ExternalLink, Building2
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -89,6 +89,7 @@ const NAV_ITEMS = [
     ]
   },
   { href: "/am", label: "Manajemen Akun", icon: Users },
+  { href: "/corporate-customers", label: "Corporate Customer", icon: Building2 },
   { href: "/telegram", label: "Kirim Telegram", icon: MessageSquare },
   { href: "/pengaturan", label: "Pengaturan", icon: Settings },
 ];

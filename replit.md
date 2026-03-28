@@ -9,7 +9,7 @@ This is a **SharePoint Bot / Telkom AM Dashboard** project — a full-stack dash
 - **account_managers**: Fields: nik, nama, slug, divisi, segmen, witel, jabatan, aktif, crossWitel, telegram*, kpiActivity. 13 AM aktif dengan cross_witel flag.
 - **pending_am_discoveries**: AM baru dari import data yang belum dikonfirmasi. Fields: nik, nama, divisi, witel, source, importId, status (pending/approved/rejected), reviewedBy, reviewedAt. Harus disetujui Officer/Manager sebelum masuk ke account_managers. Corporate customers (master_customer) langsung disimpan tanpa perlu konfirmasi.
 - **app_settings**: `g_sheets_funnel_spreadsheet_id` added (1czGSp = nationwide SIMLOP/SIGMA dump) separate from `g_sheets_spreadsheet_id` (1ojCi6db = activity/performance).
-- **master_customer**: 262 unique corporate customers, auto-populated from funnel imports (no confirmation needed).
+- **master_customer**: 262 unique corporate customers, auto-populated from funnel imports (no confirmation needed). Ditampilkan di halaman `/corporate-customers` dengan aggregasi revenue dari `performance_data.komponenDetail`.
 - **sales_funnel**: 252 LOPs (2026) from GSheets `TREG3_SALES_FUNNEL_20260326`. Filtered by YEAR(report_date) = tahun at query time.
 - **sales_funnel_target**: DPS 2026/3 HO=70.257B Full=97.076B; DSS 2026/3 HO=60.048B Full=73.780B.
 

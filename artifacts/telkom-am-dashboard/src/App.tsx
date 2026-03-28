@@ -21,6 +21,7 @@ import ActivityVis from "@/features/activity/ActivityPage";
 import TelegramBot from "@/features/telegram/TelegramPage";
 import PengaturanPage from "@/features/settings/PengaturanPage";
 import ManajemenAmPage from "@/features/am/ManajemenAmPage";
+import CorporateCustomerPage from "@/features/corporate/CorporateCustomerPage";
 
 function PublicAmPage() {
   return (
@@ -62,6 +63,7 @@ function ProtectedApp() {
         <Route path="/visualisasi/funnel" component={FunnelVis} />
         <Route path="/visualisasi/activity" component={ActivityVis} />
         <Route path="/am" component={ManajemenAmPage} />
+        <Route path="/corporate-customers" component={CorporateCustomerPage} />
         <Route path="/telegram" component={TelegramBot} />
         <Route path="/pengaturan" component={PengaturanPage} />
         <Route path="/">

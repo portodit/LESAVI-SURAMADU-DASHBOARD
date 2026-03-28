@@ -239,7 +239,7 @@ function UserFormDialog({ open, onClose, onSubmit, initial, loading, mode }: {
           {/* Tipe */}
           <FormField label="Tipe">
             <div className="flex gap-2">
-              {[{ v: "LESA", label: "LESA (DPS & DSS)" }, { v: "GOVT", label: "GOVT (DGS)" }].map(opt => (
+              {[{ v: "LESA", label: "LESA" }, { v: "GOVT", label: "GOVT" }].map(opt => (
                 <button
                   key={opt.v} type="button"
                   onClick={() => setForm(f => ({ ...f, tipe: opt.v, divisi: opt.v === "GOVT" ? "DGS" : f.divisi === "DGS" ? "DPS" : f.divisi }))}
@@ -474,7 +474,7 @@ function StatCard({ icon, label, value, sub, color }: {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 type FilterRole = "all" | "AM" | "MANAGER" | "OFFICER";
-type FilterDivisi = "all" | "LESA" | "GOVT" | "DPS" | "DSS" | "DGS";
+type FilterDivisi = "all" | "LESA" | "GOVT" | "DPS" | "DSS";
 
 interface PendingDiscovery {
   id: number;
@@ -610,7 +610,6 @@ export default function ManajemenAmPage() {
     { v: "GOVT", label: "GOVT" },
     { v: "DPS", label: "DPS" },
     { v: "DSS", label: "DSS" },
-    { v: "DGS", label: "DGS" },
     { v: "all", label: "Semua" },
   ];
 
@@ -634,7 +633,7 @@ export default function ManajemenAmPage() {
         <StatCard
           icon={<Users className="w-5 h-5 text-primary" />}
           label="Account Manager" value={amOnly.length}
-          sub={`${dpsCount} DPS · ${dssCount} DSS · ${dgsCount} DGS`}
+          sub={`${dpsCount} DPS · ${dssCount} DSS · ${dgsCount} GOVT`}
           color="bg-primary/10"
         />
         <StatCard

@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import { DIVISI_OPTIONS_WITH_ALL } from "@/shared/lib/divisi";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
@@ -592,7 +593,7 @@ function KontrakBadge({ k }: { k: string | null }) {
 
 export default function FunnelPage() {
   const [importId, setImportId] = useState<number | null>(null);
-  const [filterDivisi, setFilterDivisi] = useState<string>("all");
+  const [filterDivisi, setFilterDivisi] = useState<string>("LESA");
   const [filterStatus, setFilterStatus] = useState<Set<string>>(new Set());
   const [filterKontrak, setFilterKontrak] = useState<Set<string>>(new Set());
   const [filterAm, setFilterAm] = useState<Set<string>>(new Set());
@@ -1019,7 +1020,7 @@ export default function FunnelPage() {
 
           <div className="w-px h-9 bg-border self-end shrink-0" />
           <SelectDropdown label="Divisi" value={filterDivisi} onChange={setFilterDivisi}
-            options={[{ value: "all", label: "Semua Divisi" }, { value: "DPS", label: "DPS" }, { value: "DSS", label: "DSS" }]}
+            options={DIVISI_OPTIONS_WITH_ALL}
             className="w-28 shrink-0" />
           <CheckboxDropdown label="Kategori Kontrak" options={kontrakOptions} selected={filterKontrak} onChange={setFilterKontrak}
             placeholder="Semua kontrak" summaryLabel="kontrak" className="w-36 shrink-0" />

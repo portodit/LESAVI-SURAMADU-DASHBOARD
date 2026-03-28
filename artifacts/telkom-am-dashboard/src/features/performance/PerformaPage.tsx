@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useCallback, useRef, useEffect as useEffectRef } from "react";
+import { matchesDivisi, DIVISI_OPTIONS_WITH_ALL, divisiFilterLabel } from "@/shared/lib/divisi";
 import { useListPerformance, useListImportHistory } from "@workspace/api-client-react";
 import { formatRupiah, formatPercent, getStatusColor, getAchPct, cn } from "@/shared/lib/utils";
 import {
@@ -291,7 +292,7 @@ export default function PerformaVis() {
   // Filter state
   const [filterSnapshotId, setFilterSnapshotId] = useState<number | null>(null);
   const [filterPeriodes, setFilterPeriodes] = useState<Set<string>>(new Set()); // "YYYY-MM"
-  const [filterDivisi, setFilterDivisi] = useState("All");
+  const [filterDivisi, setFilterDivisi] = useState("LESA");
   const [filterNamaAms, setFilterNamaAms] = useState<Set<string>>(new Set());
   const [filterTipeRank, setFilterTipeRank] = useState("Ach CM");
   const [filterTipeRevenue, setFilterTipeRevenue] = useState("Reguler");
@@ -449,9 +450,8 @@ export default function PerformaVis() {
       };
     }).filter(Boolean) as any[];
 
-    // Apply divisi + namaAm filters (always exclude DGS)
-    result = result.filter(r => r.divisi !== "DGS");
-    if (filterDivisi !== "All") result = result.filter(r => r.divisi === filterDivisi);
+    // Apply divisi filter
+    if (filterDivisi !== "all") result = result.filter(r => matchesDivisi(r.divisi, filterDivisi));
     if (filterNamaAms.size > 0) result = result.filter(r => filterNamaAms.has(r.namaAm));
 
     // Sort by filterTipeRank
@@ -511,14 +511,13 @@ export default function PerformaVis() {
   // Trend chart (for CM year)
   const trendData = useMemo(() => {
     if (!allPerfs?.length || !cmYear) return [];
-    const divisiLabel = filterDivisi === "All" ? "Semua Divisi" : filterDivisi;
+    const divisiLabel = divisiFilterLabel(filterDivisi);
     return MONTHS_LABEL.map((month, idx) => {
       const mNum = idx + 1;
       let rows = (allPerfs as any[]).filter(p =>
         String(p.tahun) === cmYear && p.bulan === mNum &&
-        p.divisi !== "DGS" &&
-        (filterSnapshotId === null || p.importId === filterSnapshotId) &&
-        (filterDivisi === "All" || p.divisi === filterDivisi)
+        matchesDivisi(p.divisi, filterDivisi) &&
+        (filterSnapshotId === null || p.importId === filterSnapshotId)
       );
       const target = rows.reduce((s, p) => s + p.targetRevenue, 0);
       const real = rows.reduce((s, p) => s + p.realRevenue, 0);
@@ -534,17 +533,6 @@ export default function PerformaVis() {
     });
   }, [allPerfs, cmYear, filterSnapshotId, filterDivisi]);
 
-  // Divisi options from data (based on CM period)
-  const divisiOptions = useMemo(() => {
-    if (!allPerfs?.length || !cmPeriode) return [];
-    const [y, m] = cmPeriode.split("-").map(Number);
-    return [...new Set(
-      (allPerfs as any[])
-        .filter(p => p.tahun === y && p.bulan === m)
-        .map(p => p.divisi).filter((d: any) => d && d !== "DGS")
-    )].sort() as string[];
-  }, [allPerfs, cmPeriode]);
-
   // AM names based on current filters
   const amNames = useMemo(() => {
     if (!allPerfs?.length || !cmPeriode) return [];
@@ -553,13 +541,10 @@ export default function PerformaVis() {
       (allPerfs as any[])
         .filter(p =>
           p.tahun === y && p.bulan === m &&
-          p.divisi !== "DGS" &&
-          (filterDivisi === "All" || p.divisi === filterDivisi)
+          matchesDivisi(p.divisi, filterDivisi)
         ).map(p => p.namaAm)
     )].sort() as string[];
   }, [allPerfs, cmPeriode, filterDivisi]);
-
-  React.useEffect(() => { if (filterDivisi !== "All" && !divisiOptions.includes(filterDivisi)) setFilterDivisi("All"); }, [divisiOptions]);
   React.useEffect(() => {
     if (filterNamaAms.size > 0) {
       const validNames = new Set(amNames);
@@ -632,8 +617,7 @@ export default function PerformaVis() {
             label="Divisi"
             value={filterDivisi}
             onChange={v => { setFilterDivisi(v); setFilterNamaAms(new Set()); }}
-            options={[{ value: "All", label: "Semua Divisi" }, ...divisiOptions.map(d => ({ value: d, label: d }))]}
-            disabled={!divisiOptions.length}
+            options={DIVISI_OPTIONS_WITH_ALL}
             className="flex-1 min-w-0"
           />
 
@@ -929,7 +913,7 @@ export default function PerformaVis() {
           <div className="bg-card border border-border rounded-xl p-5">
             <h3 className="text-sm font-display font-semibold text-foreground mb-4">
               Tren Performa Revenue Bulanan {cmYear ?? ""}
-              {filterDivisi !== "All" && <span className="ml-2 text-xs text-muted-foreground font-normal">· {filterDivisi}</span>}
+              {filterDivisi !== "all" && <span className="ml-2 text-xs text-muted-foreground font-normal">· {divisiFilterLabel(filterDivisi)}</span>}
             </h3>
             <ResponsiveContainer width="100%" height={240}>
               <ComposedChart data={trendData} margin={{ top: 5, right: 20, left: -10, bottom: 0 }}>

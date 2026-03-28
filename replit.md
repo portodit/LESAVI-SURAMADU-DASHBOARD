@@ -29,6 +29,17 @@ Import performa, funnel, dan activity sekarang mendukung AM yang handle >1 divis
 - **Funnel**: filter divisi diubah dari `DPS/DSS saja` → `DPS/DSS/DGS`.
 - **Activity**: filter divisi diubah dari `DPS/DSS saja` → `DPS/DSS/DGS`.
 
+## Divisi Filter Overhaul (LESA/GOVT)
+Filter divisi di semua halaman kini mendukung grup LESA dan GOVT:
+- **Shared utilities**:
+  - Frontend: `artifacts/telkom-am-dashboard/src/shared/lib/divisi.ts` → `DIVISI_OPTIONS`, `DIVISI_OPTIONS_WITH_ALL`, `DEFAULT_DIVISI="LESA"`, `expandDivisi()`, `matchesDivisi()`, `divisiFilterLabel()`
+  - Backend: `artifacts/api-server/src/shared/divisi.ts` → same exports + backend `matchesDivisi()`
+- **Filter values**: LESA (expands to DPS+DSS), GOVT (expands to DGS), DPS, DSS, DGS, all
+- **Default divisi**: `LESA` di semua halaman (ActivityPage, FunnelPage, PerformaPage, ManajemenAmPage, PresentationPage - ActivitySlide & PerformaSlide)
+- **Dropdown options order**: LESA → GOVT → DPS → DSS → Semua Divisi
+- **Backend routes updated**: activity/routes.ts, activity/publicRoutes.ts, funnel/routes.ts (incl. target filter uses `expandDivisi`), funnel/publicRoutes.ts, performance/routes.ts (uses `inArray` with expanded divisi)
+- **Frontend filter updated**: all client-side divisi filters use `matchesDivisi()` instead of exact match
+
 ## GSheets Funnel Import Cleaning Rules (exact Power BI Power Query match)
 GSheets `1czGSp` = 76,808 rows nationwide SIMLOP+SIGMA dump. Source mirrors local Excel "Sales_Funnel_Suramadu" that Power BI reads.
 Power Query steps (from .pbix):

@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
+import { matchesDivisi, DIVISI_OPTIONS_WITH_ALL, divisiFilterLabel } from "@/shared/lib/divisi";
 import { useQuery } from "@tanstack/react-query";
 import { formatRupiah, formatRupiahFull, formatPercent, getStatusColor, getAchPct, cn } from "@/shared/lib/utils";
 import {
@@ -1409,7 +1410,7 @@ function ActivitySlide() {
   const now = new Date();
   const [filterYear,  setFilterYear]  = useState(String(now.getFullYear()));
   const [filterMonths, setFilterMonths] = useState<Set<string>>(new Set([String(now.getMonth()+1)]));
-  const [filterDivisi, setFilterDivisi] = useState("all");
+  const [filterDivisi, setFilterDivisi] = useState("LESA");
   const [filterSnapId, setFilterSnapId] = useState<string>("all");
   const [filterKategori, setFilterKategori] = useState<Set<string>>(new Set());
   const snapInitialized = useRef(false);
@@ -1432,7 +1433,7 @@ function ActivitySlide() {
     return ()=>clearTimeout(t);
   },[]);
 
-  const divisiOptions = [{value:"all",label:"Semua"},{value:"DPS",label:"DPS"},{value:"DSS",label:"DSS"}];
+  const divisiOptions = DIVISI_OPTIONS_WITH_ALL;
 
   // ─── Snapshots ──────────────────────────────────────────────────────────
   const {data:actSnaps=[]} = useQuery<any[]>({
@@ -1484,7 +1485,7 @@ function ActivitySlide() {
     if(!data) return [];
     const byAmMap=Object.fromEntries((data.byAm||[]).map((a:any)=>[a.fullname,a]));
     return (data.masterAms||[])
-      .filter((m:any)=>filterDivisi==="all"||m.divisi===filterDivisi)
+      .filter((m:any)=>matchesDivisi(m.divisi, filterDivisi))
       .filter((m:any)=>!actSearch||m.nama.toLowerCase().includes(actSearch.toLowerCase()))
       .map((m:any)=>{
         const ex=byAmMap[m.nama];
@@ -1771,7 +1772,7 @@ export default function EmbedPerforma() {
   const [snapshotId, setSnapshotId] = useState<number | null>(null);
   const [allPerfs, setAllPerfs] = useState<any[]>([]);
   const [filterPeriodes, setFilterPeriodes] = useState<Set<string>>(new Set());
-  const [filterDivisi, setFilterDivisi] = useState("All");
+  const [filterDivisi, setFilterDivisi] = useState("LESA");
   const [filterNamaAms, setFilterNamaAms] = useState<Set<string>>(new Set());
   const [filterTipeRank, setFilterTipeRank] = useState("Ach CM");
   const [filterTipeRevenue, setFilterTipeRevenue] = useState("Reguler");
@@ -1847,7 +1848,7 @@ export default function EmbedPerforma() {
           );
         });
         setFilterPeriodes(new Set(psWithData.length > 0 ? psWithData : ps));
-        setFilterDivisi("All");
+        setFilterDivisi("LESA");
         setFilterNamaAms(new Set());
       })
       .catch(() => {})
@@ -1912,8 +1913,7 @@ export default function EmbedPerforma() {
         customers: parseKomponen(cmRow.komponenDetail),
       };
     }).filter(Boolean) as any[];
-    result = result.filter(r => r.divisi !== "DGS");
-    if (filterDivisi !== "All") result = result.filter(r => r.divisi === filterDivisi);
+    if (filterDivisi !== "all") result = result.filter(r => matchesDivisi(r.divisi, filterDivisi));
     if (filterNamaAms.size > 0) result = result.filter(r => filterNamaAms.has(r.namaAm));
     result.sort((a, b) => {
       if (filterTipeRank === "Real Revenue") return b.cmReal - a.cmReal;
@@ -1925,13 +1925,12 @@ export default function EmbedPerforma() {
 
   const divisiOptions = useMemo(() => {
     if (!allPerfs.length || !cmMonth) return [];
-    return [...new Set(allPerfs.filter((p: any) => p.bulan === cmMonth).map((p: any) => p.divisi).filter((d: any) => d && d !== "DGS"))].sort() as string[];
+    return [...new Set(allPerfs.filter((p: any) => p.bulan === cmMonth).map((p: any) => p.divisi).filter(Boolean))].sort() as string[];
   }, [allPerfs, cmMonth]);
 
   const amNames = useMemo(() => {
     if (!allPerfs.length || !cmMonth) return [];
-    let rows = allPerfs.filter((p: any) => p.bulan === cmMonth && p.divisi !== "DGS");
-    if (filterDivisi !== "All") rows = rows.filter(p => p.divisi === filterDivisi);
+    const rows = allPerfs.filter((p: any) => p.bulan === cmMonth && matchesDivisi(p.divisi, filterDivisi));
     return [...new Set(rows.map((p: any) => p.namaAm).filter(Boolean))].sort() as string[];
   }, [allPerfs, cmMonth, filterDivisi]);
 
@@ -1951,13 +1950,12 @@ export default function EmbedPerforma() {
 
   const trendData = useMemo(() => {
     if (!allPerfs.length || !cmYear) return [];
-    const divisiLabel = filterDivisi === "All" ? "Semua Divisi" : filterDivisi;
+    const divisiLabel = divisiFilterLabel(filterDivisi);
     return MONTHS_LABEL.map((month, idx) => {
       const mNum = idx + 1;
       const rows = allPerfs.filter((p: any) =>
         String(p.tahun) === cmYear && p.bulan === mNum &&
-        p.divisi !== "DGS" &&
-        (filterDivisi === "All" || p.divisi === filterDivisi)
+        matchesDivisi(p.divisi, filterDivisi)
       );
       const target = rows.reduce((s, p) => s + (p.targetRevenue ?? 0), 0);
       const real = rows.reduce((s, p) => s + (p.realRevenue ?? 0), 0);
@@ -2075,8 +2073,7 @@ export default function EmbedPerforma() {
                   label="Divisi"
                   value={filterDivisi}
                   onChange={v => { setFilterDivisi(v); setFilterNamaAms(new Set()); }}
-                  options={[{ value: "All", label: "Semua Divisi" }, ...divisiOptions.map(d => ({ value: d, label: d }))]}
-                  disabled={!divisiOptions.length}
+                  options={DIVISI_OPTIONS_WITH_ALL}
                   className="flex-1 min-w-0"
                 />
                 <CheckboxDropdown label="Nama AM" options={amNames} selected={filterNamaAms} onChange={setFilterNamaAms} placeholder="Semua AM" headerLabel="Pilih AM" summaryLabel="AM" className="flex-1 min-w-0" />
@@ -2149,8 +2146,7 @@ export default function EmbedPerforma() {
               label="Divisi"
               value={filterDivisi}
               onChange={v => { setFilterDivisi(v); setFilterNamaAms(new Set()); }}
-              options={[{ value: "All", label: "Semua Divisi" }, ...divisiOptions.map(d => ({ value: d, label: d }))]}
-              disabled={!divisiOptions.length}
+              options={DIVISI_OPTIONS_WITH_ALL}
               className="shrink-0 w-24"
             />
             <CheckboxDropdown label="Nama AM" options={amNames} selected={filterNamaAms} onChange={setFilterNamaAms} placeholder="Semua AM" headerLabel="Pilih AM" summaryLabel="AM" className="shrink-0 w-24" />
@@ -2429,7 +2425,7 @@ export default function EmbedPerforma() {
             <div className="bg-card border border-border rounded-xl p-4">
               <h3 className="text-sm font-bold text-foreground mb-3">
                 Tren Performa Revenue Bulanan {cmYear ?? ""}
-                {filterDivisi !== "All" && <span className="ml-2 text-xs text-muted-foreground font-normal">· {filterDivisi}</span>}
+                {filterDivisi !== "all" && <span className="ml-2 text-xs text-muted-foreground font-normal">· {divisiFilterLabel(filterDivisi)}</span>}
               </h3>
               <ResponsiveContainer width="100%" height={220}>
                 <ComposedChart data={trendData} margin={{ top: 5, right: 20, left: -10, bottom: 0 }}>

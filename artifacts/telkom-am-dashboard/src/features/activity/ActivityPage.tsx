@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import { matchesDivisi, DIVISI_OPTIONS_WITH_ALL, DEFAULT_DIVISI } from "@/shared/lib/divisi";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/shared/lib/utils";
 import { Search, ChevronDown, Target, Users, TrendingUp, AlertTriangle, CheckCircle2, Expand, Minimize2 } from "lucide-react";
@@ -629,7 +630,7 @@ export default function ActivityPage() {
   const [snapshotId, setSnapshotId] = useState<string>("");
   const [year, setYear] = useState(String(now.getFullYear()));
   const [month, setMonth] = useState(String(now.getMonth() + 1));
-  const [divisi, setDivisi] = useState("all");
+  const [divisi, setDivisi] = useState(DEFAULT_DIVISI);
   const [search, setSearch] = useState("");
   const [selectedAms, setSelectedAms] = useState<Set<string> | null>(null);
   const [selectedLabels, setSelectedLabels] = useState<Set<string> | null>(null);
@@ -674,7 +675,7 @@ export default function ActivityPage() {
 
   const amOptions = useMemo(() =>
     (data?.masterAms ?? [])
-      .filter(a => divisi === "all" || a.divisi === divisi)
+      .filter(a => matchesDivisi(a.divisi, divisi))
       .map(a => a.nama)
       .sort((a, b) => a.localeCompare(b)),
     [data?.masterAms, divisi]
@@ -713,7 +714,7 @@ export default function ActivityPage() {
     if (!data) return [];
     const byAmMap = Object.fromEntries(data.byAm.map(a => [a.fullname, a]));
     const masterFiltered = (data.masterAms ?? [])
-      .filter(a => divisi === "all" || a.divisi === divisi)
+      .filter(a => matchesDivisi(a.divisi, divisi))
       .filter(a => selectedAms === null || selectedAms.has(a.nama))
       .filter(a => !search || a.nama.toLowerCase().includes(search.toLowerCase()));
 
@@ -790,11 +791,7 @@ export default function ActivityPage() {
             label="Divisi"
             value={divisi}
             onChange={v => { setDivisi(v); setSelectedAms(null); }}
-            options={[
-              { value: "all", label: "Semua Divisi" },
-              { value: "DPS", label: "DPS" },
-              { value: "DSS", label: "DSS" },
-            ]}
+            options={DIVISI_OPTIONS_WITH_ALL}
             className="min-w-[130px]"
           />
 

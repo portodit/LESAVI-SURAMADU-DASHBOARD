@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, salesActivityTable, accountManagersTable, dataImportsTable } from "@workspace/db";
+import { matchesDivisi } from "../../shared/divisi";
 import { eq, desc } from "drizzle-orm";
 
 const router: IRouter = Router();
@@ -48,7 +49,7 @@ router.get("/public/activity", async (req, res): Promise<void> => {
   }
 
   if (divisi && String(divisi) !== "all") {
-    acts = acts.filter(a => a.divisi === String(divisi));
+    acts = acts.filter(a => matchesDivisi(a.divisi, String(divisi)));
   }
   const months = req.query.months ? String(req.query.months).split(",").filter(Boolean) : null;
   if (year && months && months.length > 0) {
@@ -113,10 +114,9 @@ router.get("/public/activity", async (req, res): Promise<void> => {
     });
   }
 
-  const byAm = Object.values(byAmMap).filter(a => {
-    if (divisi && String(divisi) !== "all") return a.divisi === String(divisi);
-    return true;
-  });
+  const byAm = Object.values(byAmMap).filter(a =>
+    matchesDivisi(a.divisi, divisi ? String(divisi) : "all")
+  );
 
   const totalKpiActivities = byAm.reduce((s, a) => s + a.kpiCount, 0);
 

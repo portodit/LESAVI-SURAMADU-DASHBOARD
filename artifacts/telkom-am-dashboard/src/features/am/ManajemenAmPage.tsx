@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { matchesDivisi } from "@/shared/lib/divisi";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Plus, Pencil, Trash2, Users, Wifi, WifiOff, Search, X,
@@ -473,7 +474,7 @@ function StatCard({ icon, label, value, sub, color }: {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 type FilterRole = "all" | "AM" | "MANAGER" | "OFFICER";
-type FilterDivisi = "all" | "DPS" | "DSS" | "DGS";
+type FilterDivisi = "all" | "LESA" | "GOVT" | "DPS" | "DSS" | "DGS";
 
 interface PendingDiscovery {
   id: number;
@@ -579,7 +580,7 @@ export default function ManajemenAmPage() {
 
   const filtered = users.filter(u => {
     if (filterRole !== "all" && u.role !== filterRole) return false;
-    if (filterDivisi !== "all" && (u.role !== "AM" || u.divisi !== filterDivisi)) return false;
+    if (filterDivisi !== "all" && (u.role !== "AM" || !matchesDivisi(u.divisi, filterDivisi))) return false;
     if (search) {
       const q = search.toLowerCase();
       return u.nama.toLowerCase().includes(q)
@@ -605,10 +606,12 @@ export default function ManajemenAmPage() {
   }
 
   const divisiButtons: { v: FilterDivisi; label: string }[] = [
-    { v: "all", label: "Semua Divisi" },
+    { v: "LESA", label: "LESA" },
+    { v: "GOVT", label: "GOVT" },
     { v: "DPS", label: "DPS" },
     { v: "DSS", label: "DSS" },
     { v: "DGS", label: "DGS" },
+    { v: "all", label: "Semua" },
   ];
 
   return (

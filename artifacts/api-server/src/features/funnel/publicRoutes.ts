@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db, salesFunnelTable, salesFunnelTargetTable, dataImportsTable, accountManagersTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
+import { matchesDivisi, expandDivisi } from "../../shared/divisi";
 
 const router: IRouter = Router();
 
@@ -62,7 +63,7 @@ router.get("/public/funnel", async (req, res): Promise<void> => {
     const yr = Number(tahun);
     allLops = allLops.filter(l => l.reportDate && new Date(l.reportDate as string).getFullYear() === yr);
   }
-  if (divisi) allLops = allLops.filter(l => l.divisi === String(divisi));
+  if (divisi && String(divisi) !== "all") allLops = allLops.filter(l => matchesDivisi(l.divisi, String(divisi)));
   if (status) allLops = allLops.filter(l => l.statusF === String(status));
   if (nama_am) allLops = allLops.filter(l => l.namaAm?.toLowerCase().includes(String(nama_am).toLowerCase()));
   if (kategori_kontrak) allLops = allLops.filter(l => l.kategoriKontrak === String(kategori_kontrak));
@@ -127,7 +128,8 @@ router.get("/public/funnel", async (req, res): Promise<void> => {
     if (lookupMonth) matched = matched.filter(t => t.bulan === null || t.bulan === lookupMonth);
 
     if (divisiFilter && divisiFilter !== "all") {
-      const divMatch = matched.filter(t => t.divisi === divisiFilter);
+      const expanded = expandDivisi(divisiFilter);
+      const divMatch = matched.filter(t => t.divisi && expanded.includes(t.divisi));
       if (divMatch.length > 0) {
         targetHoVal = divMatch.reduce((s, t) => s + (t.targetHo || 0), 0);
         targetFullHoVal = divMatch.reduce((s, t) => s + (t.targetFullHo || 0), 0);

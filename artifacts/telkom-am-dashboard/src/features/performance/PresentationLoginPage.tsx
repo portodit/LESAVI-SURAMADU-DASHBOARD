@@ -30,9 +30,9 @@ export default function PresentationLoginPage() {
       const res = await fetch(`${API_BASE}/api/public/am`);
       if (!res.ok) throw new Error("Gagal mengambil data");
       const data: any[] = await res.json();
-      const found = data.find((row: any) => String(row.nik).trim() === trimmedNik);
+      const found = data.find((row: any) => row.nik && String(row.nik).trim() === trimmedNik);
       if (!found) {
-        setError("NIK tidak ditemukan. Pastikan NIK Anda sudah terdaftar.");
+        setError("NIK tidak ditemukan. Pastikan NIK Anda sudah terdaftar di sistem.");
         setIsLoading(false);
         return;
       }
@@ -46,75 +46,133 @@ export default function PresentationLoginPage() {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gray-50 font-sans px-4 py-8">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-gray-100 px-8 py-10">
+    <div className="flex h-screen w-full overflow-hidden" style={{ background: "linear-gradient(90deg, #f6f7f9 0%, #f6f7f9 100%)" }}>
 
-        {/* Logo */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3.5">
+      {/* ── Left panel: Form ── */}
+      <div className="relative z-10 flex w-full flex-col justify-center bg-white px-10 py-12 lg:w-[42%] xl:w-[40%] overflow-y-auto">
+        <div className="mx-auto w-full max-w-[418px]">
+
+          {/* Logo + Brand */}
+          <div className="mb-10 flex items-center gap-3.5">
             <img
               src={`${import.meta.env.BASE_URL}logo-tr3.png`}
               alt="Logo TR3"
-              className="h-12 object-contain"
+              className="h-14 object-contain shrink-0"
             />
-            <div className="leading-tight">
-              <p className="text-[11px] font-semibold tracking-[0.15em] text-[#cc0000] uppercase">AM Performance Dashboard</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Heading */}
-        <div className="mb-7">
-          <h1 className="text-2xl font-display font-bold text-gray-900 mb-1.5">Masuk ke Dashboard</h1>
-          <p className="text-sm text-gray-500">Masukkan NIK Anda untuk mengakses dashboard monitoring performa AM Witel Suramadu.</p>
-        </div>
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-5">
-
-          {/* Error */}
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl">
-              {error}
-            </div>
-          )}
-
-          {/* NIK */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider">NIK</label>
-            <div className="relative">
-              <CreditCard className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input
-                type="text"
-                required
-                autoComplete="off"
-                value={nik}
-                onChange={e => setNik(e.target.value)}
-                placeholder="Masukkan NIK Anda"
-                className="w-full pl-10 pr-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-sm text-gray-900 placeholder:text-gray-400 outline-none focus:border-[#cc0000] focus:ring-4 focus:ring-red-50 transition-all"
-              />
+            <div className="flex flex-col leading-tight">
+              <p
+                className="text-[18px] font-bold text-[#101828] tracking-[-0.45px]"
+                style={{ fontFamily: "'Montserrat', sans-serif", lineHeight: "24.75px" }}
+              >
+                LESA VI · WITEL SURAMADU
+              </p>
+              <p
+                className="text-[11px] font-semibold tracking-[1.65px] uppercase text-[#cc0000]"
+                style={{ fontFamily: "'Inter', sans-serif", lineHeight: "13.75px" }}
+              >
+                Monitoring Dashboard
+              </p>
             </div>
           </div>
 
-          {/* Submit */}
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl text-sm font-bold text-white bg-[#cc0000] hover:bg-[#b50000] active:scale-[0.98] shadow-lg shadow-red-200 focus:outline-none focus:ring-4 focus:ring-red-100 transition-all disabled:opacity-60 disabled:cursor-not-allowed mt-2"
-          >
-            {isLoading ? (
-              <><Loader2 className="w-4 h-4 animate-spin" /> Memverifikasi...</>
-            ) : (
-              "Masuk ke Dashboard"
+          {/* Heading */}
+          <div className="mb-8">
+            <h1
+              className="text-[30px] font-bold text-[#101828] tracking-[-0.75px] leading-9 mb-1.5"
+              style={{ fontFamily: "'Montserrat', sans-serif" }}
+            >
+              Lihat Performa Anda
+            </h1>
+            <p className="text-sm text-[#6a7282] tracking-[-0.16px] leading-5">
+              Masukkan NIK Anda untuk mengakses laporan performa dan pencapaian target penjualan.
+            </p>
+          </div>
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-5">
+
+            {/* Error */}
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-2xl">
+                {error}
+              </div>
             )}
-          </button>
-        </form>
 
-        {/* Footer */}
-        <p className="mt-8 text-xs text-gray-400 text-center">
-          &copy; {new Date().getFullYear()} Telkom Indonesia · TREG 3 Suramadu · LESA VI
-        </p>
+            {/* NIK */}
+            <div className="flex flex-col gap-[2.5px] pt-[5.5px]">
+              <label
+                className="text-[12px] font-semibold text-[#4a5565] uppercase tracking-[0.6px]"
+                style={{ fontFamily: "'Inter', sans-serif", lineHeight: "16px" }}
+              >
+                NIK
+              </label>
+              <div className="relative">
+                <CreditCard className="absolute left-[14px] top-1/2 -translate-y-1/2 h-4 w-4 text-[#99a1af]" />
+                <input
+                  type="text"
+                  required
+                  autoComplete="off"
+                  inputMode="numeric"
+                  value={nik}
+                  onChange={e => setNik(e.target.value)}
+                  placeholder="Masukkan NIK Anda"
+                  className="w-full bg-[#f9fafb] border border-[#e5e7eb] rounded-2xl py-[14px] pl-[42px] pr-4 text-sm text-[#101828] placeholder:text-[#99a1af] outline-none focus:border-[#cc0000] focus:ring-4 focus:ring-red-50 transition-all"
+                  style={{ fontFamily: "'Inter', sans-serif" }}
+                />
+              </div>
+            </div>
+
+            {/* Submit */}
+            <div className="relative">
+              <div
+                className="absolute inset-0 rounded-2xl pointer-events-none"
+                style={{ boxShadow: "0px 10px 15px -3px #ffc9c9, 0px 4px 6px -4px #ffc9c9" }}
+              />
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="relative w-full flex items-center justify-center gap-2 bg-[#cc0000] hover:bg-[#b50000] active:scale-[0.98] text-white rounded-2xl py-[14px] px-4 text-sm font-bold tracking-[-0.16px] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                style={{ fontFamily: "'Inter', sans-serif" }}
+              >
+                {isLoading ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Memverifikasi...</>
+                ) : (
+                  "Lihat Dashboard Saya"
+                )}
+              </button>
+            </div>
+          </form>
+
+          {/* Footer */}
+          <p
+            className="mt-12 text-[12px] text-[#99a1af] text-center tracking-[-0.16px]"
+            style={{ fontFamily: "'Inter', sans-serif", lineHeight: "16px" }}
+          >
+            © 2026 Large Enterprise Service Area VI Witel Suramadu Telkom Indonesia
+          </p>
+        </div>
       </div>
+
+      {/* ── Right panel: Image with overlay ── */}
+      <div className="relative hidden flex-1 overflow-hidden lg:block">
+        <img
+          src={`${import.meta.env.BASE_URL}login-bg.jpg`}
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover"
+          style={{ left: "-7.74%", width: "115.47%" }}
+        />
+        <div
+          className="absolute inset-0"
+          style={{ backgroundColor: "rgba(204, 0, 0, 0.7)", mixBlendMode: "multiply" }}
+        />
+        <div
+          className="absolute inset-0"
+          style={{
+            background: "linear-gradient(to bottom, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0) 50%, rgba(0,0,0,0.6) 100%)"
+          }}
+        />
+      </div>
+
     </div>
   );
 }

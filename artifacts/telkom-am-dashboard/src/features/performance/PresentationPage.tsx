@@ -1617,9 +1617,8 @@ function ActivitySlide() {
             <div className="border border-border overflow-hidden">
             <div className="overflow-x-auto">
             <div style={{minWidth:"780px"}}>
-            <div className="overflow-y-auto" style={{maxHeight:"clamp(300px, calc(100svh - 360px), 700px)"}}>
-            {/* Header — sticky */}
-            <div className="sticky top-0 z-10 grid text-xs font-black uppercase tracking-wide text-white"
+            {/* Header */}
+            <div className="grid text-xs font-black uppercase tracking-wide text-white"
               style={{background:"#B91C1C",gridTemplateColumns:ACT_GRID_COLS,padding:"10px 16px"}}>
               <div/><div className="pl-1">Nama AM</div><div>Progress KPI</div>
               <div className="text-center">Aktivitas</div><div className="text-center">Target</div><div className="text-center">Sisa</div><div>Status</div>
@@ -1754,7 +1753,6 @@ function ActivitySlide() {
                 </div>
               );
             })}
-            </div>{/* end overflow-y-auto */}
             </div>{/* end minWidth wrapper */}
             </div>{/* end overflow-x-auto */}
             </div>{/* end inner border */}

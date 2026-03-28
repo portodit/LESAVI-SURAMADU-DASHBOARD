@@ -60,19 +60,26 @@ export default function PresentationLoginPage() {
       </div>
 
       {/* ── Form card ── */}
-      <div className="relative z-10 flex w-full min-h-screen items-center justify-center p-4 sm:p-6">
+      <div className="relative z-10 flex w-full items-center justify-center p-4 sm:p-6 lg:justify-start lg:p-0">
 
+        {/* Left white panel */}
         <div
           className="
-            w-full max-w-[460px]
+            w-full max-w-[440px]
             bg-white/95 backdrop-blur-md
             rounded-3xl shadow-2xl
             px-8 py-10
             sm:px-10 sm:py-12
+            lg:rounded-none
+            lg:h-screen lg:max-w-none lg:w-[42%] xl:w-[40%]
+            lg:flex lg:flex-col lg:items-center lg:justify-center
+            lg:bg-white lg:backdrop-blur-none
+            lg:shadow-none
+            lg:px-14 lg:py-16
             overflow-y-auto
           "
         >
-          <div className="mx-auto w-full max-w-[418px]">
+          <div className="w-full max-w-[400px]">
 
             {/* Logo + Brand */}
             <div className="mb-10 flex items-center gap-3.5">
@@ -157,6 +164,9 @@ export default function PresentationLoginPage() {
             </p>
           </div>
         </div>
+
+        {/* Right side spacer — background image shows through */}
+        <div className="hidden lg:block lg:flex-1" />
 
       </div>
     </div>

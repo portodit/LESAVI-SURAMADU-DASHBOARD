@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, adminUsersTable } from "@workspace/db";
+import { db, accountManagersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { comparePassword, requireAuth } from "../../shared/auth";
 
@@ -12,8 +12,12 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     return;
   }
 
-  const [user] = await db.select().from(adminUsersTable).where(eq(adminUsersTable.email, email));
-  if (!user) {
+  const [user] = await db
+    .select()
+    .from(accountManagersTable)
+    .where(eq(accountManagersTable.email, email));
+
+  if (!user || !user.passwordHash) {
     res.status(401).json({ error: "Email atau password salah" });
     return;
   }
@@ -27,8 +31,10 @@ router.post("/auth/login", async (req, res): Promise<void> => {
   (req as any).session.userId = user.id;
   (req as any).session.userEmail = user.email;
   (req as any).session.userRole = user.role;
+  (req as any).session.userNama = user.nama;
+  (req as any).session.userTipe = user.tipe;
 
-  res.json({ id: user.id, email: user.email, role: user.role });
+  res.json({ id: user.id, email: user.email, role: user.role, nama: user.nama, tipe: user.tipe });
 });
 
 router.post("/auth/logout", (req, res): void => {
@@ -39,7 +45,13 @@ router.post("/auth/logout", (req, res): void => {
 
 router.get("/auth/me", requireAuth, async (req, res): Promise<void> => {
   const session = (req as any).session;
-  res.json({ id: session.userId, email: session.userEmail, role: session.userRole });
+  res.json({
+    id: session.userId,
+    email: session.userEmail,
+    role: session.userRole,
+    nama: session.userNama,
+    tipe: session.userTipe,
+  });
 });
 
 export default router;

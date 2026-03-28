@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import { db, adminUsersTable } from "@workspace/db";
+import { db, accountManagersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import type { Request, Response, NextFunction } from "express";
 
@@ -12,14 +12,28 @@ export async function comparePassword(password: string, hash: string): Promise<b
 }
 
 export async function ensureDefaultAdmin(): Promise<void> {
-  const existing = await db.select().from(adminUsersTable).where(eq(adminUsersTable.email, "bliaditdev@gmail.com"));
+  const existing = await db
+    .select()
+    .from(accountManagersTable)
+    .where(eq(accountManagersTable.email, "bliaditdev@gmail.com"));
+
   if (existing.length === 0) {
     const hash = await hashPassword("admin123");
-    await db.insert(adminUsersTable).values({
+    await db.insert(accountManagersTable).values({
+      nama: "Admin Officer",
+      slug: "officer-bliaditdev",
       email: "bliaditdev@gmail.com",
       passwordHash: hash,
-      role: "admin",
+      role: "OFFICER",
+      tipe: "LESA",
+      divisi: "DPS",
+      witel: "SURAMADU",
     });
+  } else if (existing[0].role !== "OFFICER") {
+    await db
+      .update(accountManagersTable)
+      .set({ role: "OFFICER", tipe: "LESA" })
+      .where(eq(accountManagersTable.email, "bliaditdev@gmail.com"));
   }
 }
 

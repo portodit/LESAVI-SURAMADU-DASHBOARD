@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, accountManagersTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, isNull } from "drizzle-orm";
 import { requireAuth } from "../../shared/auth";
 import { slugify } from "../import/excel";
 
@@ -12,61 +12,77 @@ router.get("/am", requireAuth, async (req, res): Promise<void> => {
   const ams = await db.select().from(accountManagersTable).orderBy(accountManagersTable.nama);
   res.json(ams.map(am => ({
     ...am,
+    passwordHash: undefined,
     telegramConnected: !!am.telegramChatId,
     createdAt: am.createdAt.toISOString(),
   })));
 });
 
 router.post("/am", requireAuth, async (req, res): Promise<void> => {
-  const { nik, nama, role, divisi, segmen, witel, telegramChatId, kpiActivity } = req.body;
-  if (!nik || !nama) {
-    res.status(400).json({ error: "NIK dan nama wajib diisi" });
+  const { nik, nama, role, tipe, divisi, segmen, witel, email, telegramChatId, kpiActivity } = req.body;
+  if (!nama) {
+    res.status(400).json({ error: "Nama wajib diisi" });
     return;
   }
-  const resolvedRole = (role === "MANAGER" ? "MANAGER" : "AM");
+
+  const resolvedRole = (["OFFICER", "MANAGER", "AM"].includes(role) ? role : "AM") as "OFFICER" | "MANAGER" | "AM";
+  const resolvedTipe = (["LESA", "GOVT"].includes(tipe) ? tipe : "LESA") as "LESA" | "GOVT";
+
   if (resolvedRole === "AM" && !divisi) {
     res.status(400).json({ error: "Divisi wajib diisi untuk role AM" });
     return;
   }
+  if (!nik && resolvedRole !== "OFFICER") {
+    res.status(400).json({ error: "NIK wajib diisi" });
+    return;
+  }
 
-  const slug = slugify(nama);
+  const slug = slugify(nama) + "-" + Date.now().toString(36);
+
   const [am] = await db.insert(accountManagersTable).values({
-    nik, nama, slug, role: resolvedRole,
+    nik: nik || null,
+    nama,
+    slug,
+    email: email || null,
+    role: resolvedRole,
+    tipe: resolvedTipe,
     divisi: divisi || "DPS",
     segmen: segmen || null,
     witel: witel || "SURAMADU",
     telegramChatId: telegramChatId || null,
-    kpiActivity: kpiActivity || 30,
+    kpiActivity: resolvedRole === "AM" ? (kpiActivity || 30) : 0,
   }).returning();
 
-  res.status(201).json({ ...am, telegramConnected: !!am.telegramChatId, createdAt: am.createdAt.toISOString() });
+  res.status(201).json({ ...am, passwordHash: undefined, telegramConnected: !!am.telegramChatId, createdAt: am.createdAt.toISOString() });
 });
 
 router.get("/am/:id", requireAuth, async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
   const [am] = await db.select().from(accountManagersTable).where(eq(accountManagersTable.id, id));
-  if (!am) { res.status(404).json({ error: "AM tidak ditemukan" }); return; }
-  res.json({ ...am, telegramConnected: !!am.telegramChatId, createdAt: am.createdAt.toISOString() });
+  if (!am) { res.status(404).json({ error: "Anggota tidak ditemukan" }); return; }
+  res.json({ ...am, passwordHash: undefined, telegramConnected: !!am.telegramChatId, createdAt: am.createdAt.toISOString() });
 });
 
 router.patch("/am/:id", requireAuth, async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
-  const { nama, role, divisi, segmen, witel, telegramChatId, kpiActivity } = req.body;
+  const { nama, role, tipe, divisi, segmen, witel, telegramChatId, kpiActivity, email } = req.body;
 
   const updates: Partial<typeof accountManagersTable.$inferInsert> = {};
-  if (nama !== undefined) { updates.nama = nama; updates.slug = slugify(nama); }
-  if (role !== undefined) updates.role = role === "MANAGER" ? "MANAGER" : "AM";
+  if (nama !== undefined) { updates.nama = nama; updates.slug = slugify(nama) + "-" + Date.now().toString(36); }
+  if (role !== undefined) updates.role = ["OFFICER", "MANAGER", "AM"].includes(role) ? role : "AM";
+  if (tipe !== undefined) updates.tipe = ["LESA", "GOVT"].includes(tipe) ? tipe : "LESA";
   if (divisi !== undefined) updates.divisi = divisi;
   if (segmen !== undefined) updates.segmen = segmen;
   if (witel !== undefined) updates.witel = witel;
   if (telegramChatId !== undefined) updates.telegramChatId = telegramChatId;
   if (kpiActivity !== undefined) updates.kpiActivity = kpiActivity;
+  if (email !== undefined) updates.email = email || null;
 
   const [am] = await db.update(accountManagersTable).set(updates).where(eq(accountManagersTable.id, id)).returning();
-  if (!am) { res.status(404).json({ error: "AM tidak ditemukan" }); return; }
-  res.json({ ...am, telegramConnected: !!am.telegramChatId, createdAt: am.createdAt.toISOString() });
+  if (!am) { res.status(404).json({ error: "Anggota tidak ditemukan" }); return; }
+  res.json({ ...am, passwordHash: undefined, telegramConnected: !!am.telegramChatId, createdAt: am.createdAt.toISOString() });
 });
 
 router.delete("/am/:id", requireAuth, async (req, res): Promise<void> => {

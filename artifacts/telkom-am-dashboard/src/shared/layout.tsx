@@ -40,7 +40,6 @@ function EmbedModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        {/* Canva instructions */}
         <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-3 mb-4">
           <p className="text-xs font-semibold text-amber-800 dark:text-amber-300 mb-1.5">Cara embed di Canva:</p>
           <ol className="text-xs text-amber-700 dark:text-amber-400 space-y-1 list-decimal list-inside leading-relaxed">
@@ -89,7 +88,7 @@ const NAV_ITEMS = [
       { href: "/visualisasi/activity", label: "Sales Activity", icon: Activity, pageTitle: "AM Sales Activity Report · LESA VI Witel Suramadu" },
     ]
   },
-  { href: "/am", label: "Manajemen AM", icon: Users },
+  { href: "/am", label: "Manajemen Akun", icon: Users },
   { href: "/telegram", label: "Kirim Telegram", icon: MessageSquare },
   { href: "/pengaturan", label: "Pengaturan", icon: Settings },
 ];
@@ -170,11 +169,9 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
           if (item.children) {
             const isChildActive = item.children.some(c => location.startsWith(c.href));
 
-            // ── Collapsed: show only child icons, no parent button (fixes duplicate icon bug)
             if (collapsed && !isMobile) {
               return (
                 <div key={idx} className="space-y-0.5 pb-0.5">
-                  {/* Thin divider instead of parent button */}
                   <div className="mx-2 my-1 h-px bg-border/60" />
                   {item.children.map(child => {
                     const isActive = location.startsWith(child.href);
@@ -198,7 +195,6 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
               );
             }
 
-            // ── Expanded: show parent toggle + animated sub-items
             return (
               <div key={idx}>
                 <button
@@ -277,10 +273,10 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         {(!collapsed || isMobile) && (
           <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl mb-1 bg-secondary/50 border border-border/50">
             <div className="w-7 h-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center font-bold text-[11px] text-primary shrink-0">
-              AD
+              {user.email ? user.email.slice(0, 2).toUpperCase() : "OF"}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-foreground truncate">Admin TR3</p>
+              <p className="text-xs font-semibold text-foreground truncate">{(user as any).nama || "Officer"}</p>
               <p className="text-[10px] text-muted-foreground truncate">{user.email}</p>
             </div>
           </div>

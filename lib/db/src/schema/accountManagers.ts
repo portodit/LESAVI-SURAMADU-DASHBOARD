@@ -4,10 +4,13 @@ import { z } from "zod/v4";
 
 export const accountManagersTable = pgTable("account_managers", {
   id: serial("id").primaryKey(),
-  nik: text("nik").notNull().unique(),
+  nik: text("nik").unique(),
   nama: text("nama").notNull(),
   slug: text("slug").notNull().unique(),
+  email: text("email").unique(),
+  passwordHash: text("password_hash"),
   role: text("role").notNull().default("AM"),
+  tipe: text("tipe").default("LESA"),
   divisi: text("divisi").notNull().default("DPS"),
   segmen: text("segmen"),
   witel: text("witel").notNull().default("SURAMADU"),

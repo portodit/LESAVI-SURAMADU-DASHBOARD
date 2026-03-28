@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { db, performanceDataTable, accountManagersTable } from "@workspace/db";
 import { eq, and, inArray } from "drizzle-orm";
 import { requireAuth } from "../../shared/auth";
-import { expandDivisi } from "../../shared/divisi";
+import { expandDivisiPerforma } from "../../shared/divisi";
 
 const router: IRouter = Router();
 
@@ -21,7 +21,7 @@ router.get("/performance", requireAuth, async (req, res): Promise<void> => {
   if (year) conditions.push(eq(performanceDataTable.tahun, parseInt(String(year))));
   if (month) conditions.push(eq(performanceDataTable.bulan, parseInt(String(month))));
   if (divisi && String(divisi) !== "all") {
-    const expanded = expandDivisi(String(divisi));
+    const expanded = expandDivisiPerforma(String(divisi));
     conditions.push(inArray(performanceDataTable.divisi, expanded));
   }
   if (importId) conditions.push(eq(performanceDataTable.importId, parseInt(String(importId))));

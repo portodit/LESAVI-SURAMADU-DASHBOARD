@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
-import { matchesDivisi, DIVISI_OPTIONS_WITH_ALL, divisiFilterLabel } from "@/shared/lib/divisi";
+import { matchesDivisiPerforma, DIVISI_OPTIONS_WITH_ALL, divisiFilterLabel } from "@/shared/lib/divisi";
 import { useQuery } from "@tanstack/react-query";
 import { formatRupiah, formatRupiahFull, formatPercent, getStatusColor, getAchPct, cn } from "@/shared/lib/utils";
 import {
@@ -1485,7 +1485,7 @@ function ActivitySlide() {
     if(!data) return [];
     const byAmMap=Object.fromEntries((data.byAm||[]).map((a:any)=>[a.fullname,a]));
     return (data.masterAms||[])
-      .filter((m:any)=>matchesDivisi(m.divisi, filterDivisi))
+      .filter((m:any)=>matchesDivisiPerforma(m.divisi, filterDivisi))
       .filter((m:any)=>!actSearch||m.nama.toLowerCase().includes(actSearch.toLowerCase()))
       .map((m:any)=>{
         const ex=byAmMap[m.nama];
@@ -1913,7 +1913,7 @@ export default function EmbedPerforma() {
         customers: parseKomponen(cmRow.komponenDetail),
       };
     }).filter(Boolean) as any[];
-    if (filterDivisi !== "all") result = result.filter(r => matchesDivisi(r.divisi, filterDivisi));
+    if (filterDivisi !== "all") result = result.filter(r => matchesDivisiPerforma(r.divisi, filterDivisi));
     if (filterNamaAms.size > 0) result = result.filter(r => filterNamaAms.has(r.namaAm));
     result.sort((a, b) => {
       if (filterTipeRank === "Real Revenue") return b.cmReal - a.cmReal;
@@ -1930,7 +1930,7 @@ export default function EmbedPerforma() {
 
   const amNames = useMemo(() => {
     if (!allPerfs.length || !cmMonth) return [];
-    const rows = allPerfs.filter((p: any) => p.bulan === cmMonth && matchesDivisi(p.divisi, filterDivisi));
+    const rows = allPerfs.filter((p: any) => p.bulan === cmMonth && matchesDivisiPerforma(p.divisi, filterDivisi));
     return [...new Set(rows.map((p: any) => p.namaAm).filter(Boolean))].sort() as string[];
   }, [allPerfs, cmMonth, filterDivisi]);
 
@@ -1955,7 +1955,7 @@ export default function EmbedPerforma() {
       const mNum = idx + 1;
       const rows = allPerfs.filter((p: any) =>
         String(p.tahun) === cmYear && p.bulan === mNum &&
-        matchesDivisi(p.divisi, filterDivisi)
+        matchesDivisiPerforma(p.divisi, filterDivisi)
       );
       const target = rows.reduce((s, p) => s + (p.targetRevenue ?? 0), 0);
       const real = rows.reduce((s, p) => s + (p.realRevenue ?? 0), 0);

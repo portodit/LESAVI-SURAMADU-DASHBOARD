@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useCallback, useRef, useEffect as useEffectRef } from "react";
-import { matchesDivisi, DIVISI_OPTIONS_WITH_ALL, divisiFilterLabel } from "@/shared/lib/divisi";
+import { matchesDivisiPerforma, DIVISI_OPTIONS_WITH_ALL, divisiFilterLabel } from "@/shared/lib/divisi";
 import { useListPerformance, useListImportHistory } from "@workspace/api-client-react";
 import { formatRupiah, formatPercent, getStatusColor, getAchPct, cn } from "@/shared/lib/utils";
 import {
@@ -451,7 +451,7 @@ export default function PerformaVis() {
     }).filter(Boolean) as any[];
 
     // Apply divisi filter
-    if (filterDivisi !== "all") result = result.filter(r => matchesDivisi(r.divisi, filterDivisi));
+    if (filterDivisi !== "all") result = result.filter(r => matchesDivisiPerforma(r.divisi, filterDivisi));
     if (filterNamaAms.size > 0) result = result.filter(r => filterNamaAms.has(r.namaAm));
 
     // Sort by filterTipeRank
@@ -516,7 +516,7 @@ export default function PerformaVis() {
       const mNum = idx + 1;
       let rows = (allPerfs as any[]).filter(p =>
         String(p.tahun) === cmYear && p.bulan === mNum &&
-        matchesDivisi(p.divisi, filterDivisi) &&
+        matchesDivisiPerforma(p.divisi, filterDivisi) &&
         (filterSnapshotId === null || p.importId === filterSnapshotId)
       );
       const target = rows.reduce((s, p) => s + p.targetRevenue, 0);
@@ -541,7 +541,7 @@ export default function PerformaVis() {
       (allPerfs as any[])
         .filter(p =>
           p.tahun === y && p.bulan === m &&
-          matchesDivisi(p.divisi, filterDivisi)
+          matchesDivisiPerforma(p.divisi, filterDivisi)
         ).map(p => p.namaAm)
     )].sort() as string[];
   }, [allPerfs, cmPeriode, filterDivisi]);

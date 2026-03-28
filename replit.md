@@ -6,9 +6,10 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 This is a **SharePoint Bot / Telkom AM Dashboard** project — a full-stack dashboard for Account Manager (AM) performance monitoring with Telegram Bot integration.
 
 ## Key Master Tables (Data Quality)
-- **account_managers** (satu-satunya tabel master AM — `master_am` dihapus). Fields: nik, nama, slug, divisi, segmen, witel, jabatan, aktif, crossWitel, telegram*, kpiActivity. 13 AM aktif dengan cross_witel flag.
+- **account_managers**: Fields: nik, nama, slug, divisi, segmen, witel, jabatan, aktif, crossWitel, telegram*, kpiActivity. 13 AM aktif dengan cross_witel flag.
+- **pending_am_discoveries**: AM baru dari import data yang belum dikonfirmasi. Fields: nik, nama, divisi, witel, source, importId, status (pending/approved/rejected), reviewedBy, reviewedAt. Harus disetujui Officer/Manager sebelum masuk ke account_managers. Corporate customers (master_customer) langsung disimpan tanpa perlu konfirmasi.
 - **app_settings**: `g_sheets_funnel_spreadsheet_id` added (1czGSp = nationwide SIMLOP/SIGMA dump) separate from `g_sheets_spreadsheet_id` (1ojCi6db = activity/performance).
-- **master_customer**: 262 unique corporate customers, auto-populated from funnel imports.
+- **master_customer**: 262 unique corporate customers, auto-populated from funnel imports (no confirmation needed).
 - **sales_funnel**: 252 LOPs (2026) from GSheets `TREG3_SALES_FUNNEL_20260326`. Filtered by YEAR(report_date) = tahun at query time.
 - **sales_funnel_target**: DPS 2026/3 HO=70.257B Full=97.076B; DSS 2026/3 HO=60.048B Full=73.780B.
 

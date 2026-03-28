@@ -9,3 +9,4 @@ export * from "./telegramBotUsers";
 export * from "./appSettings";
 export * from "./driveReadLogs";
 export * from "./masterAm";
+export * from "./pendingAmDiscoveries";

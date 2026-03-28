@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, dataImportsTable, performanceDataTable, salesFunnelTable, salesActivityTable, accountManagersTable, appSettingsTable, masterCustomerTable } from "@workspace/db";
+import { db, dataImportsTable, performanceDataTable, salesFunnelTable, salesActivityTable, accountManagersTable, appSettingsTable, masterCustomerTable, pendingAmDiscoveriesTable } from "@workspace/db";
 import { desc, eq, and, sql } from "drizzle-orm";
 import { requireAuth } from "../../shared/auth";
 import {
@@ -242,21 +242,23 @@ router.post("/import/performance", requireAuth, async (req, res): Promise<void> 
 
   const existingAMs = await db.select().from(accountManagersTable);
   const existingNiks = new Set(existingAMs.map((a: any) => a.nik));
-  const newAMs: any[] = [];
+  const pendingAms: any[] = [];
   const BATCH_PERF = 200;
   for (let i = 0; i < toInsert.length; i += BATCH_PERF) {
     const batch = toInsert.slice(i, i + BATCH_PERF).map(row => ({ ...row, importId: imp.id }));
     await db.insert(performanceDataTable).values(batch);
   }
+  // ── AM baru: simpan ke pending_am_discoveries, bukan auto-insert ke account_managers
+  const pendingNiks = new Set<string>();
   for (const row of toInsert) {
-    if (!existingNiks.has(row.nik) && row.nik) {
-      existingNiks.add(row.nik);
-      newAMs.push({ nik: row.nik, nama: row.namaAm, slug: slugify(row.namaAm), divisi: row.divisi, witel: row.witel || "SURAMADU" });
+    if (!existingNiks.has(row.nik) && row.nik && !pendingNiks.has(row.nik)) {
+      pendingNiks.add(row.nik);
+      pendingAms.push({ nik: row.nik, nama: row.namaAm, divisi: row.divisi, witel: row.witel || "SURAMADU", source: "performance", importId: imp.id, status: "pending" });
     }
   }
-  if (newAMs.length > 0) {
-    for (let i = 0; i < newAMs.length; i += 50) {
-      await db.insert(accountManagersTable).values(newAMs.slice(i, i + 50)).onConflictDoNothing();
+  if (pendingAms.length > 0) {
+    for (let i = 0; i < pendingAms.length; i += 50) {
+      await db.insert(pendingAmDiscoveriesTable).values(pendingAms.slice(i, i + 50)).onConflictDoNothing();
     }
   }
 
@@ -270,7 +272,8 @@ router.post("/import/performance", requireAuth, async (req, res): Promise<void> 
   res.json({
     success: true, rowsImported: toInsert.length, amCount,
     rawCount, period: importPeriod, snapshotDate,
-    message: `${amCount} AM berhasil diimport — ${toInsert.length} rekord AM-periode dibuat dari ${rawCount} baris mentah (data pelanggan tersimpan di komponen detail)`,
+    newAmDiscovered: pendingAms.length,
+    message: `${amCount} AM berhasil diimport — ${toInsert.length} rekord dibuat${pendingAms.length > 0 ? `. ${pendingAms.length} AM baru ditemukan, menunggu konfirmasi officer/manager.` : ""}`,
     importId: imp.id,
   });
 });
@@ -295,8 +298,10 @@ router.post("/import/funnel", requireAuth, async (req, res): Promise<void> => {
   });
 
   // ── STEP 8: Filter only LOPs belonging to active account_managers (the authorized AMs)
-  const activeAms = await db.select({ nik: accountManagersTable.nik }).from(accountManagersTable).where(eq(accountManagersTable.aktif, true));
+  const allAmsFunnel = await db.select().from(accountManagersTable);
+  const activeAms = allAmsFunnel.filter(a => a.aktif);
   const activeNikSet = new Set(activeAms.map(a => a.nik));
+  const allNikSet = new Set(allAmsFunnel.map(a => a.nik));
   const activeOnly = cleaned.filter(r => r.nikAm && activeNikSet.has(r.nikAm));
 
   if (activeOnly.length === 0) {
@@ -356,12 +361,27 @@ router.post("/import/funnel", requireAuth, async (req, res): Promise<void> => {
       .where(and(eq(salesFunnelTable.importId, imp.id), eq(salesFunnelTable.nikAm, row.nikAm)));
   }
 
-  // ── Auto-populate master_customer
+  // ── Auto-populate master_customer (langsung tanpa konfirmasi)
   const uniqueCustomers = [...new Set(activeOnly.map(r => r.pelanggan).filter(p => p && p !== "–"))];
   for (let i = 0; i < uniqueCustomers.length; i += 100) {
     await db.insert(masterCustomerTable).values(
       uniqueCustomers.slice(i, i + 100).map(nama => ({ nama, witel: "SURAMADU" }))
     ).onConflictDoNothing();
+  }
+
+  // ── AM baru dari funnel (nikAm ada di cleaned tapi tidak di allNikSet) → pending discovery
+  const funnelPendingNiks = new Set<string>();
+  const funnelPendingAms: any[] = [];
+  for (const row of cleaned) {
+    if (row.nikAm && !allNikSet.has(row.nikAm) && !funnelPendingNiks.has(row.nikAm)) {
+      funnelPendingNiks.add(row.nikAm);
+      funnelPendingAms.push({ nik: row.nikAm, nama: row.namaAm || row.nikAm, divisi: row.divisi || "DPS", witel: "SURAMADU", source: "funnel", importId: imp.id, status: "pending" });
+    }
+  }
+  if (funnelPendingAms.length > 0) {
+    for (let i = 0; i < funnelPendingAms.length; i += 50) {
+      await db.insert(pendingAmDiscoveriesTable).values(funnelPendingAms.slice(i, i + 50)).onConflictDoNothing();
+    }
   }
 
   const amCount = new Set(activeOnly.map(r => r.nikAm)).size;
@@ -375,7 +395,8 @@ router.post("/import/funnel", requireAuth, async (req, res): Promise<void> => {
     success: true, rowsImported: cleaned.length, amCount,
     period: importPeriod, snapshotDate,
     rawCount: rows.length,
-    message: `${cleaned.length} dari ${rows.length} baris funnel berhasil diimport (setelah cleaning)`,
+    newAmDiscovered: funnelPendingAms.length,
+    message: `${cleaned.length} dari ${rows.length} baris funnel berhasil diimport${funnelPendingAms.length > 0 ? `. ${funnelPendingAms.length} AM baru ditemukan, menunggu konfirmasi.` : ""}`,
     importId: imp.id,
   });
 });
@@ -442,6 +463,23 @@ router.post("/import/activity", requireAuth, async (req, res): Promise<void> => 
     await db.insert(salesActivityTable).values(batch);
   }
 
+  // ── AM baru dari activity → pending discovery
+  const allAmsAct = await db.select({ nik: accountManagersTable.nik }).from(accountManagersTable);
+  const allNikSetAct = new Set(allAmsAct.map(a => a.nik));
+  const actPendingNiks = new Set<string>();
+  const actPendingAms: any[] = [];
+  for (const row of cleaned) {
+    if (row.nik && !allNikSetAct.has(row.nik) && !actPendingNiks.has(row.nik)) {
+      actPendingNiks.add(row.nik);
+      actPendingAms.push({ nik: row.nik, nama: row.fullname || row.nik, divisi: row.divisi || "DPS", witel: row.witel || "SURAMADU", source: "activity", importId: imp.id, status: "pending" });
+    }
+  }
+  if (actPendingAms.length > 0) {
+    for (let i = 0; i < actPendingAms.length; i += 50) {
+      await db.insert(pendingAmDiscoveriesTable).values(actPendingAms.slice(i, i + 50)).onConflictDoNothing();
+    }
+  }
+
   const amCount = new Set(cleaned.map(r => r.nik)).size;
 
   const [settings] = await db.select().from(appSettingsTable);
@@ -453,7 +491,8 @@ router.post("/import/activity", requireAuth, async (req, res): Promise<void> => 
     success: true, rowsImported: cleaned.length, amCount,
     period: importPeriod, snapshotDate,
     rawCount: rows.length,
-    message: `${cleaned.length} dari ${rows.length} baris activity berhasil diimport (setelah cleaning)`,
+    newAmDiscovered: actPendingAms.length,
+    message: `${cleaned.length} dari ${rows.length} baris activity berhasil diimport${actPendingAms.length > 0 ? `. ${actPendingAms.length} AM baru ditemukan, menunggu konfirmasi.` : ""}`,
     importId: imp.id,
   });
 });

@@ -2,8 +2,10 @@ import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Plus, Pencil, Trash2, Users, Wifi, WifiOff, Search, X,
-  MessageSquare, ShieldCheck, AlertTriangle, RefreshCw, UserCog, Shield
+  MessageSquare, ShieldCheck, AlertTriangle, RefreshCw, UserCog, Shield,
+  Bell, CheckCircle, XCircle, ChevronDown, ChevronUp
 } from "lucide-react";
+import { useAuth } from "@/shared/hooks/use-auth";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { RowActions } from "@/shared/ui/row-actions";
@@ -43,12 +45,11 @@ interface UserFormData {
   segmen: string;
   witel: string;
   telegramChatId: string;
-  kpiActivity: string;
 }
 
 const EMPTY_FORM: UserFormData = {
   nik: "", nama: "", email: "", role: "AM", tipe: "LESA",
-  divisi: "DPS", segmen: "", witel: "SURAMADU", telegramChatId: "", kpiActivity: "30",
+  divisi: "DPS", segmen: "", witel: "SURAMADU", telegramChatId: "",
 };
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
@@ -186,10 +187,6 @@ function UserFormDialog({ open, onClose, onSubmit, initial, loading, mode }: {
     if (!isOfficer && !form.nik.trim()) errs.nik = "NIK wajib diisi";
     if (!isOfficer && form.nik.trim() && !/^\d+$/.test(form.nik.trim())) errs.nik = "NIK harus berupa angka";
     if (isAM && !form.divisi) errs.divisi = "Divisi wajib dipilih";
-    if (isAM) {
-      const kpi = Number(form.kpiActivity);
-      if (!form.kpiActivity || isNaN(kpi) || kpi < 0) errs.kpiActivity = "KPI harus angka ≥ 0";
-    }
     setErrors(errs);
     return Object.keys(errs).length === 0;
   }
@@ -328,22 +325,12 @@ function UserFormDialog({ open, onClose, onSubmit, initial, loading, mode }: {
                 </FormField>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <FormField label="KPI Activity (hari/bulan)" error={errors.kpiActivity}>
-                  <Input
-                    type="number" min="0" max="365"
-                    value={form.kpiActivity} onChange={set("kpiActivity")}
-                    placeholder="30"
-                    className={errors.kpiActivity ? "border-destructive" : ""}
-                  />
-                </FormField>
-                <FormField label="Telegram Chat ID">
-                  <Input
-                    value={form.telegramChatId} onChange={set("telegramChatId")}
-                    placeholder="mis. 123456789"
-                  />
-                </FormField>
-              </div>
+              <FormField label="Telegram Chat ID">
+                <Input
+                  value={form.telegramChatId} onChange={set("telegramChatId")}
+                  placeholder="mis. 123456789"
+                />
+              </FormField>
             </>
           )}
 
@@ -437,14 +424,6 @@ function UserRow({ user, onEdit, onDelete }: { user: User; onEdit: () => void; o
         {isAM ? (user.segmen || <span className="text-border text-xs">—</span>) : <span className="text-muted-foreground/40 text-xs">—</span>}
       </td>
 
-      {/* KPI */}
-      <td className="px-4 py-3 text-center">
-        {isAM
-          ? <><span className="font-mono text-sm font-semibold text-foreground">{user.kpiActivity}</span><span className="text-xs text-muted-foreground ml-1">hr</span></>
-          : <span className="text-muted-foreground/40 text-xs">—</span>
-        }
-      </td>
-
       {/* Telegram */}
       <td className="px-4 py-3">
         {isAM ? (user.telegramConnected ? (
@@ -496,11 +475,27 @@ function StatCard({ icon, label, value, sub, color }: {
 type FilterRole = "all" | "AM" | "MANAGER" | "OFFICER";
 type FilterDivisi = "all" | "DPS" | "DSS" | "DGS";
 
+interface PendingDiscovery {
+  id: number;
+  nik: string;
+  nama: string;
+  divisi: string | null;
+  witel: string | null;
+  source: string;
+  importId: number | null;
+  status: string;
+  createdAt: string;
+}
+
 export default function ManajemenAmPage() {
   const qc = useQueryClient();
+  const { user: currentUser } = useAuth();
+  const isPrivileged = currentUser && ["OFFICER", "MANAGER"].includes(currentUser.role || "");
+
   const [search, setSearch] = useState("");
   const [filterDivisi, setFilterDivisi] = useState<FilterDivisi>("all");
   const [filterRole, setFilterRole] = useState<FilterRole>("all");
+  const [pendingOpen, setPendingOpen] = useState(true);
 
   const [showAdd, setShowAdd] = useState(false);
   const [editTarget, setEditTarget] = useState<User | null>(null);
@@ -511,6 +506,26 @@ export default function ManajemenAmPage() {
     queryKey: ["am-list"],
     queryFn: () => apiFetch("/api/am"),
     staleTime: 30_000,
+  });
+
+  const { data: pendingDiscoveries = [], refetch: refetchPending } = useQuery<PendingDiscovery[]>({
+    queryKey: ["am-pending-discoveries"],
+    queryFn: () => apiFetch("/api/am/pending-discoveries"),
+    enabled: !!isPrivileged,
+    staleTime: 60_000,
+    refetchInterval: 120_000,
+  });
+
+  const pendingOnly = pendingDiscoveries.filter(d => d.status === "pending");
+
+  const approveMutation = useMutation({
+    mutationFn: (id: number) => apiFetch(`/api/am/pending-discoveries/${id}/approve`, { method: "POST" }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["am-pending-discoveries"] }); qc.invalidateQueries({ queryKey: ["am-list"] }); },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: (id: number) => apiFetch(`/api/am/pending-discoveries/${id}/reject`, { method: "POST" }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["am-pending-discoveries"] }); },
   });
 
   const addMutation = useMutation({
@@ -527,7 +542,6 @@ export default function ManajemenAmPage() {
         segmen: data.role === "AM" ? (data.segmen || null) : null,
         witel: data.role === "AM" ? data.witel : "SURAMADU",
         telegramChatId: data.role === "AM" ? (data.telegramChatId || null) : null,
-        kpiActivity: data.role === "AM" ? Number(data.kpiActivity) : 0,
       }),
     }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["am-list"] }); setShowAdd(false); setFormError(null); },
@@ -547,7 +561,6 @@ export default function ManajemenAmPage() {
           segmen: data.role === "AM" ? (data.segmen || null) : null,
           witel: data.role === "AM" ? data.witel : undefined,
           telegramChatId: data.role === "AM" ? (data.telegramChatId || null) : undefined,
-          kpiActivity: data.role === "AM" ? Number(data.kpiActivity) : undefined,
           email: data.email.trim() || null,
         }),
       }),
@@ -588,7 +601,6 @@ export default function ManajemenAmPage() {
       role: u.role || "AM", tipe: u.tipe || "LESA",
       divisi: u.divisi, segmen: u.segmen || "", witel: u.witel,
       telegramChatId: u.telegramChatId || "",
-      kpiActivity: String(u.kpiActivity),
     };
   }
 
@@ -641,6 +653,109 @@ export default function ManajemenAmPage() {
           color="bg-emerald-50 dark:bg-emerald-950/30"
         />
       </div>
+
+      {/* ── Pending AM Discovery Notification (Officer/Manager only) ── */}
+      {isPrivileged && pendingOnly.length > 0 && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700 shadow-sm overflow-hidden">
+          {/* Header */}
+          <button
+            className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-amber-100/60 dark:hover:bg-amber-900/20 transition-colors"
+            onClick={() => setPendingOpen(v => !v)}
+          >
+            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-amber-400/20">
+              <Bell className="w-4 h-4 text-amber-700 dark:text-amber-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-amber-900 dark:text-amber-200">
+                {pendingOnly.length} AM Baru Terdeteksi dari Data Import
+              </p>
+              <p className="text-xs text-amber-700/80 dark:text-amber-400/80">
+                Perlu konfirmasi officer/manager sebelum ditambahkan ke master data AM
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-2 rounded-full bg-amber-500 text-white text-xs font-bold">
+                {pendingOnly.length}
+              </span>
+              <button
+                className="text-amber-700 hover:text-amber-900 dark:text-amber-400"
+                onClick={e => { e.stopPropagation(); refetchPending(); }}
+                title="Refresh"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+              </button>
+              {pendingOpen ? <ChevronUp className="w-4 h-4 text-amber-600" /> : <ChevronDown className="w-4 h-4 text-amber-600" />}
+            </div>
+          </button>
+
+          {/* List of pending discoveries */}
+          {pendingOpen && (
+            <div className="border-t border-amber-200 dark:border-amber-700">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-amber-100/80 dark:bg-amber-900/30 text-xs font-black uppercase tracking-wide text-amber-800 dark:text-amber-300">
+                      <th className="px-4 py-2.5 text-left">NIK</th>
+                      <th className="px-4 py-2.5 text-left">Nama AM</th>
+                      <th className="px-4 py-2.5 text-left">Divisi</th>
+                      <th className="px-4 py-2.5 text-left">Sumber</th>
+                      <th className="px-4 py-2.5 text-left">Ditemukan</th>
+                      <th className="px-4 py-2.5 text-center">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-amber-200/60 dark:divide-amber-800/40">
+                    {pendingOnly.map(d => (
+                      <tr key={d.id} className="hover:bg-amber-50 dark:hover:bg-amber-900/10 transition-colors">
+                        <td className="px-4 py-3 font-mono text-sm font-bold text-foreground">{d.nik}</td>
+                        <td className="px-4 py-3 font-semibold text-foreground">{d.nama}</td>
+                        <td className="px-4 py-3">
+                          <span className={cn(
+                            "text-[11px] font-bold px-2 py-0.5 rounded-full border",
+                            d.divisi === "DPS" ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-700" :
+                            d.divisi === "DSS" ? "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-400 dark:border-purple-700" :
+                            "bg-muted text-muted-foreground border-border"
+                          )}>{d.divisi || "—"}</span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-xs text-muted-foreground capitalize bg-secondary px-2 py-0.5 rounded">
+                            {d.source}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
+                          {new Date(d.createdAt).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              onClick={() => approveMutation.mutate(d.id)}
+                              disabled={approveMutation.isPending || rejectMutation.isPending}
+                              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-700 dark:hover:bg-emerald-900/60 transition-colors disabled:opacity-50"
+                            >
+                              <CheckCircle className="w-3.5 h-3.5" />
+                              Setujui
+                            </button>
+                            <button
+                              onClick={() => rejectMutation.mutate(d.id)}
+                              disabled={approveMutation.isPending || rejectMutation.isPending}
+                              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 dark:bg-red-950/40 dark:text-red-400 dark:border-red-700 dark:hover:bg-red-900/60 transition-colors disabled:opacity-50"
+                            >
+                              <XCircle className="w-3.5 h-3.5" />
+                              Tolak
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="px-4 py-2 text-[11px] text-amber-700/70 dark:text-amber-500/70 border-t border-amber-200 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/10">
+                Menyetujui akan menambahkan AM ke master data. Data performa/funnel/activity AM tersebut akan mulai terhubung setelah disetujui.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Table Card */}
       <div className="bg-card border border-border rounded-xl shadow-sm">
@@ -723,7 +838,6 @@ export default function ManajemenAmPage() {
                 <th className="px-4 py-3 w-20">Tipe</th>
                 <th className="px-4 py-3 w-20">Divisi</th>
                 <th className="px-4 py-3 w-28">Segmen</th>
-                <th className="px-4 py-3 w-20 text-center">KPI</th>
                 <th className="px-4 py-3 w-32">Telegram</th>
                 <th className="px-4 py-3 w-32">Aksi</th>
               </tr>
@@ -732,22 +846,22 @@ export default function ManajemenAmPage() {
               {isLoading ? (
                 [...Array(5)].map((_, i) => (
                   <tr key={i} className="border-b border-border/50">
-                    {[...Array(9)].map((_, j) => (
+                    {[...Array(8)].map((_, j) => (
                       <td key={j} className="px-4 py-3">
-                        <div className="h-4 bg-secondary rounded animate-pulse" style={{ width: `${[60, 160, 60, 40, 40, 70, 30, 80, 90][j]}px` }} />
+                        <div className="h-4 bg-secondary rounded animate-pulse" style={{ width: `${[60, 160, 60, 40, 40, 70, 80, 90][j]}px` }} />
                       </td>
                     ))}
                   </tr>
                 ))
               ) : error ? (
-                <tr><td colSpan={9} className="text-center py-12">
+                <tr><td colSpan={8} className="text-center py-12">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <AlertTriangle className="w-6 h-6 text-destructive" />
                     <p className="text-sm">Gagal memuat data</p>
                   </div>
                 </td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={9} className="text-center py-16">
+                <tr><td colSpan={8} className="text-center py-16">
                   <div className="flex flex-col items-center gap-3 text-muted-foreground">
                     <Users className="w-8 h-8 opacity-30" />
                     <p className="text-sm font-medium">

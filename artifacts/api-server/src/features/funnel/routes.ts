@@ -105,6 +105,9 @@ router.get("/funnel", requireAuth, async (req, res): Promise<void> => {
   if (nama_am) allLops = allLops.filter(l => l.namaAm?.toLowerCase().includes(String(nama_am).toLowerCase()));
   if (kategori_kontrak) allLops = allLops.filter(l => l.kategoriKontrak === String(kategori_kontrak));
 
+  // Only include LOPs from registered AMs (role=AM, aktif=true) — same rule as activity/performance visualizations
+  allLops = allLops.filter(l => l.nikAm && activeNikSet.has(l.nikAm));
+
   const totalLop = allLops.length;
   const totalNilai = allLops.reduce((s, l) => s + (l.nilaiProyek || 0), 0);
   // Count only LOPs with identified AMs (has a valid name)

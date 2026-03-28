@@ -35,7 +35,7 @@ router.get("/public/funnel", async (req, res): Promise<void> => {
 
   const masterAms = await db.select().from(accountManagersTable);
   const masterAmByNik = new Map(masterAms.map(m => [m.nik, m.nama]));
-  const activeNikSet = new Set(masterAms.filter(m => m.aktif).map(m => m.nik));
+  const activeNikSet = new Set(masterAms.filter(m => m.aktif && m.role === "AM" && m.nik).map(m => m.nik));
 
   let allLops = await db.select().from(salesFunnelTable);
 
@@ -67,6 +67,9 @@ router.get("/public/funnel", async (req, res): Promise<void> => {
   if (status) allLops = allLops.filter(l => l.statusF === String(status));
   if (nama_am) allLops = allLops.filter(l => l.namaAm?.toLowerCase().includes(String(nama_am).toLowerCase()));
   if (kategori_kontrak) allLops = allLops.filter(l => l.kategoriKontrak === String(kategori_kontrak));
+
+  // Only include LOPs from registered AMs (role=AM, aktif=true) — same rule as activity/performance visualizations
+  allLops = allLops.filter(l => l.nikAm && activeNikSet.has(l.nikAm));
 
   const totalLop = allLops.length;
   const totalNilai = allLops.reduce((s, l) => s + (l.nilaiProyek || 0), 0);

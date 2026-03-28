@@ -36,13 +36,12 @@ export default function Login() {
   return (
     <div className="relative flex min-h-screen w-full overflow-hidden">
 
-      {/* ── Background image (always present, behind everything) ── */}
-      <div className="absolute inset-0 z-0">
+      {/* ── Background image — mobile only (behind semi-transparent form) ── */}
+      <div className="absolute inset-0 z-0 lg:hidden">
         <img
           src={`${import.meta.env.BASE_URL}login-bg.jpg`}
           alt=""
-          className="h-full w-full object-cover"
-          style={{ objectPosition: "65% 50%" }}
+          className="h-full w-full object-cover object-center"
         />
         <div className="absolute inset-0 bg-[#cc0000]/70 mix-blend-multiply" />
         <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/60" />
@@ -181,8 +180,16 @@ export default function Login() {
           </div>
         </div>
 
-        {/* Spacer for desktop right side */}
-        <div className="hidden lg:block lg:flex-1" />
+        {/* ── Right panel — desktop only: background image properly contained ── */}
+        <div className="hidden lg:flex lg:flex-1 relative overflow-hidden self-stretch">
+          <img
+            src={`${import.meta.env.BASE_URL}login-bg.jpg`}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover object-center"
+          />
+          <div className="absolute inset-0 bg-[#cc0000]/70 mix-blend-multiply" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/60" />
+        </div>
       </div>
     </div>
   );

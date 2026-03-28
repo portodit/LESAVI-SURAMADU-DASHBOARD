@@ -247,8 +247,8 @@ function UserFormDialog({ open, onClose, onSubmit, initial, loading, mode }: {
                   className={cn(
                     "flex-1 py-2 px-3 rounded-lg border text-sm font-semibold transition-colors",
                     form.tipe === opt.v
-                      ? "bg-blue-600 text-white border-blue-600"
-                      : "bg-secondary text-muted-foreground border-border hover:border-blue-400/40"
+                      ? "bg-red-50 text-red-700 border-red-300 dark:bg-red-950/40 dark:text-red-400 dark:border-red-700"
+                      : "bg-secondary text-muted-foreground border-border hover:border-red-300/50"
                   )}
                 >{opt.label}</button>
               ))}

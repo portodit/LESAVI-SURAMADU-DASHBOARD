@@ -1000,6 +1000,18 @@ export default function FunnelPage() {
   const activeTarget = filterTarget === "ho" ? effectiveTargetHo : effectiveTargetFullHo;
   const pct = activeTarget ? (periodStats.realFullHo / activeTarget) * 100 : 0;
 
+  // Per-divisi targets for LESA split gauge (DPS | DSS)
+  const tbd = (data as any)?.targetByDivisi ?? {};
+  const dpsTgtHo = tbd["DPS"]?.targetHo || 0;
+  const dpsTgtFullHo = tbd["DPS"]?.targetFullHo || 0;
+  const dssTgtHo = tbd["DSS"]?.targetHo || 0;
+  const dssTgtFullHo = tbd["DSS"]?.targetFullHo || 0;
+  const dpsTgt = filterTarget === "ho" ? dpsTgtHo : dpsTgtFullHo;
+  const dssTgt = filterTarget === "ho" ? dssTgtHo : dssTgtFullHo;
+  const dpsPct = dpsTgt ? (dpsStats.totalNilai / dpsTgt) * 100 : 0;
+  const dssPct = dssTgt ? (dssStats.totalNilai / dssTgt) * 100 : 0;
+  const isLesa = filterDivisi === "LESA";
+
   return (
     <div className="space-y-4 p-4">
 
@@ -1088,18 +1100,49 @@ export default function FunnelPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
-              <h3 className="text-sm font-display font-semibold text-foreground mb-3">LOP per Fase</h3>
-              <FaseBarChart data={data ? { ...data, byStatus: periodStats.byStatus } : undefined} />
+          {isLesa ? (
+            <>
+              {/* LESA: LOP per Fase full-width, lalu 2 gauge DPS | DSS */}
+              <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
+                <h3 className="text-sm font-display font-semibold text-foreground mb-3">LOP per Fase</h3>
+                <FaseBarChart data={data ? { ...data, byStatus: periodStats.byStatus } : undefined} />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {(["DPS", "DSS"] as const).map(div => {
+                  const tgtHo   = div === "DPS" ? dpsTgtHo   : dssTgtHo;
+                  const tgtFull = div === "DPS" ? dpsTgtFullHo : dssTgtFullHo;
+                  const real    = div === "DPS" ? dpsStats.totalNilai : dssStats.totalNilai;
+                  const divPct  = div === "DPS" ? dpsPct : dssPct;
+                  return (
+                    <div key={div} className="bg-card border border-border rounded-xl p-4 shadow-sm">
+                      <h3 className="text-sm font-display font-semibold text-foreground mb-2 flex items-center gap-2">
+                        Capaian Real vs Target
+                        <span className={cn(
+                          "text-[11px] font-black px-2 py-0.5 rounded",
+                          div === "DPS" ? "bg-blue-100 text-blue-700" : "bg-emerald-100 text-emerald-700"
+                        )}>{div}</span>
+                      </h3>
+                      <Gauge pct={divPct} targetHo={tgtHo} targetFullHo={tgtFull} real={real} mode={filterTarget} />
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          ) : (
+            /* Non-LESA: LOP per Fase | 1 gauge side-by-side */
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
+                <h3 className="text-sm font-display font-semibold text-foreground mb-3">LOP per Fase</h3>
+                <FaseBarChart data={data ? { ...data, byStatus: periodStats.byStatus } : undefined} />
+              </div>
+              <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
+                <h3 className="text-sm font-display font-semibold text-foreground mb-2">
+                  Capaian Real vs Target
+                </h3>
+                <Gauge pct={pct} targetHo={effectiveTargetHo} targetFullHo={effectiveTargetFullHo} real={periodStats.realFullHo} mode={filterTarget} />
+              </div>
             </div>
-            <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
-              <h3 className="text-sm font-display font-semibold text-foreground mb-2">
-                Capaian Real vs {filterTarget === "ho" ? "Target HO" : "Target Full HO"}
-              </h3>
-              <Gauge pct={pct} targetHo={effectiveTargetHo} targetFullHo={effectiveTargetFullHo} real={periodStats.realFullHo} mode={filterTarget} />
-            </div>
-          </div>
+          )}
           <KpiGrid data={data ? { ...data, totalLop: periodStats.totalLop, totalNilai: periodStats.totalNilai, pelangganCount: periodStats.pelangganCount } : undefined} />
         </div>
       ))}

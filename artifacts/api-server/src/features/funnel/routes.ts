@@ -151,6 +151,7 @@ router.get("/funnel", requireAuth, async (req, res): Promise<void> => {
 
   // Find matching target: yearly target per divisi
   let targetHoVal = 0, targetFullHoVal = 0;
+  const targetByDivisi: Record<string, { targetHo: number; targetFullHo: number }> = {};
   const allTargets = await db.select().from(salesFunnelTargetTable)
     .orderBy(desc(salesFunnelTargetTable.tahun));
 
@@ -165,6 +166,13 @@ router.get("/funnel", requireAuth, async (req, res): Promise<void> => {
 
     let matched = allTargets;
     if (lookupYear) matched = matched.filter(t => t.tahun === lookupYear);
+
+    // Build per-divisi target map (used for LESA split gauge)
+    for (const t of matched) {
+      if (t.divisi) {
+        targetByDivisi[t.divisi] = { targetHo: t.targetHo || 0, targetFullHo: t.targetFullHo || 0 };
+      }
+    }
 
     if (divisiFilter && divisiFilter !== "all") {
       const expanded = expandDivisi(divisiFilter);
@@ -192,6 +200,7 @@ router.get("/funnel", requireAuth, async (req, res): Promise<void> => {
     totalLop, totalNilai,
     targetHo: targetHoVal,
     targetFullHo: targetFullHoVal,
+    targetByDivisi,
     realFullHo: totalNilai,
     shortage,
     amCount: amSet.size,

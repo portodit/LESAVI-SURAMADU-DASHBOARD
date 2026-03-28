@@ -1,13 +1,13 @@
 export const DIVISI_OPTIONS = [
-  { value: "LESA", label: "LESA (DPS+DSS)" },
-  { value: "GOVT", label: "GOVT (DGS)" },
+  { value: "LESA", label: "LESA" },
+  { value: "GOVT", label: "GOVT" },
   { value: "DPS",  label: "DPS" },
   { value: "DSS",  label: "DSS" },
 ];
 
 export const DIVISI_OPTIONS_WITH_ALL = [
-  { value: "LESA", label: "LESA (DPS+DSS)" },
-  { value: "GOVT", label: "GOVT (DGS)" },
+  { value: "LESA", label: "LESA" },
+  { value: "GOVT", label: "GOVT" },
   { value: "DPS",  label: "DPS" },
   { value: "DSS",  label: "DSS" },
   { value: "all",  label: "Semua Divisi" },
@@ -52,8 +52,8 @@ export function matchesDivisiPerforma(
 
 /** Human-readable label for a divisi filter value */
 export function divisiFilterLabel(d: string): string {
-  if (d === "LESA") return "LESA (DPS+DSS)";
-  if (d === "GOVT") return "GOVT (DGS)";
+  if (d === "LESA") return "LESA";
+  if (d === "GOVT") return "GOVT";
   if (!d || d === "all") return "Semua Divisi";
   return d;
 }

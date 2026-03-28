@@ -39,9 +39,10 @@ export default function Login() {
       {/* ── Background image (always present, behind everything) ── */}
       <div className="absolute inset-0 z-0">
         <img
-          src={`${import.meta.env.BASE_URL}login-bg.jpg`}
+          src={`${import.meta.env.BASE_URL}login-bg-new.png`}
           alt=""
-          className="h-full w-full object-cover object-center"
+          className="h-full w-full object-cover"
+          style={{ objectPosition: "65% 50%" }}
         />
         <div className="absolute inset-0 bg-[#cc0000]/70 mix-blend-multiply" />
         <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/60" />

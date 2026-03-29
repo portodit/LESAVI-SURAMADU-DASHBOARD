@@ -1215,10 +1215,10 @@ export default function FunnelPage() {
             <div ref={funnelTableHeaderRef} onScroll={onFunnelHeaderScroll}
               className="overflow-x-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] sticky z-10 rounded-t"
               style={{top:`${detailToolbarH}px`}}>
-              <table className="border-collapse" style={{width:"964px",tableLayout:"fixed"}}>
+              <table className="border-collapse w-full" style={{minWidth:"964px",tableLayout:"fixed"}}>
                 <colgroup>
-                  <col style={{width:"320px"}}/><col style={{width:"112px"}}/><col style={{width:"112px"}}/>
-                  <col style={{width:"220px"}}/><col style={{width:"200px"}}/>
+                  <col style={{width:"33%"}}/><col style={{width:"112px"}}/><col style={{width:"112px"}}/>
+                  <col/><col style={{width:"200px"}}/>
                 </colgroup>
                 <thead>
                   <tr className="bg-red-700 text-white font-black uppercase tracking-wide text-xs">
@@ -1233,10 +1233,10 @@ export default function FunnelPage() {
             </div>
             {/* Scrollable body — expands to full content height */}
             <div ref={funnelTableBodyRef} onScroll={onFunnelBodyScroll} className="overflow-x-auto">
-              <table className="text-left text-sm border-collapse" style={{width:"964px",tableLayout:"fixed"}}>
+              <table className="text-left text-sm border-collapse w-full" style={{minWidth:"964px",tableLayout:"fixed"}}>
                 <colgroup>
-                  <col style={{width:"320px"}}/><col style={{width:"112px"}}/><col style={{width:"112px"}}/>
-                  <col style={{width:"220px"}}/><col style={{width:"200px"}}/>
+                  <col style={{width:"33%"}}/><col style={{width:"112px"}}/><col style={{width:"112px"}}/>
+                  <col/><col style={{width:"200px"}}/>
                 </colgroup>
                 <tbody className="divide-y divide-border/50">
                   {renderAmTbodyContent(groupedByAm, search || hasDetailFilter ? "Tidak ada data yang cocok dengan filter" : "Belum ada data funnel")}

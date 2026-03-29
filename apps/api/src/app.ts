@@ -4,6 +4,9 @@ import pinoHttp from "pino-http";
 import session from "express-session";
 import router from "./routes";
 import { logger } from "./shared/logger";
+import path from "path";
+import { fileURLToPath } from "url";
+import fs from "fs";
 
 const app: Express = express();
 
@@ -44,5 +47,16 @@ app.use(
 );
 
 app.use("/api", router);
+
+if (process.env.NODE_ENV === "production") {
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  const staticDir = path.join(__dirname, "..", "..", "dashboard", "dist", "public");
+  if (fs.existsSync(staticDir)) {
+    app.use(express.static(staticDir));
+    app.get("*", (_req, res) => {
+      res.sendFile(path.join(staticDir, "index.html"));
+    });
+  }
+}
 
 export default app;

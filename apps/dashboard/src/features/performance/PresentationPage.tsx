@@ -1428,7 +1428,7 @@ function actFmtDate(d:string|null):{short:string;day:string}{
 }
 
 // Column grid for ActivitySlide table
-const ACT_GRID_COLS = "32px 1fr 240px 80px 72px 64px 110px";
+const ACT_GRID_COLS = "32px 1fr 240px 100px 72px 64px 110px";
 
 function ActivityPeriodeDropdown({filterYear,setFilterYear,filterMonths,setFilterMonths}:{
   filterYear:string; setFilterYear:(y:string)=>void;
@@ -1819,7 +1819,7 @@ function ActivitySlide() {
                 className="overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
               >
                 <div style={{minWidth:"780px"}}>
-                  <div className="grid text-sm font-black uppercase tracking-wide text-white font-display"
+                  <div className="grid text-sm font-semibold uppercase tracking-wide text-white font-display"
                     style={{background:"#B91C1C",gridTemplateColumns:ACT_GRID_COLS,padding:"10px 16px"}}>
                     <div/><div className="pl-1">Nama AM</div><div>Progress KPI</div>
                     <div className="text-center">Aktivitas</div><div className="text-center">Target</div><div className="text-center">Sisa</div><div>Status</div>
@@ -1885,7 +1885,7 @@ function ActivitySlide() {
                       </div>
                     </div>
 
-                    <div className="text-base font-black font-display text-foreground text-center">{kpiCount}</div>
+                    <div className="text-base font-black font-display text-foreground text-center">{visibleActs.length}</div>
                     <div className="text-base font-bold font-display text-foreground/70 text-center">{am.kpiTarget}</div>
                     <div className={cn("text-base font-bold font-display text-center",sisa===0?"text-emerald-600 dark:text-emerald-400":"text-foreground")}>{sisa===0?"✓":sisa}</div>
                     <div>

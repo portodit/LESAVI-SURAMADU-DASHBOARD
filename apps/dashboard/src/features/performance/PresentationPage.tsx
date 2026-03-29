@@ -536,7 +536,7 @@ function FSPeriodeTreeDropdown({ label, filterYear, filterMonths, availableYears
   );
 }
 
-function FSGauge({ pct, targetHo, targetFullHo, real, mode, compact }: { pct:number; targetHo:number; targetFullHo:number; real:number; mode:"ho"|"fullho"; compact?:boolean }) {
+function FSGauge({ pct, targetHo, targetFullHo, real, mode, compact, divisi }: { pct:number; targetHo:number; targetFullHo:number; real:number; mode:"ho"|"fullho"; compact?:boolean; divisi?:"DPS"|"DSS" }) {
   const clamp=Math.min(Math.max(pct,0),100);
   const r=54,cx=80,cy=70;
   const startAngle=-210,endAngle=30,totalDeg=endAngle-startAngle;
@@ -549,7 +549,8 @@ function FSGauge({ pct, targetHo, targetFullHo, real, mode, compact }: { pct:num
     const large=end-start>180?1:0;
     return `M ${x1} ${y1} A ${radius} ${radius} 0 ${large} 1 ${x2} ${y2}`;
   };
-  const color=clamp>=100?"#10b981":clamp>=75?"#3b82f6":clamp>=50?"#f59e0b":"#CC0000";
+  const dynamicColor=clamp>=100?"#10b981":clamp>=75?"#3b82f6":clamp>=50?"#f59e0b":"#CC0000";
+  const color=divisi==="DPS"?"#3b82f6":divisi==="DSS"?"#10b981":dynamicColor;
   const activeTarget=mode==="ho"?targetHo:targetFullHo;
   const hasTarget=activeTarget>0;
   const startX=cx+r*Math.cos(toRad(startAngle));
@@ -679,21 +680,48 @@ function FSFaseBarChart({ data, compact }: { data:any; compact?: boolean }) {
   );
 }
 
+function FSMiniSparkline({ color, fill }: { color: string; fill: string }) {
+  const pts = [28,22,30,18,26,14,20,8,16,4];
+  const w=88,h=38,pad=2;
+  const xs=pts.map((_,i)=>pad+(i/(pts.length-1))*(w-pad*2));
+  const ys=pts.map(v=>pad+(v/32)*(h-pad*2));
+  const line=xs.map((x,i)=>`${i===0?"M":"L"}${x.toFixed(1)},${ys[i].toFixed(1)}`).join(" ");
+  const area=`${line} L${xs[xs.length-1].toFixed(1)},${(h-pad).toFixed(1)} L${xs[0].toFixed(1)},${(h-pad).toFixed(1)} Z`;
+  const gid=`fsg-${color.replace(/[^a-z]/g,"")}`;
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} fill="none">
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={fill} stopOpacity="0.45"/>
+          <stop offset="100%" stopColor={fill} stopOpacity="0"/>
+        </linearGradient>
+      </defs>
+      <path d={area} fill={`url(#${gid})`}/>
+      <path d={line} stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
 function FSKpiGrid({ data }: { data:any }) {
   if(!data) return null;
   const kpis = [
-    {label:"Total LOP",value:data.totalLop?.toLocaleString("id-ID"),sub:(data.unidentifiedLops||0)>0?`${data.unidentifiedLops} tdk teridentifikasi`:"proyek aktif",color:"text-foreground"},
-    {label:"Total Nilai Pipeline",value:fmtCompactFS(data.totalNilai),sub:"nilai seluruh LOP",color:"text-blue-600"},
-    {label:"Aktif AM",value:data.amCount != null ? String(data.amCount) : "-",sub:"account manager teridentifikasi",color:"text-violet-600"},
-    {label:"Jumlah Pelanggan",value:data.pelangganCount?.toLocaleString("id-ID"),sub:"unique customer",color:"text-amber-600"},
+    {label:"Total LOP",value:data.totalLop?.toLocaleString("id-ID"),sub:(data.unidentifiedLops||0)>0?`${data.unidentifiedLops} tdk teridentifikasi`:"proyek aktif",color:"text-foreground",spark:{color:"#10b981",fill:"#10b981"}},
+    {label:"Total Nilai Pipeline",value:fmtCompactFS(data.totalNilai),sub:"nilai seluruh LOP",color:"text-blue-600",spark:{color:"#3b82f6",fill:"#3b82f6"}},
+    {label:"Aktif AM",value:data.amCount != null ? String(data.amCount) : "-",sub:"account manager teridentifikasi",color:"text-violet-600",spark:{color:"#8b5cf6",fill:"#8b5cf6"}},
+    {label:"Jumlah Pelanggan",value:data.pelangganCount?.toLocaleString("id-ID"),sub:"unique customer",color:"text-amber-600",spark:{color:"#f59e0b",fill:"#f59e0b"}},
   ];
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
       {kpis.map(k=>(
-        <div key={k.label} className="bg-secondary/50 border border-border rounded-xl p-4">
-          <div className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-1">{k.label}</div>
-          <div className={cn("text-3xl font-black tabular-nums leading-tight tracking-tight",k.color)}>{k.value}</div>
-          <div className="text-[11px] text-muted-foreground mt-0.5">{k.sub}</div>
+        <div key={k.label} className="bg-secondary/50 border border-border rounded-xl p-4 flex items-center gap-3 overflow-hidden">
+          <div className="flex-1 min-w-0">
+            <div className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-1">{k.label}</div>
+            <div className={cn("text-3xl font-black tabular-nums leading-tight tracking-tight",k.color)}>{k.value}</div>
+            <div className="text-[11px] text-muted-foreground mt-0.5">{k.sub}</div>
+          </div>
+          <div className="shrink-0 opacity-90">
+            <FSMiniSparkline color={k.spark.color} fill={k.spark.fill}/>
+          </div>
         </div>
       ))}
     </div>
@@ -1170,7 +1198,7 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
           <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr_2fr] gap-4">
             {/* LOP per Fase */}
             <div className="bg-card border border-border rounded-xl p-4 shadow-sm min-w-0">
-              <h3 className="text-sm font-display font-semibold text-foreground mb-3">LOP per Fase</h3>
+              <h3 className="text-base font-display font-bold text-foreground mb-3">LOP per Fase</h3>
               <FSFaseBarChart data={data?{...data,byStatus:periodStats.byStatus}:undefined}/>
             </div>
             {/* DPS | DSS gauges */}
@@ -1181,13 +1209,13 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
               const divPct =div==="DPS"?dpsPct:dssPct;
               return (
                 <div key={div} className="bg-card border border-border rounded-xl p-4 shadow-sm min-w-0">
-                  <h3 className="text-sm font-display font-semibold text-foreground mb-2 flex items-center gap-2">
+                  <h3 className="text-base font-display font-bold text-foreground mb-2 flex items-center gap-2">
                     Capaian Real vs Target
-                    <span className={cn("text-[11px] font-black px-2 py-0.5 rounded",
+                    <span className={cn("text-xs font-black px-2.5 py-0.5 rounded",
                       div==="DPS"?"bg-blue-100 text-blue-700":"bg-emerald-100 text-emerald-700"
                     )}>{div}</span>
                   </h3>
-                  <FSGauge pct={divPct} targetHo={tgtHo} targetFullHo={tgtFull} real={real} mode={filterMode}/>
+                  <FSGauge pct={divPct} targetHo={tgtHo} targetFullHo={tgtFull} real={real} mode={filterMode} divisi={div}/>
                 </div>
               );
             })}
@@ -1205,7 +1233,7 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
         {/* Sticky toolbar — single scrollable row on mobile */}
         <div ref={fsDetailToolbarRef} className="sticky top-0 z-20 bg-card/95 backdrop-blur-sm border-b border-border">
           <div className="flex items-center gap-2 px-4 py-2.5 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            <h3 className="text-sm font-display font-semibold text-foreground whitespace-nowrap shrink-0">Detail Funnel per AM</h3>
+            <h3 className="text-base font-display font-bold text-foreground whitespace-nowrap shrink-0">Detail Funnel per AM</h3>
             <div className="w-px h-5 bg-border/60 shrink-0"/>
             <FSCheckboxDropdown label="" options={amOptions} selected={filterAm} onChange={setFilterAm}
               placeholder="Semua AM" labelFn={amLabelFn} summaryLabel="AM" className="w-40 shrink-0"/>
@@ -1317,6 +1345,7 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
                       targetFullHo={effectiveTargetFullHo}
                       real={st.totalNilai}
                       mode={filterMode}
+                      divisi={div}
                     />
                   </div>
                 </div>

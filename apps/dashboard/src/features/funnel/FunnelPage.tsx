@@ -381,7 +381,7 @@ function PeriodeTreeDropdown({ label, filterYears, filterMonths, availableYears,
 
 // ─── SVG Gauge ───────────────────────────────────────────────────────────────
 
-function Gauge({ pct, targetHo, targetFullHo, real, mode }: { pct: number; targetHo: number; targetFullHo: number; real: number; mode: "ho" | "fullho" }) {
+function Gauge({ pct, targetHo, targetFullHo, real, mode, divisi }: { pct: number; targetHo: number; targetFullHo: number; real: number; mode: "ho" | "fullho"; divisi?: "DPS" | "DSS" }) {
   const clamp = Math.min(Math.max(pct, 0), 100);
   const r = 54, cx = 80, cy = 70;
   const startAngle = -210, endAngle = 30;
@@ -395,7 +395,8 @@ function Gauge({ pct, targetHo, targetFullHo, real, mode }: { pct: number; targe
     const large = end - start > 180 ? 1 : 0;
     return `M ${x1} ${y1} A ${radius} ${radius} 0 ${large} 1 ${x2} ${y2}`;
   };
-  const color = clamp >= 100 ? "#10b981" : clamp >= 75 ? "#3b82f6" : clamp >= 50 ? "#f59e0b" : "#CC0000";
+  const dynamicColor = clamp >= 100 ? "#10b981" : clamp >= 75 ? "#3b82f6" : clamp >= 50 ? "#f59e0b" : "#CC0000";
+  const color = divisi === "DPS" ? "#3b82f6" : divisi === "DSS" ? "#10b981" : dynamicColor;
   const activeTarget = mode === "ho" ? targetHo : targetFullHo;
   const hasTarget = activeTarget > 0;
   const startX = cx + r * Math.cos(toRad(startAngle));
@@ -1134,7 +1135,7 @@ export default function FunnelPage() {
             <>
               {/* LESA: LOP per Fase full-width, lalu 2 gauge DPS | DSS */}
               <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
-                <h3 className="text-sm font-display font-semibold text-foreground mb-3">LOP per Fase</h3>
+                <h3 className="text-base font-display font-bold text-foreground mb-3">LOP per Fase</h3>
                 <FaseBarChart data={data ? { ...data, byStatus: periodStats.byStatus } : undefined} />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1145,14 +1146,14 @@ export default function FunnelPage() {
                   const divPct  = div === "DPS" ? dpsPct : dssPct;
                   return (
                     <div key={div} className="bg-card border border-border rounded-xl p-4 shadow-sm">
-                      <h3 className="text-sm font-display font-semibold text-foreground mb-2 flex items-center gap-2">
+                      <h3 className="text-base font-display font-bold text-foreground mb-2 flex items-center gap-2">
                         Capaian Real vs Target
                         <span className={cn(
-                          "text-[11px] font-black px-2 py-0.5 rounded",
+                          "text-xs font-black px-2.5 py-0.5 rounded",
                           div === "DPS" ? "bg-blue-100 text-blue-700" : "bg-emerald-100 text-emerald-700"
                         )}>{div}</span>
                       </h3>
-                      <Gauge pct={divPct} targetHo={tgtHo} targetFullHo={tgtFull} real={real} mode={filterTarget} />
+                      <Gauge pct={divPct} targetHo={tgtHo} targetFullHo={tgtFull} real={real} mode={filterTarget} divisi={div} />
                     </div>
                   );
                 })}
@@ -1162,11 +1163,11 @@ export default function FunnelPage() {
             /* Non-LESA: LOP per Fase | 1 gauge side-by-side */
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
-                <h3 className="text-sm font-display font-semibold text-foreground mb-3">LOP per Fase</h3>
+                <h3 className="text-base font-display font-bold text-foreground mb-3">LOP per Fase</h3>
                 <FaseBarChart data={data ? { ...data, byStatus: periodStats.byStatus } : undefined} />
               </div>
               <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
-                <h3 className="text-sm font-display font-semibold text-foreground mb-2">
+                <h3 className="text-base font-display font-bold text-foreground mb-2">
                   Capaian Real vs Target
                 </h3>
                 <Gauge pct={pct} targetHo={effectiveTargetHo} targetFullHo={effectiveTargetFullHo} real={periodStats.realFullHo} mode={filterTarget} />
@@ -1181,7 +1182,7 @@ export default function FunnelPage() {
       {viewMode !== "split" && <div className="bg-card border border-border rounded-xl shadow-sm">
         {/* Sticky toolbar — tanpa rounded agar mulus saat floating */}
         <div ref={detailToolbarRef} className="sticky top-0 z-20 bg-card/95 backdrop-blur-sm px-4 py-3 border-b border-border flex items-center justify-between gap-3 flex-wrap">
-          <h3 className="text-sm font-display font-semibold text-foreground flex items-center gap-2">
+          <h3 className="text-base font-display font-bold text-foreground flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-primary" />
             Detail Funnel per AM
           </h3>

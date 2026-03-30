@@ -554,7 +554,7 @@ function AmRowControlled({ am, kpiLabels, forceExpand }: {
             <>
               {/* Sub-header */}
               <div
-                className="grid text-[10px] font-bold uppercase tracking-[0.6px] text-foreground/60 bg-secondary/50 border-b border-border/30"
+                className="grid text-[10px] font-bold uppercase tracking-[0.6px] text-foreground/60 bg-secondary border-b border-border/30"
                 style={{ gridTemplateColumns: "28px 96px 1fr 150px 130px 64px", padding: "7px 16px 7px 56px" }}
               >
                 <div>#</div><div>Tanggal</div><div>Pelanggan &amp; Catatan</div>
@@ -586,7 +586,7 @@ function AmRowControlled({ am, kpiLabels, forceExpand }: {
                     <div>
                       <div className="text-sm font-bold text-foreground">{act.caName || "–"}</div>
                       {act.activityNotes && (
-                        <div className="text-sm font-medium text-foreground/70 mt-0.5 leading-snug">{act.activityNotes}</div>
+                        <div className="text-sm font-semibold text-foreground/70 mt-0.5 leading-snug">{act.activityNotes}</div>
                       )}
                     </div>
 

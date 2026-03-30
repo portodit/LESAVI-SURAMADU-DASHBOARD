@@ -962,15 +962,11 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
   },[]);
 
   // AM thead ref — digunakan untuk mengukur tinggi thead AM agar phase row menempel rapat
-  const fsFunnelAmRowRef = useRef<HTMLTableSectionElement>(null);
-  const [fsFunnelAmRowH, setFsFunnelAmRowH] = useState(45);
-  useEffect(()=>{
-    const el = fsFunnelAmRowRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => setFsFunnelAmRowH(el.offsetHeight));
-    ro.observe(el);
-    setFsFunnelAmRowH(el.offsetHeight);
-    return () => ro.disconnect();
+  const [amTheadHeights, setAmTheadHeights] = useState<Record<string,number>>({});
+  const setAmTheadH = useCallback((key:string, el:HTMLTableSectionElement|null)=>{
+    if(!el) return;
+    const h = el.offsetHeight;
+    setAmTheadHeights(prev => prev[key]===h ? prev : {...prev,[key]:h});
   },[]);
 
   function handleToggleAll(){
@@ -1040,8 +1036,7 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
       const ringStyle=(extra?:React.CSSProperties):React.CSSProperties=>ring?{borderLeft:`2px solid ${ring}`,borderRight:`2px solid ${ring}`,...extra}:{};
       return (
         <React.Fragment key={amKey}>
-          <tr ref={amIdx===0?fsFunnelAmRowRef:undefined}
-            className="cursor-pointer select-none transition-colors"
+          <tr className="cursor-pointer select-none transition-colors"
             style={{
               ...(ring?{borderTop:`2px solid ${ring}`,borderLeft:`2px solid ${ring}`,borderRight:`2px solid ${ring}`,borderBottom:amExpanded?"none":`2px solid ${ring}`}:{borderTop:"2px solid transparent"}),
             }}
@@ -1141,10 +1136,10 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
     if(isLoading) return(<table className="text-left text-sm" style={FS_TB_STYLE}><FSColGroup/><tbody><tr><td colSpan={5} className="text-center py-12 text-muted-foreground text-sm">Memuat data...</td></tr></tbody></table>);
     if(ams.length===0) return(<table className="text-left text-sm" style={FS_TB_STYLE}><FSColGroup/><tbody><tr><td colSpan={5} className="text-center py-12 text-muted-foreground text-sm">{emptyMsg??"Belum ada data"}</td></tr></tbody></table>);
     const amStickyTop = fsFunnelToolbarH + fsFunnelTheadH;
-    const phaseStickyTop = amStickyTop + fsFunnelAmRowH;
     return<>{ams.map((am,amIdx)=>{
       const amKey=am.nikAm||am.namaAm;
       const amExpanded=!!expandedAm[amKey];
+      const phaseStickyTop = amStickyTop + (amTheadHeights[amKey] ?? 45);
       const amTotal=Array.from(am.phases.values()).flat().reduce((s:number,l:any)=>s+(l.nilaiProyek||0),0);
       const amLopCount=Array.from(am.phases.values()).flat().length;
       const orderedPhases=[...FS_PHASES.filter(p=>am.phases.has(p)),...Array.from(am.phases.keys()).filter(p=>!FS_PHASES.includes(p))];
@@ -1169,7 +1164,7 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
       return(
         <table key={amKey} className="text-left text-sm" style={FS_TB_STYLE}><FSColGroup/>
           {/* Baris AM — sticky SATU KALI, tidak diulang per fase */}
-          <thead ref={amIdx===0?fsFunnelAmRowRef:undefined}
+          <thead ref={(el)=>setAmTheadH(amKey,el)}
             style={{position:"sticky",top:amStickyTop,zIndex:12}}>
             <tr className="cursor-pointer select-none hover:brightness-95 transition-colors"
               style={{borderTop:"2px solid #94a3b8",borderLeft:"2px solid #94a3b8",borderRight:"2px solid #94a3b8",borderBottom:"none"}}

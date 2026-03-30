@@ -12,7 +12,7 @@ import {
   Eye, AlertTriangle, RefreshCw, BarChart2, Filter, Activity, Layers, Target, Plus, Save,
   Users, UserCheck, UserX, Pencil, ShieldCheck, ChevronDown, ChevronUp,
   Clock, CircleCheck, CircleX, FolderOpen, Download,
-  ListChecks, Terminal
+  ListChecks, Terminal, CheckSquare2, Square
 } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { RowActions } from "@/shared/ui/row-actions";

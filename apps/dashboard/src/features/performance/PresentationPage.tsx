@@ -949,6 +949,18 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
     return () => ro.disconnect();
   },[]);
 
+  // AM row ref — digunakan untuk mengukur tinggi aktual baris AM agar phase row menempel rapat
+  const fsFunnelAmRowRef = useRef<HTMLTableRowElement>(null);
+  const [fsFunnelAmRowH, setFsFunnelAmRowH] = useState(49);
+  useEffect(()=>{
+    const el = fsFunnelAmRowRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setFsFunnelAmRowH(el.offsetHeight));
+    ro.observe(el);
+    setFsFunnelAmRowH(el.offsetHeight);
+    return () => ro.disconnect();
+  },[]);
+
   function handleToggleAll(){
     const next=!allExpanded;
     setAllExpanded(next);
@@ -1006,7 +1018,7 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
   function renderAmTbodyContentFS(ams: typeof groupedByAm, emptyMsg?: string) {
     if (isLoading) return <tr><td colSpan={5} className="text-center py-12 text-muted-foreground text-sm">Memuat data...</td></tr>;
     if (ams.length===0) return <tr><td colSpan={5} className="text-center py-12 text-muted-foreground text-sm">{emptyMsg??"Belum ada data"}</td></tr>;
-    return <>{ams.map(am=>{
+    return <>{ams.map((am,amIdx)=>{
       const amKey=am.nikAm||am.namaAm;
       const amExpanded=!!expandedAm[amKey];
       const amTotal=Array.from(am.phases.values()).flat().reduce((s:number,l:any)=>s+(l.nilaiProyek||0),0);
@@ -1016,13 +1028,17 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
       const ringStyle=(extra?:React.CSSProperties):React.CSSProperties=>ring?{borderLeft:`2px solid ${ring}`,borderRight:`2px solid ${ring}`,...extra}:{};
       return (
         <React.Fragment key={amKey}>
-          <tr className="cursor-pointer select-none bg-card hover:bg-secondary/30 transition-colors"
+          <tr ref={amIdx===0?fsFunnelAmRowRef:undefined}
+            className="cursor-pointer select-none transition-colors"
             style={{
               ...(ring?{borderTop:`2px solid ${ring}`,borderLeft:`2px solid ${ring}`,borderRight:`2px solid ${ring}`,borderBottom:amExpanded?"none":`2px solid ${ring}`}:{borderTop:"2px solid transparent"}),
-              ...(amExpanded?{position:"sticky" as const,top:fsFunnelTheadH,zIndex:15,boxShadow:"0 2px 8px rgba(0,0,0,0.13)"}:{})
             }}
             onClick={()=>toggleAmRow(amKey)}>
-            <td className="px-4 py-3" style={amExpanded?{backgroundColor:"hsl(var(--card))"}:{}}>
+            <td className="px-4 py-3"
+              style={{
+                backgroundColor: amExpanded ? "hsl(var(--card))" : undefined,
+                ...(amExpanded ? {position:"sticky" as const, top:fsFunnelTheadH, zIndex:15, boxShadow:"0 2px 8px rgba(0,0,0,0.13)"} : {})
+              }}>
               <div className="flex items-center gap-2">
                 <ChevronRight className={cn("w-4 h-4 text-muted-foreground transition-transform shrink-0",amExpanded&&"rotate-90")}/>
                 <span className="font-black text-foreground text-sm uppercase tracking-wide">{am.namaAm}</span>
@@ -1034,7 +1050,11 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
                 </button>
               </div>
             </td>
-            <td className="px-3 py-3" colSpan={amExpanded?4:3} style={amExpanded?{backgroundColor:"hsl(var(--card))"}:{}}>
+            <td className="px-3 py-3" colSpan={amExpanded?4:3}
+              style={{
+                backgroundColor: amExpanded ? "hsl(var(--card))" : undefined,
+                ...(amExpanded ? {position:"sticky" as const, top:fsFunnelTheadH, zIndex:15} : {})
+              }}>
               <span className="text-xs font-black text-foreground tracking-wide">TOTAL {amLopCount} LOP</span>
             </td>
             {!amExpanded&&(<td className="px-4 py-3 text-right whitespace-nowrap">
@@ -1051,24 +1071,24 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
               <React.Fragment key={phaseKey}>
                 <tr className="cursor-pointer select-none hover:brightness-95 transition-all"
                   style={{
-                    background:phaseExpanded?"rgb(253,242,248)":"rgba(253,242,248,0.75)",
                     borderLeft:`4px solid ${c?.bar||"#94a3b8"}`,
                     ...ringStyle({}),
-                    ...(phaseExpanded?{position:"sticky" as const,top:fsFunnelTheadH+49,zIndex:14,boxShadow:"0 2px 6px rgba(0,0,0,0.09)"}:{})
                   }}
                   onClick={()=>togglePhaseRow(phaseKey)}>
-                  <td className="px-4 py-2.5 pl-10" style={phaseExpanded?{backgroundColor:"rgb(253,242,248)"}:{}}>
+                  <td className="px-4 py-2.5 pl-10"
+                    style={{background: phaseExpanded ? "rgb(253,242,248)" : "rgba(253,242,248,0.75)"}}>
                     <div className="flex items-center gap-2">
                       <ChevronRight className={cn("w-3.5 h-3.5 text-slate-500 transition-transform shrink-0",phaseExpanded&&"rotate-90")}/>
                       <span className="text-sm font-black uppercase tracking-wide" style={{color:c?.text}}>DAFTAR PROYEK {phase}</span>
                       <span className="text-xs font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full">{lops.length} proyek</span>
                     </div>
                   </td>
-                  {phaseExpanded?<td colSpan={4} className="px-3 py-2.5" style={{backgroundColor:"rgb(253,242,248)"}}/>
-                    :<><td colSpan={3} className="px-3 py-2.5"/>
-                      <td className="px-4 py-2.5 text-right whitespace-nowrap">
-                        <span className="text-sm font-black text-foreground tabular-nums whitespace-nowrap">{formatRupiahFull(phaseTotal)}</span>
-                      </td></>}
+                  {phaseExpanded
+                    ? <td colSpan={4} className="px-3 py-2.5" style={{background:"rgb(253,242,248)"}}/>
+                    : <><td colSpan={3} className="px-3 py-2.5" style={{background:"rgba(253,242,248,0.75)"}}/>
+                        <td className="px-4 py-2.5 text-right whitespace-nowrap" style={{background:"rgba(253,242,248,0.75)"}}>
+                          <span className="text-sm font-black text-foreground tabular-nums whitespace-nowrap">{formatRupiahFull(phaseTotal)}</span>
+                        </td></>}
                 </tr>
                 {phaseExpanded&&(
                   <>
@@ -1098,6 +1118,103 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
           )}
         </React.Fragment>
       );
+    })}</>;
+  }
+
+  // ── Multi-table renderer: tiap fase = 1 tabel dengan <thead> 2 baris ─────────
+  // Nama AM + DAFTAR PROYEK Fx sticky bersama satu unit — no gap
+  const FS_TB_STYLE:React.CSSProperties={minWidth:"964px",tableLayout:"fixed",borderCollapse:"separate",borderSpacing:0,width:"100%"};
+  function FSColGroup(){return(<colgroup><col style={{width:"33%"}}/><col style={{width:"116px"}}/><col style={{width:"116px"}}/><col/><col style={{width:"200px"}}/></colgroup>);}
+
+  function renderAmTablesFS(ams: typeof groupedByAm, emptyMsg?: string): React.ReactNode {
+    if(isLoading) return(<table className="text-left text-sm" style={FS_TB_STYLE}><FSColGroup/><tbody><tr><td colSpan={5} className="text-center py-12 text-muted-foreground text-sm">Memuat data...</td></tr></tbody></table>);
+    if(ams.length===0) return(<table className="text-left text-sm" style={FS_TB_STYLE}><FSColGroup/><tbody><tr><td colSpan={5} className="text-center py-12 text-muted-foreground text-sm">{emptyMsg??"Belum ada data"}</td></tr></tbody></table>);
+    return<>{ams.map((am,amIdx)=>{
+      const amKey=am.nikAm||am.namaAm;
+      const amExpanded=!!expandedAm[amKey];
+      const amTotal=Array.from(am.phases.values()).flat().reduce((s:number,l:any)=>s+(l.nilaiProyek||0),0);
+      const amLopCount=Array.from(am.phases.values()).flat().length;
+      const orderedPhases=[...FS_PHASES.filter(p=>am.phases.has(p)),...Array.from(am.phases.keys()).filter(p=>!FS_PHASES.includes(p))];
+      const ring=amExpanded?"#94a3b8":undefined;
+      const divisi=resolveAmDivisi(am);
+      const bgCard="hsl(var(--card))";
+      const divBadge=divisi?<span className={cn("text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0",divisi==="DPS"?"bg-blue-100 text-blue-700":divisi==="DSS"?"bg-emerald-100 text-emerald-700":"bg-slate-100 text-slate-600")}>{divisi}</span>:null;
+
+      if(!amExpanded){return(
+        <table key={amKey} className="text-left text-sm" style={FS_TB_STYLE}><FSColGroup/>
+          <tbody>
+            <tr className="cursor-pointer select-none bg-card hover:bg-secondary/30 transition-colors" style={{borderTop:"2px solid transparent"}} onClick={()=>toggleAmRow(amKey)}>
+              <td className="px-4 py-3"><div className="flex items-center gap-2"><ChevronRight className="w-4 h-4 text-muted-foreground shrink-0"/><span className="font-black text-foreground text-sm uppercase tracking-wide">{am.namaAm}</span>{divBadge}<button type="button" onClick={e=>{e.stopPropagation();handleAmExpandIcon(amKey,orderedPhases);}} className="ml-1 p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-secondary/60 shrink-0" title="Expand semua proyek"><Expand className="w-3 h-3"/></button></div></td>
+              <td className="px-3 py-3" colSpan={3}><span className="text-xs font-black text-foreground tracking-wide">TOTAL {amLopCount} LOP</span></td>
+              <td className="px-4 py-3 text-right whitespace-nowrap"><span className="font-black text-foreground tabular-nums text-sm whitespace-nowrap">{formatRupiahFull(amTotal)}</span></td>
+            </tr>
+          </tbody>
+        </table>
+      );}
+
+      return(<React.Fragment key={amKey}>
+        {orderedPhases.map((phase,phaseIdx)=>{
+          const lops=am.phases.get(phase)||[];
+          const phaseKey=`${amKey}|${phase}`;
+          const phaseExpanded=!!expandedPhase[phaseKey];
+          const phaseTotal=lops.reduce((s:number,l:any)=>s+(l.nilaiProyek||0),0);
+          const c=FS_PHASE_COLORS[phase];
+          const phaseBg=phaseExpanded?"rgb(253,242,248)":"rgba(253,242,248,0.75)";
+          return(
+            <table key={phaseKey} className="text-left text-sm" style={FS_TB_STYLE}><FSColGroup/>
+              <thead style={{position:"sticky",top:fsFunnelTheadH,zIndex:15}}>
+                {/* Baris 1: Nama AM — selalu tampil di setiap fase, sticky bersama baris fase */}
+                <tr ref={amIdx===0&&phaseIdx===0?fsFunnelAmRowRef:undefined}
+                  className="cursor-pointer select-none hover:brightness-95 transition-colors"
+                  style={{borderTop:phaseIdx===0?`2px solid ${ring}`:"none",borderLeft:`2px solid ${ring}`,borderRight:`2px solid ${ring}`,borderBottom:"none"}}
+                  onClick={()=>toggleAmRow(amKey)}>
+                  <th className="px-4 py-2.5 font-normal text-left" style={{backgroundColor:bgCard}}>
+                    <div className="flex items-center gap-2"><ChevronRight className="w-4 h-4 text-muted-foreground shrink-0 rotate-90"/><span className="font-black text-foreground text-sm uppercase tracking-wide">{am.namaAm}</span>{divBadge}<button type="button" onClick={e=>{e.stopPropagation();handleAmExpandIcon(amKey,orderedPhases);}} className="ml-1 p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-secondary/60 shrink-0" title="Collapse semua proyek"><Minimize2 className="w-3 h-3"/></button></div>
+                  </th>
+                  <th className="px-3 py-2.5 font-normal" colSpan={4} style={{backgroundColor:bgCard}}><span className="text-xs font-black text-foreground tracking-wide">TOTAL {amLopCount} LOP</span></th>
+                </tr>
+                {/* Baris 2: Nama fase — sticky melekat tepat di bawah baris AM */}
+                <tr className="cursor-pointer select-none hover:brightness-95 transition-all"
+                  style={{borderLeft:`4px solid ${c?.bar||"#94a3b8"}`,borderRight:`2px solid ${ring}`,boxShadow:"0 2px 6px rgba(0,0,0,0.09)"}}
+                  onClick={()=>togglePhaseRow(phaseKey)}>
+                  <th className="px-4 py-2.5 pl-10 font-normal text-left" style={{background:phaseBg}}>
+                    <div className="flex items-center gap-2"><ChevronRight className={cn("w-3.5 h-3.5 text-slate-500 transition-transform shrink-0",phaseExpanded&&"rotate-90")}/><span className="text-sm font-black uppercase tracking-wide" style={{color:c?.text}}>DAFTAR PROYEK {phase}</span><span className="text-xs font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full">{lops.length} proyek</span></div>
+                  </th>
+                  {phaseExpanded
+                    ?<th colSpan={4} className="px-3 py-2.5 font-normal" style={{background:phaseBg}}/>
+                    :<><th colSpan={3} className="px-3 py-2.5 font-normal" style={{background:phaseBg}}/><th className="px-4 py-2.5 text-right whitespace-nowrap font-normal" style={{background:phaseBg}}><span className="text-sm font-black text-foreground tabular-nums whitespace-nowrap">{formatRupiahFull(phaseTotal)}</span></th></>
+                  }
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/50">
+                {phaseExpanded&&lops.map((lop:any,idx:number)=>(
+                  <tr key={`${lop.lopid}-${idx}`} className="hover:bg-pink-50 transition-colors" style={{borderLeft:`2px solid ${ring}`,borderRight:`2px solid ${ring}`}}>
+                    <td className="px-4 py-2 pl-16" style={{minWidth:"320px"}}><div className="text-sm text-foreground font-bold leading-tight line-clamp-2" title={lop.judulProyek}>{lop.judulProyek}</div></td>
+                    <td className="px-3 py-2 whitespace-nowrap">{lop.kategoriKontrak?<span className={`inline-block px-2 py-0.5 rounded text-[11px] font-bold whitespace-nowrap ${kategoriColor(lop.kategoriKontrak)}`}>{lop.kategoriKontrak}</span>:<span className="text-muted-foreground text-xs">–</span>}</td>
+                    <td className="px-3 py-2 font-mono text-xs text-foreground whitespace-nowrap">{lop.lopid}</td>
+                    <td className="px-3 py-2 text-sm text-foreground font-bold max-w-[220px] truncate" title={lop.pelanggan}>{lop.pelanggan}</td>
+                    <td className="px-4 py-2 text-right tabular-nums text-base font-black text-foreground whitespace-nowrap">{formatRupiahFull(lop.nilaiProyek)}</td>
+                  </tr>
+                ))}
+                {phaseExpanded&&(
+                  <tr className="bg-red-50 border-t border-red-200" style={{borderLeft:`2px solid ${ring}`,borderRight:`2px solid ${ring}`}}>
+                    <td colSpan={4} className="px-4 py-2 pl-16"><span className="text-sm font-black text-red-800 uppercase tracking-wide">Total Nilai {phase}</span></td>
+                    <td className="px-4 py-2 text-right tabular-nums font-black text-red-800 whitespace-nowrap text-base">{formatRupiahFull(phaseTotal)}</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          );
+        })}
+        <table className="text-left text-sm" style={FS_TB_STYLE}><FSColGroup/>
+          <tbody>
+            <tr className="bg-slate-100 border-t-2 border-slate-300" style={ring?{borderLeft:`2px solid ${ring}`,borderRight:`2px solid ${ring}`,borderBottom:`2px solid ${ring}`}:{}}>
+              <td colSpan={4} className="px-4 py-2.5 pl-10"><span className="text-sm font-black text-red-700 uppercase tracking-wide">Total Nilai Proyek — {am.namaAm}</span></td>
+              <td className="px-4 py-2.5 text-right tabular-nums font-black text-red-700 whitespace-nowrap text-lg">{formatRupiahFull(amTotal)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </React.Fragment>);
     })}</>;
   }
 
@@ -1248,15 +1365,13 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
             </button>
           </div>
         </div>
-        {/* Unified table scroll container — sticky thead + sticky expanded AM/phase rows */}
+        {/* Multi-table scroll container: tiap fase = tabel sendiri, thead-nya sticky bersama */}
         <div className="px-3 pb-3">
           <div className="border border-border rounded overflow-auto" style={{maxHeight:"calc(100svh - 210px)"}}>
-            <table className="text-left text-sm w-full" style={{minWidth:"964px",tableLayout:"fixed",borderCollapse:"separate",borderSpacing:0}}>
-              <colgroup>
-                <col style={{width:"33%"}}/><col style={{width:"116px"}}/><col style={{width:"116px"}}/>
-                <col/><col style={{width:"200px"}}/>
-              </colgroup>
-              <thead ref={fsFunnelTheadRef} style={{position:"sticky",top:0,zIndex:20}}>
+            {/* Header kolom — sticky di atas, pisah dari tabel AM agar tidak saling tarik */}
+            <table ref={fsFunnelTheadRef} className="text-left text-sm" style={{...FS_TB_STYLE,position:"sticky",top:0,zIndex:20}}>
+              <FSColGroup/>
+              <thead>
                 <tr className="text-white font-black uppercase tracking-wide text-xs">
                   <th className="px-4 py-3 text-left" style={{background:"#B91C1C"}}>AM / Fase / Proyek</th>
                   <th className="px-3 py-3 text-left whitespace-nowrap" style={{background:"#B91C1C"}}>KATEGORI</th>
@@ -1265,10 +1380,9 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
                   <th className="px-4 py-3 text-right whitespace-nowrap" style={{background:"#B91C1C"}}>Nilai Proyek</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border/50">
-                {renderAmTbodyContentFS(groupedByAm, search?"Tidak ada data yang cocok dengan filter":"Belum ada data funnel")}
-              </tbody>
             </table>
+            {/* Per-AM + per-fase mini tables */}
+            {renderAmTablesFS(groupedByAm, search?"Tidak ada data yang cocok dengan filter":"Belum ada data funnel")}
           </div>
         </div>
       </div>}

@@ -2,7 +2,11 @@
 // Push ke GitHub via REST API
 // Mode 1: node push-to-github.mjs "pesan" file1 file2 ...  → push file spesifik
 // Mode 2: node push-to-github.mjs "pesan"                  → push SEMUA file berubah (diff)
-// Mode 3: CHANGED_ONLY=1 node push-to-github.mjs "pesan"  → hanya file yg berbeda SHA
+//
+// PATH MAPPING (otomatis):
+//   artifacts/api-server/           → apps/api/
+//   artifacts/telkom-am-dashboard/  → apps/dashboard/
+//   lib/                            → packages/
 
 import fs from "fs";
 import path from "path";
@@ -15,7 +19,7 @@ const BRANCH = "master";
 const BASE   = process.cwd();
 const ARGS   = process.argv.slice(2);
 const MSG    = ARGS[0] || "chore: update";
-const FILES  = ARGS.slice(1); // file spesifik (opsional)
+const FILES  = ARGS.slice(1);
 
 if (!TOKEN) { console.error("❌ GITHUB_TOKEN tidak ada"); process.exit(1); }
 
@@ -25,8 +29,20 @@ const H  = {
   Accept: "application/vnd.github+json",
   "X-GitHub-Api-Version": "2022-11-28",
   "Content-Type": "application/json",
-  "User-Agent": "LESAVI-push/4.0",
+  "User-Agent": "LESAVI-push/5.0",
 };
+
+// ── Path remapping: Replit lokal → GitHub repo ──────────────────────────────
+function remapPath(relPath) {
+  if (relPath.startsWith("artifacts/api-server/"))
+    return relPath.replace("artifacts/api-server/", "apps/api/");
+  if (relPath.startsWith("artifacts/telkom-am-dashboard/"))
+    return relPath.replace("artifacts/telkom-am-dashboard/", "apps/dashboard/");
+  if (relPath.startsWith("lib/"))
+    return relPath.replace("lib/", "packages/");
+  return relPath; // .doc/, root files → tidak berubah
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 function gitBlobSha(buf) {
   const h = crypto.createHash("sha1");
@@ -55,10 +71,9 @@ async function api(method, endpoint, body, retry = 5) {
 
 async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-// Walk direktori source (skip node_modules, dist, dll)
 const SKIP = new Set(["node_modules","dist",".git",".cache",".agents",".local","tmp","out-tsc",".expo",".expo-shared","coverage","attached_assets",".idea",".vscode"]);
 const EXT  = new Set([".ts",".tsx",".js",".mjs",".cjs",".json",".toml",".md",".sh",".sql",".css",".html",".yaml",".yml",".txt",".gitignore",".npmrc",".nvmrc"]);
-const ROOT = ["package.json","pnpm-lock.yaml","pnpm-workspace.yaml",".gitignore",".npmrc","replit.md","push-to-github.mjs","push-to-github.sh"];
+const ROOT = ["package.json","pnpm-lock.yaml","pnpm-workspace.yaml",".gitignore",".npmrc","replit.md","push-to-github.mjs","push-to-github.sh","tsconfig.base.json"];
 
 function walk(dir, relBase, depth = 0) {
   const r = [];
@@ -85,34 +100,55 @@ async function main() {
   console.log(`📦 ${OWNER}/${REPO}@${BRANCH} — base: ${baseCommit.slice(0,8)}`);
 
   let toUpload;
+  let deletePaths = []; // path di GitHub yang harus dihapus
 
   if (FILES.length > 0) {
-    // Mode spesifik: push file yang disebutkan di args
+    // Mode spesifik
     toUpload = FILES.map(f => {
       const full = path.resolve(BASE, f);
       const rel  = path.relative(BASE, full).replace(/\\/g, "/");
       if (!fs.existsSync(full)) throw new Error(`File tidak ditemukan: ${full}`);
-      return { full, rel, content: fs.readFileSync(full) };
+      const ghPath = remapPath(rel);
+      if (ghPath !== rel) process.stdout.write(`   📍 ${rel} → ${ghPath}\n`);
+      return { full, rel: ghPath, content: fs.readFileSync(full) };
     });
     console.log(`📝 Mode: push ${toUpload.length} file spesifik`);
   } else {
-    // Mode diff: bandingkan SHA dengan GitHub
+    // Mode diff
     console.log("🔍 Mode diff: ambil tree dari GitHub...");
     const ghTree = await api("GET", `/repos/${OWNER}/${REPO}/git/trees/${baseTree}?recursive=1`);
     const ghMap  = new Map(ghTree.tree.filter(i => i.type==="blob").map(i => [i.path, i.sha]));
     const locals = walk(BASE, "");
+
+    // Cek apakah ada file lama di path "artifacts/..." yang harus dihapus
+    for (const [ghPath] of ghMap) {
+      if (ghPath.startsWith("artifacts/")) deletePaths.push(ghPath);
+    }
+
     toUpload = locals.filter(({ full, rel }) => {
+      const ghPath = remapPath(rel);
       const buf = fs.readFileSync(full);
-      return gitBlobSha(buf) !== ghMap.get(rel);
-    }).map(({ full, rel }) => ({ full, rel, content: fs.readFileSync(full) }));
+      return gitBlobSha(buf) !== ghMap.get(ghPath);
+    }).map(({ full, rel }) => ({ full, rel: remapPath(rel), content: fs.readFileSync(full) }));
+
+    if (deletePaths.length > 0) {
+      console.log(`🗑️  Path lama yang akan dihapus: ${deletePaths.length}`);
+      deletePaths.forEach(p => console.log(`   × ${p}`));
+    }
     console.log(`📊 GH: ${ghMap.size} | Lokal: ${locals.length} | Berubah: ${toUpload.length}`);
   }
 
-  if (toUpload.length === 0) { console.log("✅ Tidak ada perubahan."); return; }
+  if (toUpload.length === 0 && deletePaths.length === 0) { console.log("✅ Tidak ada perubahan."); return; }
 
-  // 2. Buat blobs (1 per 1 dengan delay kecil)
+  // 2. Buat blobs
   console.log(`🚀 Upload ${toUpload.length} blobs...`);
   const treeItems = [];
+
+  // Tambahkan deletion items (sha: null)
+  for (const p of deletePaths) {
+    treeItems.push({ path: p, mode: "100644", type: "blob", sha: null });
+  }
+
   for (let i = 0; i < toUpload.length; i++) {
     const { rel, content } = toUpload[i];
     const blob = await api("POST", `/repos/${OWNER}/${REPO}/git/blobs`, {
@@ -123,14 +159,14 @@ async function main() {
     process.stdout.write(`\r   [${i+1}/${toUpload.length}] ${rel.slice(-60)}`);
     if (i < toUpload.length - 1) await sleep(200);
   }
-  console.log("\n   ✓ Semua blob selesai");
+  console.log("\n   ✓ Selesai");
 
   // 3. Tree → Commit → Update ref
   const newTree   = await api("POST", `/repos/${OWNER}/${REPO}/git/trees`, { base_tree: baseTree, tree: treeItems });
   const now       = new Date().toISOString();
   const newCommit = await api("POST", `/repos/${OWNER}/${REPO}/git/commits`, {
     message: MSG, tree: newTree.sha, parents: [baseCommit],
-    author: { name:"PORTODIT", email:"bliaditdev@gmail.com", date:now },
+    author:    { name:"PORTODIT", email:"bliaditdev@gmail.com", date:now },
     committer: { name:"PORTODIT", email:"bliaditdev@gmail.com", date:now },
   });
   await api("PATCH", `/repos/${OWNER}/${REPO}/git/refs/heads/${BRANCH}`, { sha: newCommit.sha, force: false });

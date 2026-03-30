@@ -580,10 +580,10 @@ export function FunnelSectionCard() {
             </div>
           </div>
 
-          {/* Sticky column header */}
+          {/* Table — single overflow-x-auto wrapper; header + AM rows scroll together horizontally */}
           <div className="overflow-x-auto">
-            <div className="sticky top-0 z-20 bg-card/95 backdrop-blur-sm">
-              <table className="text-left text-xs" style={{ ...TB_STYLE }}>
+            <div style={{ minWidth: "860px" }}>
+              <table className="text-left text-xs w-full" style={{ ...TB_STYLE }}>
                 <ColGroup />
                 <thead>
                   <tr className="bg-red-700 text-white font-black uppercase tracking-wide text-xs">
@@ -595,9 +595,9 @@ export function FunnelSectionCard() {
                   </tr>
                 </thead>
               </table>
-            </div>
-            <div className="space-y-px">
-              {renderAmTables()}
+              <div className="space-y-px">
+                {renderAmTables()}
+              </div>
             </div>
           </div>
         </div>

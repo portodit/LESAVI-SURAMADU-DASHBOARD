@@ -818,7 +818,7 @@ export default function PerformaVis() {
           <div>
             {/* Table */}
             <div className="bg-card border border-border rounded-xl">
-              <div ref={perfSectionHeaderRef} className="sticky top-0 z-20 bg-card/95 backdrop-blur-sm px-4 py-3 border-b border-border rounded-t-xl">
+              <div ref={perfSectionHeaderRef} className="sticky top-0 z-20 bg-card px-4 py-3 border-b border-border rounded-t-xl">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <h3 className="text-sm font-display font-semibold text-foreground flex items-center gap-2">
                     <TrendingUp className="w-4 h-4 text-primary" />
@@ -854,7 +854,7 @@ export default function PerformaVis() {
                 <div className="border border-border rounded">
                 {/* Sticky table header — synced horizontally with body */}
                 <div ref={perfTableHeaderRef} onScroll={onPerfHeaderScroll}
-                  className="overflow-x-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] sticky z-10"
+                  className="overflow-x-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] sticky z-10 bg-card"
                   style={{ top: `${perfSectionHeaderH}px` }}>
                   <table className="border-collapse" style={{ minWidth: "600px", width: "100%" }}>
                     <thead>

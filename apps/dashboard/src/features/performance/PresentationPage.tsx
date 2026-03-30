@@ -2209,9 +2209,9 @@ export default function EmbedPerforma() {
     ro.observe(el);
     setPerfPresentTableHeaderH(el.getBoundingClientRect().height);
   }, []);
-  // AM summary row height — callback ref on every expanded row for accurate measurement
+  // Sticky AM table height — callback ref on expanded AM sticky table for accurate measurement
   const [perfPresentAmRowH, setPerfPresentAmRowH] = useState(38);
-  const perfPresentAmRowCallbackRef = useCallback((el: HTMLTableRowElement|null) => {
+  const perfPresentAmRowCallbackRef = useCallback((el: HTMLTableElement|null) => {
     if (!el) return;
     const ro = new ResizeObserver(() => setPerfPresentAmRowH(el.getBoundingClientRect().height));
     ro.observe(el);
@@ -2755,151 +2755,190 @@ export default function EmbedPerforma() {
                 </div>
               </div>
               <div className="p-3">
+              {/* ── Funnel-style multi-table: one global header table (sticky) + per-AM tables ── */}
               <div className="border border-border rounded overflow-x-auto">
-              {/* Single table — thead is sticky, eliminates any gap between header and body */}
-              <table className="w-full text-xs text-left border-collapse" style={{ minWidth: "800px", tableLayout: "fixed" }}>
-                <PerfColGroup/>
-                <thead ref={perfTheadCallbackRef} className="sticky z-10" style={{ top: `${perfToolbarH}px` }}>
-                  <tr className="bg-red-700 text-white">
-                    <th className="px-3 py-3 text-left"></th>
-                    <th className="px-4 py-3 text-left text-xs font-black uppercase tracking-wide">Nama AM</th>
-                    <th className={cn("px-4 py-3 text-right text-xs font-black uppercase tracking-wide", filterTipeRank === "Real Revenue" && "underline underline-offset-2")}>Target {filterTipeRevenue}</th>
-                    <th className={cn("px-4 py-3 text-right text-xs font-black uppercase tracking-wide", filterTipeRank === "Real Revenue" && "underline underline-offset-2")}>Real {filterTipeRevenue}</th>
-                    <th className={cn("px-3 py-3 text-right text-xs font-black uppercase tracking-wide", filterTipeRank === "Ach CM" && "underline underline-offset-2")}>CM %</th>
-                    <th className={cn("px-3 py-3 text-right text-xs font-black uppercase tracking-wide", filterTipeRank === "YTD" && "underline underline-offset-2")}>YTD %</th>
-                    <th className="px-3 py-3 text-center text-xs font-black uppercase tracking-wide">Customer</th>
-                    <th className={cn("px-3 py-3 text-center text-xs font-black uppercase tracking-wide", "underline underline-offset-2")}>
-                      {filterTipeRank === "Ach CM" ? "RANK CM" : filterTipeRank === "YTD" ? "RANK YTD" : "RANK REV"}
-                    </th>
-                  </tr>
-                </thead>
-                  <tbody className="divide-y divide-border/50">
-                    {filteredAmData.map((row) => {
-                      const isExpanded = effectiveExpandedRows.has(row.nik);
-                      const hasCustomers = row.customers.length > 0;
+              {(() => {
+                const PERF_TB: React.CSSProperties = { minWidth: "800px", tableLayout: "fixed", borderCollapse: "separate", borderSpacing: 0, width: "100%" };
+                const bgCard = "hsl(var(--card))";
+                return (
+                  <>
+                  {/* ① Global header table — sticky at perfToolbarH */}
+                  <table style={{...PERF_TB, position:"sticky", top:perfToolbarH, zIndex:20, boxShadow:"0 2px 4px rgba(0,0,0,0.10)"}}>
+                    <PerfColGroup/>
+                    <thead ref={perfTheadCallbackRef}>
+                      <tr className="bg-red-700 text-white">
+                        <th className="px-3 py-3 text-left" style={{backgroundColor:"#B91C1C"}}></th>
+                        <th className="px-4 py-3 text-left text-xs font-black uppercase tracking-wide" style={{backgroundColor:"#B91C1C"}}>Nama AM</th>
+                        <th className={cn("px-4 py-3 text-right text-xs font-black uppercase tracking-wide", filterTipeRank === "Real Revenue" && "underline underline-offset-2")} style={{backgroundColor:"#B91C1C"}}>Target {filterTipeRevenue}</th>
+                        <th className={cn("px-4 py-3 text-right text-xs font-black uppercase tracking-wide", filterTipeRank === "Real Revenue" && "underline underline-offset-2")} style={{backgroundColor:"#B91C1C"}}>Real {filterTipeRevenue}</th>
+                        <th className={cn("px-3 py-3 text-right text-xs font-black uppercase tracking-wide", filterTipeRank === "Ach CM" && "underline underline-offset-2")} style={{backgroundColor:"#B91C1C"}}>CM %</th>
+                        <th className={cn("px-3 py-3 text-right text-xs font-black uppercase tracking-wide", filterTipeRank === "YTD" && "underline underline-offset-2")} style={{backgroundColor:"#B91C1C"}}>YTD %</th>
+                        <th className="px-3 py-3 text-center text-xs font-black uppercase tracking-wide" style={{backgroundColor:"#B91C1C"}}>Customer</th>
+                        <th className="px-3 py-3 text-center text-xs font-black uppercase tracking-wide underline underline-offset-2" style={{backgroundColor:"#B91C1C"}}>
+                          {filterTipeRank === "Ach CM" ? "RANK CM" : filterTipeRank === "YTD" ? "RANK YTD" : "RANK REV"}
+                        </th>
+                      </tr>
+                    </thead>
+                  </table>
+
+                  {/* ② Per-AM tables — mirrors renderAmTablesFS pattern from FunnelSlide */}
+                  {filteredAmData.length === 0 ? (
+                    <table style={PERF_TB}><PerfColGroup/>
+                      <tbody><tr><td colSpan={8} className="text-center py-12 text-muted-foreground text-sm">Tidak ada data yang cocok</td></tr></tbody>
+                    </table>
+                  ) : filteredAmData.map((row) => {
+                    const isExpanded = effectiveExpandedRows.has(row.nik);
+                    const hasCustomers = row.customers.length > 0;
+                    const ring = isExpanded ? "#94a3b8" : undefined;
+
+                    const amCells = (
+                      <>
+                        <td className="px-2 py-2.5" style={{backgroundColor:bgCard, width:"28px"}}>
+                          {hasCustomers ? (isExpanded ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />) : null}
+                        </td>
+                        <td className="px-4 py-2.5 font-black text-foreground uppercase tracking-wide overflow-visible" style={{backgroundColor:bgCard}}>
+                          <div className="group relative flex flex-col w-fit">
+                            <span className="text-sm">{row.namaAm}</span>
+                            <span className="text-[10px] text-muted-foreground font-normal normal-case">{row.divisi}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-2.5 text-right font-semibold text-foreground tabular-nums text-xs" style={{backgroundColor:bgCard}}>{formatRupiah(row.cmTarget)}</td>
+                        <td className="px-4 py-2.5 text-right font-black text-foreground tabular-nums text-xs" style={{backgroundColor:bgCard}}>{formatRupiah(row.cmReal)}</td>
+                        <td className={cn("px-3 py-2.5 text-right font-black tabular-nums text-xs", row.cmAch >= 1 ? "text-green-600" : row.cmAch >= 0.8 ? "text-orange-500" : "text-red-600")} style={{backgroundColor:bgCard}}>
+                          {(row.cmAch * 100).toFixed(1).replace(".", ",")}%
+                        </td>
+                        <td className={cn("px-3 py-2.5 text-right font-black tabular-nums text-xs", row.ytdAch >= 1 ? "text-green-600" : row.ytdAch >= 0.8 ? "text-blue-600" : "text-red-600")} style={{backgroundColor:bgCard}}>
+                          {(row.ytdAch * 100).toFixed(1).replace(".", ",")}%
+                        </td>
+                        <td className="px-3 py-2.5 text-center font-black text-foreground text-xs" style={{backgroundColor:bgCard}}>{(row.customers || []).length}</td>
+                        <td className="px-3 py-2.5 text-center font-black text-foreground text-xs" style={{backgroundColor:bgCard}}>{row.displayRank}</td>
+                      </>
+                    );
+
+                    if (!isExpanded) {
                       return (
-                        <React.Fragment key={row.nik}>
-                          <tr
-                            ref={isExpanded ? perfPresentAmRowCallbackRef : undefined}
-                            className={cn("transition-colors", isExpanded ? "bg-card" : "hover:bg-secondary/20", hasCustomers && "cursor-pointer")}
-                            style={isExpanded ? {position:"sticky" as const, top:perfToolbarH+perfPresentTableHeaderH, zIndex:10, boxShadow:"0 2px 6px rgba(0,0,0,0.08)"} : {}}
-                            onClick={() => hasCustomers && toggleRow(row.nik)}>
-                            <td className="px-2 py-2 text-muted-foreground" style={isExpanded?{backgroundColor:"hsl(var(--card))"}:{}}>
-                              {hasCustomers ? (isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />) : null}
-                            </td>
-                            <td className="px-4 py-2 font-black text-foreground uppercase tracking-wide overflow-visible" style={isExpanded?{backgroundColor:"hsl(var(--card))"}:{}}>
-                              <div className="group relative flex flex-col w-fit">
-                                <span>{row.namaAm}</span>
-                                <span className="text-[10px] text-muted-foreground font-normal normal-case">{row.divisi}</span>
-                                {/* Hover tooltip */}
-                                <div className="pointer-events-none absolute left-0 top-full mt-1.5 z-[200] w-56 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-                                  <div className="bg-card border border-border rounded-xl shadow-xl px-3 py-2.5 text-xs">
-                                    <p className="font-bold text-foreground mb-2 leading-snug">{row.namaAm}</p>
-                                    <div className="space-y-1.5">
-                                      <div className="flex justify-between gap-3">
-                                        <span className="text-muted-foreground">Total Pelanggan</span>
-                                        <span className="font-semibold text-foreground">{(row.customers || []).length}</span>
-                                      </div>
-                                      <div className="flex justify-between gap-3">
-                                        <span className="text-muted-foreground">Real Revenue</span>
-                                        <span className="font-semibold text-foreground">{formatRupiah(row.cmReal)}</span>
-                                      </div>
-                                      <div className="flex justify-between gap-3">
-                                        <span className="text-muted-foreground">Target Revenue</span>
-                                        <span className="font-semibold text-foreground">{formatRupiah(row.cmTarget)}</span>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-4 py-2 text-right font-bold text-foreground tabular-nums" style={isExpanded?{backgroundColor:"hsl(var(--card))"}:{}}>{formatRupiah(row.cmTarget)}</td>
-                            <td className="px-4 py-2 text-right font-black text-foreground tabular-nums" style={isExpanded?{backgroundColor:"hsl(var(--card))"}:{}}>{formatRupiah(row.cmReal)}</td>
-                            <td className={cn("px-3 py-2 text-right font-black tabular-nums", row.cmAch >= 1 ? "text-green-600" : row.cmAch >= 0.8 ? "text-orange-500" : "text-red-600")} style={isExpanded?{backgroundColor:"hsl(var(--card))"}:{}}>
-                              {(row.cmAch * 100).toFixed(1).replace(".", ",")}%
-                            </td>
-                            <td className={cn("px-3 py-2 text-right font-black tabular-nums", row.ytdAch >= 1 ? "text-green-600" : row.ytdAch >= 0.8 ? "text-blue-600" : "text-red-600")} style={isExpanded?{backgroundColor:"hsl(var(--card))"}:{}}>
-                              {(row.ytdAch * 100).toFixed(1).replace(".", ",")}%
-                            </td>
-                            <td className="px-3 py-2 text-center font-black text-foreground" style={isExpanded?{backgroundColor:"hsl(var(--card))"}:{}}>{(row.customers || []).length}</td>
-                            <td className="px-3 py-2 text-center font-black text-foreground" style={isExpanded?{backgroundColor:"hsl(var(--card))"}:{}}>{row.displayRank}</td>
-                          </tr>
-                          {isExpanded && hasCustomers && (
-                            <tr className="bg-rose-50/40 dark:bg-rose-950/10">
-                              <td colSpan={8} className="px-0 pb-3 pt-0">
-                                <div className="mx-4 mt-2 mb-1 border-2 border-rose-200 dark:border-rose-800/50 rounded-xl overflow-clip shadow-sm">
-                                  <table className="w-full text-xs">
-                                    <thead>
-                                      <tr className="bg-rose-100 dark:bg-rose-950/30"
-                                        style={{position:"sticky" as const, top:perfToolbarH+perfPresentTableHeaderH+perfPresentAmRowH, zIndex:9}}>
-                                        <th className="px-3 py-4 text-left text-xs font-black text-rose-800 dark:text-rose-300 uppercase tracking-wide">Pelanggan / NIP</th>
-                                        <th className="px-3 py-4 text-right text-xs font-black text-rose-800 dark:text-rose-300 uppercase tracking-wide">Proporsi</th>
-                                        <th className="px-3 py-4 text-right text-xs font-black text-rose-800 dark:text-rose-300 uppercase tracking-wide">Target</th>
-                                        <th className="px-3 py-4 text-right text-xs font-black text-rose-800 dark:text-rose-300 uppercase tracking-wide">Real</th>
-                                        <th className="px-3 py-4 text-right text-xs font-black text-rose-800 dark:text-rose-300 uppercase tracking-wide">Ach %</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-border/40">
-                                      {row.customers.map((c: any, ci: number) => {
-                                        const cReal = c.realTotal ?? 0;
-                                        const cTarget = c.targetTotal ?? 0;
-                                        const prop = c.proporsi != null ? c.proporsi * 100 : 0;
-                                        const cAch = cTarget > 0 ? cReal / cTarget * 100 : 0;
-                                        return (
-                                          <tr key={ci} className={cn("transition-colors", ci % 2 === 0 ? "bg-white dark:bg-card" : "bg-rose-50/60 dark:bg-rose-950/20", "hover:bg-rose-100/60 dark:hover:bg-rose-900/20")}>
-                                            <td className="px-3 py-1.5 font-medium text-foreground">
-                                              <div>{c.pelanggan || "—"}</div>
-                                              {c.nip && <div className="text-[10px] text-muted-foreground">{c.nip}</div>}
-                                            </td>
-                                            <td className="px-3 py-1.5 text-right tabular-nums">
-                                              <div className="flex items-center justify-end gap-1.5">
-                                                <div className="w-12 h-1.5 bg-secondary rounded-full overflow-hidden">
-                                                  <div className="h-full bg-primary rounded-full" style={{ width: `${Math.min(prop, 100)}%` }} />
-                                                </div>
-                                                <span className="text-foreground font-medium">{prop.toFixed(1)}%</span>
-                                              </div>
-                                            </td>
-                                            <td className="px-3 py-1.5 text-right tabular-nums text-foreground">{formatRupiah(cTarget)}</td>
-                                            <td className="px-3 py-1.5 text-right tabular-nums font-medium text-foreground">{formatRupiah(cReal)}</td>
-                                            <td className="px-3 py-1.5 text-right tabular-nums">
-                                              <span className={cn("font-semibold", cAch >= 100 ? "text-green-600" : cAch >= 80 ? "text-orange-500" : "text-red-500")}>
-                                                {cAch.toFixed(1)}%
-                                              </span>
-                                            </td>
-                                          </tr>
-                                        );
-                                      })}
-                                    </tbody>
-                                  </table>
-                                </div>
-                              </td>
+                        <table key={row.nik} style={PERF_TB}>
+                          <PerfColGroup/>
+                          <tbody>
+                            <tr className={cn("select-none transition-colors", hasCustomers ? "cursor-pointer hover:bg-secondary/30" : "")}
+                              style={{borderTop:"1px solid hsl(var(--border))"}}
+                              onClick={() => hasCustomers && toggleRow(row.nik)}>
+                              {amCells}
                             </tr>
-                          )}
-                        </React.Fragment>
+                          </tbody>
+                        </table>
                       );
-                    })}
-                  </tbody>
-                  <tfoot>
-                    <tr className="bg-secondary/60 border-t-2 border-border">
-                      <td className="px-2 py-3" />
-                      <td className="px-4 py-3 font-bold text-sm text-foreground">Total ({amTableData.length} AM)</td>
-                      <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground font-semibold text-sm">{formatRupiah(totals.cmTarget)}</td>
-                      <td className="px-4 py-2.5 text-right tabular-nums text-foreground font-bold text-sm">{formatRupiah(totals.cmReal)}</td>
-                      <td className={cn("px-3 py-2.5 text-right tabular-nums", totals.cmAch >= 100 ? "text-green-600" : totals.cmAch >= 80 ? "text-orange-500" : "text-red-600")}>
-                        <div className="font-black text-sm">{totals.cmAch.toFixed(1).replace(".", ",")}%</div>
-                        <div className="text-[10px] font-semibold mt-0.5">{totals.cmAch >= 100 ? "Melebihi Target" : totals.cmAch >= 80 ? "Mendekati" : "Di Bawah Target"}</div>
-                      </td>
-                      <td className={cn("px-3 py-2.5 text-right tabular-nums", totals.ytdAch >= 100 ? "text-green-600" : totals.ytdAch >= 80 ? "text-blue-600" : "text-red-500")}>
-                        <div className="font-black text-sm">{totals.ytdAch.toFixed(1).replace(".", ",")}%</div>
-                        <div className="text-[10px] font-semibold mt-0.5">{totals.ytdAch >= 100 ? "Melebihi Target" : totals.ytdAch >= 80 ? "Mendekati" : "Di Bawah Target"}</div>
-                      </td>
-                      <td className="px-3 py-2.5 text-center tabular-nums text-foreground font-semibold text-sm">
-                        {filteredAmData.reduce((s, r) => s + (r.customers || []).length, 0)}
-                      </td>
-                      <td />
-                    </tr>
-                  </tfoot>
-                </table>
+                    }
+
+                    // ── Expanded AM ──
+                    return (
+                      <div key={row.nik}>
+                        {/* Sticky AM name row — own table, sticks flush below global header */}
+                        <table ref={perfPresentAmRowCallbackRef} style={{...PERF_TB, position:"sticky", top:perfToolbarH+perfPresentTableHeaderH, zIndex:16, boxShadow:"0 2px 8px rgba(0,0,0,0.13)"}}>
+                          <PerfColGroup/>
+                          <tbody>
+                            <tr className="cursor-pointer select-none"
+                              style={{borderTop:`2px solid ${ring}`, borderLeft:`2px solid ${ring}`, borderRight:`2px solid ${ring}`, borderBottom:"none"}}
+                              onClick={() => toggleRow(row.nik)}>
+                              {amCells}
+                            </tr>
+                          </tbody>
+                        </table>
+
+                        {/* Customer detail table — inline rows, sub-header sticky below AM row */}
+                        <table style={{...PERF_TB, borderLeft:`2px solid ${ring}`, borderRight:`2px solid ${ring}`}}>
+                          <PerfColGroup/>
+                          <thead style={{position:"sticky", top:perfToolbarH+perfPresentTableHeaderH+perfPresentAmRowH, zIndex:15}}>
+                            <tr style={{background:"rgb(255,241,242)", borderTop:"1px solid #fecdd3", borderBottom:"1px solid #fecdd3"}}>
+                              <th className="px-2 py-2 text-center text-[10px] font-black text-rose-700 uppercase tracking-wide">#</th>
+                              <th className="px-4 py-2 text-left text-[10px] font-black text-rose-700 uppercase tracking-wide">Pelanggan / NIP</th>
+                              <th className="px-4 py-2 text-right text-[10px] font-black text-rose-700 uppercase tracking-wide">Target</th>
+                              <th className="px-4 py-2 text-right text-[10px] font-black text-rose-700 uppercase tracking-wide">Real</th>
+                              <th className="px-3 py-2 text-right text-[10px] font-black text-rose-700 uppercase tracking-wide">Ach %</th>
+                              <th className="px-3 py-2 text-right text-[10px] font-black text-rose-700 uppercase tracking-wide">Proporsi</th>
+                              <th colSpan={2} />
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {row.customers.map((c: any, ci: number) => {
+                              const cReal = c.realTotal ?? 0;
+                              const cTarget = c.targetTotal ?? 0;
+                              const prop = c.proporsi != null ? c.proporsi * 100 : 0;
+                              const cAch = cTarget > 0 ? cReal / cTarget * 100 : 0;
+                              return (
+                                <tr key={ci} className={cn("transition-colors hover:bg-rose-50", ci % 2 === 0 ? "bg-white dark:bg-card" : "bg-rose-50/40 dark:bg-rose-950/10")}>
+                                  <td className="px-2 py-2 text-center text-[11px] text-muted-foreground font-mono">{ci + 1}</td>
+                                  <td className="px-4 py-2">
+                                    <div className="text-xs font-bold text-foreground leading-snug">{c.pelanggan || "—"}</div>
+                                    {c.nip && <div className="text-[10px] text-muted-foreground mt-0.5">{c.nip}</div>}
+                                  </td>
+                                  <td className="px-4 py-2 text-right text-xs font-semibold text-foreground tabular-nums">{formatRupiah(cTarget)}</td>
+                                  <td className="px-4 py-2 text-right text-xs font-black text-foreground tabular-nums">{formatRupiah(cReal)}</td>
+                                  <td className={cn("px-3 py-2 text-right text-xs font-black tabular-nums", cAch >= 100 ? "text-green-600" : cAch >= 80 ? "text-orange-500" : "text-red-500")}>
+                                    {cAch.toFixed(1)}%
+                                  </td>
+                                  <td className="px-3 py-2 text-right text-xs tabular-nums">
+                                    <div className="flex items-center justify-end gap-1.5">
+                                      <div className="w-10 h-1.5 bg-secondary rounded-full overflow-hidden">
+                                        <div className="h-full bg-primary rounded-full" style={{width:`${Math.min(prop,100)}%`}} />
+                                      </div>
+                                      <span className="font-semibold text-foreground">{prop.toFixed(1)}%</span>
+                                    </div>
+                                  </td>
+                                  <td colSpan={2} />
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+
+                        {/* AM total footer row */}
+                        <table style={{...PERF_TB, borderLeft:`2px solid ${ring}`, borderRight:`2px solid ${ring}`, borderBottom:`2px solid ${ring}`}}>
+                          <PerfColGroup/>
+                          <tbody>
+                            <tr className="bg-rose-50 border-t border-rose-200 dark:border-rose-800/50">
+                              <td className="px-2 py-2" />
+                              <td className="px-4 py-2"><span className="text-xs font-black text-rose-800 uppercase tracking-wide">{row.customers.length} Pelanggan — {row.namaAm}</span></td>
+                              <td className="px-4 py-2 text-right text-xs font-semibold text-foreground tabular-nums">{formatRupiah(row.cmTarget)}</td>
+                              <td className="px-4 py-2 text-right text-xs font-black text-foreground tabular-nums">{formatRupiah(row.cmReal)}</td>
+                              <td className={cn("px-3 py-2 text-right text-xs font-black tabular-nums", row.cmAch >= 1 ? "text-green-600" : row.cmAch >= 0.8 ? "text-orange-500" : "text-red-600")}>
+                                {(row.cmAch * 100).toFixed(1).replace(".", ",")}%
+                              </td>
+                              <td colSpan={3} />
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    );
+                  })}
+
+                  {/* ③ Global total row */}
+                  <table style={PERF_TB}>
+                    <PerfColGroup/>
+                    <tbody>
+                      <tr className="bg-secondary/60" style={{borderTop:"2px solid hsl(var(--border))"}}>
+                        <td className="px-2 py-3" />
+                        <td className="px-4 py-3 font-bold text-sm text-foreground">Total ({amTableData.length} AM)</td>
+                        <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground font-semibold text-sm">{formatRupiah(totals.cmTarget)}</td>
+                        <td className="px-4 py-2.5 text-right tabular-nums text-foreground font-bold text-sm">{formatRupiah(totals.cmReal)}</td>
+                        <td className={cn("px-3 py-2.5 text-right tabular-nums", totals.cmAch >= 100 ? "text-green-600" : totals.cmAch >= 80 ? "text-orange-500" : "text-red-600")}>
+                          <div className="font-black text-sm">{totals.cmAch.toFixed(1).replace(".", ",")}%</div>
+                          <div className="text-[10px] font-semibold mt-0.5">{totals.cmAch >= 100 ? "Melebihi Target" : totals.cmAch >= 80 ? "Mendekati" : "Di Bawah Target"}</div>
+                        </td>
+                        <td className={cn("px-3 py-2.5 text-right tabular-nums", totals.ytdAch >= 100 ? "text-green-600" : totals.ytdAch >= 80 ? "text-blue-600" : "text-red-500")}>
+                          <div className="font-black text-sm">{totals.ytdAch.toFixed(1).replace(".", ",")}%</div>
+                          <div className="text-[10px] font-semibold mt-0.5">{totals.ytdAch >= 100 ? "Melebihi Target" : totals.ytdAch >= 80 ? "Mendekati" : "Di Bawah Target"}</div>
+                        </td>
+                        <td className="px-3 py-2.5 text-center tabular-nums text-foreground font-semibold text-sm">
+                          {filteredAmData.reduce((s, r) => s + (r.customers || []).length, 0)}
+                        </td>
+                        <td />
+                      </tr>
+                    </tbody>
+                  </table>
+                  </>
+                );
+              })()}
               </div>
               </div>
             </div>

@@ -1671,6 +1671,26 @@ function ActivitySlide() {
     if (actBodyScrollRef.current) actBodyScrollRef.current.scrollLeft = e.currentTarget.scrollLeft;
   }, []);
 
+  // Sticky height measurement for per-AM sticky rows
+  const actToolbarRef = useRef<HTMLDivElement>(null);
+  const [actToolbarH, setActToolbarH] = useState(93);
+  const actAmSumRowRef = useRef<HTMLDivElement>(null);
+  const [actAmSumRowH, setActAmSumRowH] = useState(62);
+  useEffect(()=>{
+    const el=actToolbarRef.current;
+    if(!el) return;
+    const obs=new ResizeObserver(([e])=>setActToolbarH(e.contentRect.height));
+    obs.observe(el);
+    return ()=>obs.disconnect();
+  },[]);
+  useEffect(()=>{
+    const el=actAmSumRowRef.current;
+    if(!el) return;
+    const obs=new ResizeObserver(([e])=>setActAmSumRowH(e.contentRect.height));
+    obs.observe(el);
+    return ()=>obs.disconnect();
+  },[]);
+
   const [navbarPortalEl, setNavbarPortalEl] = useState<HTMLElement | null>(null);
   const [mobilePortalEl, setMobilePortalEl] = useState<HTMLElement | null>(null);
   useEffect(()=>{
@@ -1905,7 +1925,7 @@ function ActivitySlide() {
           <div className="bg-card border border-border rounded-xl shadow-sm">
 
             {/* ── Sticky: Toolbar + Table Header ── */}
-            <div className="sticky top-0 z-10 rounded-t-xl overflow-hidden bg-card border-b border-border">
+            <div ref={actToolbarRef} className="sticky top-0 z-10 rounded-t-xl overflow-hidden bg-card border-b border-border">
               {/* Toolbar */}
               <div className="px-4 py-3 border-b border-border bg-secondary/20 flex items-center gap-3 flex-wrap">
                 <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -1944,13 +1964,13 @@ function ActivitySlide() {
             </div>{/* end sticky */}
 
             {/* ── Scrollable body ── */}
-            <div className="overflow-x-auto" ref={actBodyScrollRef} onScroll={onActBodyScroll}>
+            <div ref={actBodyScrollRef}>
             <div style={{minWidth:"780px"}}>
             {/* (header is now in sticky section above) */}
 
             {amList.length===0?(
               <div className="text-center py-12 text-sm text-muted-foreground">Tidak ada data untuk filter yang dipilih.</div>
-            ):amList.map((am:any)=>{
+            ):amList.map((am:any,amIdx:number)=>{
               const kpiCount=am.kpiCount||0;
               const visibleActs=am.visibleActivities||[];
               const visibleKpi=visibleActs.filter((a:any)=>a.isKpi).length;
@@ -1963,12 +1983,15 @@ function ActivitySlide() {
               const progressGrad=pct>=100?"from-emerald-500 to-emerald-400":pct>=70?"from-amber-500 to-amber-400":"from-red-600 to-red-500";
               const pctClr=pct>=100?"text-emerald-600 dark:text-emerald-400":pct>=70?"text-amber-600 dark:text-amber-400":"text-red-600 dark:text-red-400";
               return (
-                <div key={am.nik+am.fullname} className="border-b border-border/50 last:border-b-0">
+                <div key={am.nik+am.fullname}
+                  className={cn("border-b border-border/50 last:border-b-0 transition-all",isExpanded&&"relative z-[5] border-b-0")}
+                  style={isExpanded?{outline:"2px solid #B91C1C",outlineOffset:"-1px",borderRadius:6,marginBottom:6}:{}}>
                   <div
+                    ref={amIdx===0?actAmSumRowRef:undefined}
                     onClick={()=>{setActExpandAll(null);setExpandedAm(p=>({...p,[am.fullname]:!p[am.fullname]}));}}
                     className={cn("grid items-center px-4 py-3 cursor-pointer transition-colors group",
-                      isExpanded?"bg-primary/5 border-b border-primary/10":"hover:bg-secondary/40")}
-                    style={{gridTemplateColumns:ACT_GRID_COLS}}
+                      isExpanded?"bg-card border-b border-primary/20":"hover:bg-secondary/40")}
+                    style={{gridTemplateColumns:ACT_GRID_COLS,...(isExpanded?{position:"sticky" as const,top:actToolbarH,zIndex:12,boxShadow:"0 2px 8px rgba(0,0,0,0.09)"}:{})}}
                   >
                     {/* Expand icon */}
                     <div className={cn("w-6 h-6 rounded-lg border flex items-center justify-center text-xs font-bold shrink-0 transition-all",
@@ -2023,9 +2046,9 @@ function ActivitySlide() {
                         </div>
                       ):(
                         <>
-                          {/* Sub-header */}
-                          <div className="grid text-[10px] font-bold uppercase tracking-[0.6px] text-foreground/60 bg-secondary/50 border-b border-border/30"
-                            style={{gridTemplateColumns:"28px 96px 1fr 140px 120px 60px",padding:"7px 14px 7px 52px"}}>
+                          {/* Sub-header — sticky below AM row */}
+                          <div className="grid text-[10px] font-bold uppercase tracking-[0.6px] text-foreground/60 bg-secondary border-b border-border"
+                            style={{gridTemplateColumns:"28px 96px 1fr 140px 120px 60px",padding:"7px 14px 7px 52px",position:"sticky" as const,top:actToolbarH+actAmSumRowH,zIndex:11}}>
                             <div>#</div><div>Tanggal</div><div>Pelanggan &amp; Catatan</div>
                             <div>Tipe Aktivitas</div><div>Kategori</div><div>KPI</div>
                           </div>

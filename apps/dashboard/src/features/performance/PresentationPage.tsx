@@ -848,7 +848,7 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
       if(filterAm.size>0&&(!l.nikAm||!filterAm.has(l.nikAm))) return false;
       if(filterStatus.size>0&&(!l.statusF||!filterStatus.has(l.statusF))) return false;
       if(filterKontrak.size>0&&(!l.kategoriKontrak||!filterKontrak.has(l.kategoriKontrak))) return false;
-      if(q){const hay=`${l.judulProyek} ${l.pelanggan} ${l.lopid} ${l.namaAm}`.toLowerCase();if(!hay.includes(q))return false;}
+      if(q){const hay=`${l.judulProyek} ${l.pelanggan} ${l.lopid} ${l.namaAm} ${l.kategoriKontrak??""} ${l.divisi??""} ${l.segmen??""} ${l.nikAm??""}`.toLowerCase();if(!hay.includes(q))return false;}
       return true;
     });
   },[periodFilteredLops,filterAm,filterStatus,filterKontrak,search]);
@@ -1355,8 +1355,8 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
               placeholder="Semua AM" labelFn={amLabelFn} summaryLabel="AM" className="w-40 shrink-0"/>
             <div className="relative shrink-0">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none"/>
-              <input type="text" placeholder="Cari proyek / pelanggan / LOP ID…" value={search} onChange={e=>setSearch(e.target.value)}
-                className="pl-8 pr-7 py-1.5 text-sm bg-background border border-border rounded-lg w-48 focus:outline-none focus:ring-1 focus:ring-primary/40 placeholder:text-muted-foreground/60"/>
+              <input type="text" placeholder="Cari AM, LOP ID, proyek, pelanggan, kategori…" value={search} onChange={e=>setSearch(e.target.value)}
+                className="pl-8 pr-7 py-1.5 text-sm bg-background border border-border rounded-lg w-72 focus:outline-none focus:ring-1 focus:ring-primary/40 placeholder:text-muted-foreground/60"/>
               {search&&<button onClick={()=>setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"><X className="w-3.5 h-3.5"/></button>}
             </div>
             {filterAm.size>0&&(<button onClick={()=>setFilterAm(new Set())} className="text-xs text-muted-foreground hover:text-destructive flex items-center gap-1 px-2 py-1.5 border border-border rounded-lg hover:border-destructive/30 transition-colors shrink-0 whitespace-nowrap"><X className="w-3 h-3"/> Reset AM</button>)}
@@ -1469,8 +1469,8 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
                   <div className="flex items-center gap-2">
                     <div className="relative">
                       <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none"/>
-                      <input type="text" placeholder="Cari…" value={search} onChange={e=>setSearch(e.target.value)}
-                        className="pl-6 pr-5 py-1 text-xs bg-background border border-border rounded-md w-32 focus:outline-none focus:ring-1 focus:ring-primary/40 placeholder:text-muted-foreground/60"/>
+                      <input type="text" placeholder="Cari AM, LOP, pelanggan…" value={search} onChange={e=>setSearch(e.target.value)}
+                        className="pl-6 pr-5 py-1 text-xs bg-background border border-border rounded-md w-52 focus:outline-none focus:ring-1 focus:ring-primary/40 placeholder:text-muted-foreground/60"/>
                       {search&&<button onClick={()=>setSearch("")} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"><X className="w-3 h-3"/></button>}
                     </div>
                     <button onClick={handleToggleAll} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground border border-border rounded-md px-2.5 py-1 transition-colors whitespace-nowrap">
@@ -1766,7 +1766,20 @@ function ActivitySlide() {
     const byAmMap=Object.fromEntries((data.byAm||[]).map((a:any)=>[a.fullname,a]));
     return (data.masterAms||[])
       .filter((m:any)=>matchesDivisiPerforma(m.divisi, filterDivisi))
-      .filter((m:any)=>!actSearch||m.nama.toLowerCase().includes(actSearch.toLowerCase()))
+      .filter((m:any)=>{
+        if(!actSearch) return true;
+        const q=actSearch.toLowerCase();
+        if(m.nama.toLowerCase().includes(q)||m.nik?.toLowerCase().includes(q)) return true;
+        const ex=byAmMap[m.nama];
+        if(!ex) return false;
+        return ex.activities.some((act:any)=>
+          act.activityType?.toLowerCase().includes(q)||
+          act.label?.toLowerCase().includes(q)||
+          act.caName?.toLowerCase().includes(q)||
+          act.activityNotes?.toLowerCase().includes(q)||
+          act.picName?.toLowerCase().includes(q)
+        );
+      })
       .map((m:any)=>{
         const ex=byAmMap[m.nama];
         const baseKpiTarget=(ex?.kpiTarget??actSettingsKpi)*actEffectiveMonths;
@@ -1933,9 +1946,9 @@ function ActivitySlide() {
                   <span className="bg-secondary border border-border text-foreground text-xs font-bold px-2 py-0.5 rounded-full shrink-0">{amList.length} AM</span>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <div className="h-8 flex items-center gap-2 bg-background border border-border rounded-lg px-3 focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/20 transition-colors min-w-[140px]">
+                  <div className="h-8 flex items-center gap-2 bg-background border border-border rounded-lg px-3 focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/20 transition-colors min-w-[220px]">
                     <Search className="w-3 h-3 text-muted-foreground shrink-0"/>
-                    <input type="text" placeholder="Cari nama AM…" value={actSearch} onChange={e=>setActSearch(e.target.value)}
+                    <input type="text" placeholder="Cari AM, tipe, label, pelanggan, catatan…" value={actSearch} onChange={e=>setActSearch(e.target.value)}
                       className="border-none outline-none text-xs text-foreground placeholder:text-muted-foreground/60 bg-transparent flex-1 min-w-0"/>
                   </div>
                   <button onClick={()=>setActExpandAll(prev=>prev===true?false:true)}
@@ -2373,8 +2386,11 @@ export default function EmbedPerforma() {
     if (!q) return amTableData;
     return amTableData.filter(row =>
       row.namaAm.toLowerCase().includes(q) ||
+      (row.nik ?? "").toLowerCase().includes(q) ||
+      (row.divisi ?? "").toLowerCase().includes(q) ||
       (row.customers || []).some((c: any) =>
-        (c.namaCustomer ?? c.customerName ?? c.nama ?? "").toLowerCase().includes(q)
+        (c.namaCustomer ?? c.customerName ?? c.nama ?? "").toLowerCase().includes(q) ||
+        (c.nip ?? "").toLowerCase().includes(q)
       )
     );
   }, [amTableData, searchQuery]);
@@ -2692,7 +2708,7 @@ export default function EmbedPerforma() {
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
                     <input
                       type="text"
-                      placeholder="Cari AM atau pelanggan..."
+                      placeholder="Cari AM, NIK, divisi, pelanggan, NIP…"
                       value={searchQuery}
                       onChange={e => setSearchQuery(e.target.value)}
                       className="w-full pl-7 pr-7 py-1.5 text-xs bg-background border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-primary/40 placeholder:text-muted-foreground/60"

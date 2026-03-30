@@ -724,7 +724,7 @@ export default function FunnelPage() {
       if (filterStatus.size > 0 && (!l.statusF || !filterStatus.has(l.statusF))) return false;
       if (filterKontrak.size > 0 && (!l.kategoriKontrak || !filterKontrak.has(l.kategoriKontrak))) return false;
       if (q) {
-        const hay = `${l.judulProyek} ${l.pelanggan} ${l.lopid} ${l.namaAm}`.toLowerCase();
+        const hay = `${l.judulProyek} ${l.pelanggan} ${l.lopid} ${l.namaAm} ${l.kategoriKontrak ?? ""} ${l.divisi ?? ""} ${l.segmen ?? ""} ${l.nikAm ?? ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -1219,9 +1219,9 @@ export default function FunnelPage() {
             )}
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-              <input type="text" placeholder="Cari proyek / pelanggan / LOP ID…" value={search}
+              <input type="text" placeholder="Cari AM, LOP ID, proyek, pelanggan, kategori…" value={search}
                 onChange={e => setSearch(e.target.value)}
-                className="pl-8 pr-7 py-1.5 text-sm bg-background border border-border rounded-lg w-60 focus:outline-none focus:ring-1 focus:ring-primary/40 placeholder:text-muted-foreground/60" />
+                className="pl-8 pr-7 py-1.5 text-sm bg-background border border-border rounded-lg w-80 focus:outline-none focus:ring-1 focus:ring-primary/40 placeholder:text-muted-foreground/60" />
               {search && <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"><X className="w-3.5 h-3.5" /></button>}
             </div>
             <button onClick={handleToggleAll}
@@ -1321,8 +1321,8 @@ export default function FunnelPage() {
                   <div className="flex items-center gap-2">
                     <div className="relative">
                       <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
-                      <input type="text" placeholder="Cari…" value={search} onChange={e => setSearch(e.target.value)}
-                        className="pl-6 pr-5 py-1 text-xs bg-background border border-border rounded-md w-36 focus:outline-none focus:ring-1 focus:ring-primary/40 placeholder:text-muted-foreground/60" />
+                      <input type="text" placeholder="Cari AM, LOP, pelanggan…" value={search} onChange={e => setSearch(e.target.value)}
+                        className="pl-6 pr-5 py-1 text-xs bg-background border border-border rounded-md w-52 focus:outline-none focus:ring-1 focus:ring-primary/40 placeholder:text-muted-foreground/60" />
                       {search && <button onClick={() => setSearch("")} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"><X className="w-3 h-3" /></button>}
                     </div>
                     <button onClick={handleToggleAll}

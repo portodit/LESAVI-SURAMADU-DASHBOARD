@@ -511,8 +511,11 @@ export default function PerformaVis() {
     if (!q) return amTableData;
     return amTableData.filter(row =>
       row.namaAm.toLowerCase().includes(q) ||
+      (row.nik ?? "").toLowerCase().includes(q) ||
+      (row.divisi ?? "").toLowerCase().includes(q) ||
       (row.customers || []).some((c: any) =>
-        (c.namaCustomer ?? c.customerName ?? c.nama ?? "").toLowerCase().includes(q)
+        (c.namaCustomer ?? c.customerName ?? c.nama ?? "").toLowerCase().includes(q) ||
+        (c.nip ?? "").toLowerCase().includes(q)
       )
     );
   }, [amTableData, searchQuery]);
@@ -850,10 +853,10 @@ export default function PerformaVis() {
                       <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
                       <input
                         type="text"
-                        placeholder="Cari AM atau pelanggan..."
+                        placeholder="Cari AM, NIK, divisi, pelanggan, NIP…"
                         value={searchQuery}
                         onChange={e => setSearchQuery(e.target.value)}
-                        className="pl-7 pr-7 py-1.5 text-xs bg-background border border-border rounded-lg w-52 focus:outline-none focus:ring-1 focus:ring-primary/40 placeholder:text-muted-foreground/60"
+                        className="pl-7 pr-7 py-1.5 text-xs bg-background border border-border rounded-lg w-72 focus:outline-none focus:ring-1 focus:ring-primary/40 placeholder:text-muted-foreground/60"
                       />
                       {searchQuery && (
                         <button onClick={() => setSearchQuery("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">

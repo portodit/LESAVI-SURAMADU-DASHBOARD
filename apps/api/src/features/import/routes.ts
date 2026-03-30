@@ -48,12 +48,104 @@ router.post("/import/performance", requireAuth, async (req, res): Promise<void> 
 
   const rawCount = rows.length;
 
-  // ── Detect if this is the RAW aggregate format (PERIODE, NIK, NAMA_AM, TARGET_REVENUE, REAL_REVENUE per pelanggan)
-  const isRawFormat = rows.length > 0 && ("PERIODE" in rows[0] || "NAMA_AM" in rows[0]);
+  // ── Detect format
+  // RAW_WITH_AM: has PERIODE + NAMA_AM/NIK  (per-customer, AM already identified)
+  // RAW_NO_AM:   has PERIODE + STANDARD_NAME but NO NAMA_AM/NIK (lookup AM via funnel)
+  // ORIGINAL:    pre-aggregated per-AM
+  const firstRow = rows[0] || {};
+  const hasPeriode = "PERIODE" in firstRow;
+  const hasNamaAm = "NAMA_AM" in firstRow || "NIK" in firstRow || "nik" in firstRow;
+  const hasStdName = "STANDARD_NAME" in firstRow;
+  const isRawFormat = hasPeriode && (hasNamaAm || hasStdName);
+  const isNoAmFormat = hasPeriode && hasStdName && !hasNamaAm;
 
   let toInsert: any[];
 
-  if (isRawFormat) {
+  if (isNoAmFormat) {
+    // ── NO-AM FORMAT: file has STANDARD_NAME but no NAMA_AM/NIK
+    // Lookup AM attribution via sales_funnel (STANDARD_NAME → nik_am, nama_am, divisi)
+    // Filter to SURAMADU + DPS/DSS rows only
+    const suraRows = rows.filter((r: any) => {
+      const witel = String(r.WITEL || r.witel || "").toUpperCase();
+      const divisi = String(r.DIVISI || r.divisi || "").toUpperCase();
+      return witel.includes("SURAMADU") && ["DPS", "DSS"].includes(divisi);
+    });
+
+    // Build customer->AM map from funnel
+    const funnelMappings = await db.execute(
+      sql`SELECT UPPER(TRIM(pelanggan)) as pelanggan, nik_am, nama_am, divisi, COUNT(*) as cnt
+          FROM sales_funnel
+          WHERE witel ILIKE '%SURAMADU%' AND nik_am IS NOT NULL AND nik_am != ''
+          GROUP BY UPPER(TRIM(pelanggan)), nik_am, nama_am, divisi`
+    );
+    type FunnelMapping = { pelanggan: string; nik_am: string; nama_am: string; divisi: string; cnt: number };
+    const cMap = new Map<string, FunnelMapping[]>();
+    for (const row of funnelMappings.rows as FunnelMapping[]) {
+      if (!cMap.has(row.pelanggan)) cMap.set(row.pelanggan, []);
+      cMap.get(row.pelanggan)!.push(row);
+    }
+
+    type AmEntryNoAm = {
+      nik: string; namaAm: string; divisi: string; periodeStr: string;
+      tReg: number; rReg: number; tSustain: number; rSustain: number;
+      tScaling: number; rScaling: number; tNgtma: number; rNgtma: number;
+      customers: any[];
+    };
+    const amMapNoAm = new Map<string, AmEntryNoAm>();
+
+    for (const r of suraRows) {
+      const stdName = String(r.STANDARD_NAME || "").trim().toUpperCase();
+      const divisiFile = String(r.DIVISI || r.divisi || "").trim().toUpperCase();
+      const periode = String(r.PERIODE || "").trim();
+      if (!stdName || !periode || periode.length < 6) continue;
+
+      const matches = cMap.get(stdName);
+      if (!matches || matches.length === 0) continue;
+      const best = matches.find(m => m.divisi === divisiFile) || matches[0];
+
+      const key = `${best.nik_am}__${periode}__${best.divisi}`;
+      if (!amMapNoAm.has(key)) {
+        amMapNoAm.set(key, { nik: best.nik_am, namaAm: best.nama_am, divisi: best.divisi, periodeStr: periode, tReg: 0, rReg: 0, tSustain: 0, rSustain: 0, tScaling: 0, rScaling: 0, tNgtma: 0, rNgtma: 0, customers: [] });
+      }
+      const e = amMapNoAm.get(key)!;
+      const tReg = parseIndonesianNumber(r.TARGET_REVENUE ?? r.target_revenue);
+      const rReg = parseIndonesianNumber(r.REAL_REVENUE ?? r.real_revenue);
+      const tSustain = parseIndonesianNumber(r.TARGET_SUSTAIN ?? r.target_sustain ?? 0);
+      const rSustain = parseIndonesianNumber(r.REAL_SUSTAIN ?? r.real_sustain ?? 0);
+      const tScaling = parseIndonesianNumber(r.TARGET_SCALING ?? r.target_scaling ?? 0);
+      const rScaling = parseIndonesianNumber(r.REAL_SCALING ?? r.real_scaling ?? 0);
+      const tNgtma = parseIndonesianNumber(r.TARGET_NGTMA ?? r.target_ngtma ?? 0);
+      const rNgtma = parseIndonesianNumber(r.REAL_NGTMA ?? r.real_ngtma ?? 0);
+      e.tReg += tReg; e.rReg += rReg; e.tSustain += tSustain; e.rSustain += rSustain;
+      e.tScaling += tScaling; e.rScaling += rScaling; e.tNgtma += tNgtma; e.rNgtma += rNgtma;
+      e.customers.push({
+        nip: String(r.NIP_NAS || "").trim(), pelanggan: stdName,
+        Reguler: { target: tReg, real: rReg }, Sustain: { target: tSustain, real: rSustain },
+        Scaling: { target: tScaling, real: rScaling }, NGTMA: { target: tNgtma, real: rNgtma },
+      });
+    }
+
+    toInsert = [...amMapNoAm.values()].map(e => {
+      const year = parseInt(e.periodeStr.slice(0, 4), 10);
+      const month = parseInt(e.periodeStr.slice(4, 6), 10);
+      const target = e.tReg + e.tSustain + e.tScaling + e.tNgtma;
+      const real   = e.rReg + e.rSustain + e.rScaling + e.rNgtma;
+      const achRate = target > 0 ? real / target : 0;
+      return {
+        nik: e.nik, namaAm: e.namaAm, divisi: e.divisi, tahun: year, bulan: month,
+        targetRevenue: target, realRevenue: real,
+        targetReguler: e.tReg, realReguler: e.rReg,
+        targetSustain: e.tSustain, realSustain: e.rSustain,
+        targetScaling: e.tScaling, realScaling: e.rScaling,
+        targetNgtma: e.tNgtma, realNgtma: e.rNgtma,
+        achRate, achRateYtd: achRate, rankAch: 0,
+        statusWarna: achRate >= 1 ? "hijau" : achRate >= 0.8 ? "oranye" : "merah",
+        snapshotDate: snapshotDate || null,
+        komponenDetail: e.customers.length > 0 ? JSON.stringify(e.customers) : null,
+      };
+    }).filter(r => r.nik && r.namaAm);
+
+  } else if (isRawFormat) {
     // ── RAW format: per-customer per-month rows, aggregate by NIK + PERIODE
     // New columns: PROPORSI, NIP_NAS, STANDARD_NAME, TARGET_SUSTAIN, TARGET_SCALING,
     //              TARGET_NGTMA, REAL_SUSTAIN, REAL_SCALING, REAL_NGTMA
@@ -208,10 +300,10 @@ router.post("/import/performance", requireAuth, async (req, res): Promise<void> 
     return;
   }
 
-  // Derive period from first aggregated row (for RAW format)
-  const firstRow = toInsert[0];
+  // Derive period from first aggregated row (for RAW/NO-AM format)
+  const firstInserted = toInsert[0];
   const importPeriod = req.body.period ||
-    (isRawFormat ? `${firstRow.tahun}-${String(firstRow.bulan).padStart(2, "0")}` : detectPeriod(rows, sourceUrl || undefined));
+    ((isRawFormat || isNoAmFormat) ? `${firstInserted.tahun}-${String(firstInserted.bulan).padStart(2, "0")}` : detectPeriod(rows, sourceUrl || undefined));
 
   // ── Cek duplikat: sudah ada import type+period yang sama?
   const [existingPerf] = await db.select().from(dataImportsTable)

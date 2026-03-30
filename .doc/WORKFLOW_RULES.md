@@ -1,83 +1,64 @@
-# LESAVI SURAMADU — Workflow Rules untuk Agent
+# Workflow Rules — LESAVI SURAMADU (Ringkasan Cepat)
 
-## Aturan Wajib Setiap Akhir Task
-
-### 1. Selalu Commit + Push ke GitHub
-Setelah setiap task selesai, agent **langsung menjalankan** perintah ini (tidak perlu user lakukan manual):
-
-```bash
-node push-to-github.mjs "pesan commit" file1 file2 file3 ...
-```
-
-Contoh push file spesifik (mode tercepat, 2–5 detik):
-```bash
-node push-to-github.mjs "fix: sticky header table" \
-  artifacts/telkom-am-dashboard/src/features/performance/PresentationPage.tsx \
-  replit.md
-```
-
-Contoh push semua file berubah (diff-mode, lebih lama):
-```bash
-node push-to-github.mjs "chore: update codebase"
-```
-
-Detail teknis selengkapnya → lihat **[GITHUB_PUSH_GUIDE.md](./GITHUB_PUSH_GUIDE.md)**
-
-- **Remote**: `https://github.com/portodit/LESAVI-SURAMADU`
-- **Branch**: `master`
-- **Akun GitHub**: `PORTODIT` (email: `bliaditdev@gmail.com`)
-- **Token**: env var `GITHUB_TOKEN` (sudah ada di Replit Secrets)
-
-Format pesan commit yang disarankan:
-```
-feat: <deskripsi fitur baru>
-fix:  <deskripsi bugfix>
-refactor: <deskripsi refactor>
-chore: <perubahan konfigurasi/tooling>
-```
-
-### 2. Redeploy Project Setelah Push
-Setelah push berhasil, agent menyarankan redeploy agar perubahan live di production.
-
-### 3. Update `replit.md`
-Setiap perubahan arsitektur signifikan (fitur baru, tambah dependency, ubah schema DB) wajib dicatat di `replit.md`.
+> Untuk panduan lengkap → baca **[PROJECT_BRIEF.md](./PROJECT_BRIEF.md)**
 
 ---
 
-## Kredensial & Konfigurasi
+## Repo GitHub (SATU-SATUNYA)
+
+```
+https://github.com/portodit/LESAVI-SURAMADU.git
+branch: master | user: PORTODIT | token: env GITHUB_TOKEN
+```
+
+> Hanya repo ini. Tidak ada repo lain.
+
+---
+
+## Aturan Wajib Setiap Task Selesai
+
+### 1. Push ke GitHub — WAJIB, langsung dikerjakan agent
+```bash
+# Push file spesifik (cepat 2–5 detik) ← selalu gunakan ini
+node push-to-github.mjs "tipe: deskripsi" file1 file2 ...
+
+# Push semua file berubah (jika tidak tahu file mana)
+node push-to-github.mjs "tipe: deskripsi"
+```
+
+Format commit: `feat:` / `fix:` / `refactor:` / `docs:` / `chore:`
+
+### 2. Suggest Redeploy — jika perubahan berdampak ke production
+### 3. Update `replit.md` — jika ada perubahan arsitektur/fitur/dependency
+### 4. Update `.doc/` — jika ada bugfix penting atau perubahan workflow
+
+---
+
+## Kenapa Git CLI Tidak Bisa?
+
+Platform Replit **memblokir semua git command** (`git add`, `git commit`, `git push`, dll.) dari main agent. Solusinya: `push-to-github.mjs` yang push via **GitHub REST API** langsung — tidak menyentuh `.git` folder sama sekali.
+
+Detail lengkap → [GITHUB_PUSH_GUIDE.md](./GITHUB_PUSH_GUIDE.md)
+
+---
+
+## Kredensial Cepat
 
 | Item | Nilai |
 |------|-------|
-| Default NIK login | `160203` |
-| Default password | `admin123` |
-| Frontend port | `24930` |
-| API port | `8080` |
-| GitHub repo | `https://github.com/portodit/LESAVI-SURAMADU` |
-| GitHub branch | `master` |
-| GitHub user | `PORTODIT` |
-| GitHub email | `bliaditdev@gmail.com` |
+| Login NIK | `160203` / password `admin123` |
+| Frontend port | `24930` · API port `8080` |
+| GitHub repo | `https://github.com/portodit/LESAVI-SURAMADU.git` |
+| Branch | `master` |
+| Production | `https://lesa-vi.replit.app` |
 
 ---
 
-## Stack Ringkas
+## Dokumen di `.doc/`
 
-- **Frontend**: React 19 + Vite + Tailwind CSS + shadcn/ui
-- **Backend**: Express 5 + Drizzle ORM + PostgreSQL
-- **Auth**: Session-based (express-session + bcrypt)
-- **Bot**: Telegram Bot (polling) — notifikasi & laporan AM
-- **Monorepo**: pnpm workspaces
-
----
-
-## Public Routes (tanpa auth)
-
-- `GET /api/public/*` — semua endpoint public
-- `/embed/performa` — embed iframe performa tanpa guard
-
----
-
-## Catatan Penting
-
-- **Git CLI sepenuhnya diblokir** di main agent oleh platform Replit (termasuk `git add`, `git commit`, `git push`, `git status`). Solusinya: gunakan `push-to-github.mjs` yang bypass git sepenuhnya via GitHub REST API. Lihat [GITHUB_PUSH_GUIDE.md](./GITHUB_PUSH_GUIDE.md).
-- Reconcile job berjalan setiap **30 menit** di background.
-- Telegram bot menggunakan `skipPendingUpdates` untuk menghindari spam saat restart.
+| File | Isi |
+|------|-----|
+| **`PROJECT_BRIEF.md`** | **Master doc — baca ini dulu** |
+| `GITHUB_PUSH_GUIDE.md` | Teknis push via REST API |
+| `BUGFIX_BLANK_PAGE_IMPORT.md` | Brief bugfix blank page Import |
+| `CHATBOT.md` | Panduan chatbot |

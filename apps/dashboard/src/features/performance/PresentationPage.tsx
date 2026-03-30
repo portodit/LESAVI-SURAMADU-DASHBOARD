@@ -2201,25 +2201,13 @@ export default function EmbedPerforma() {
     return () => ro.disconnect();
   }, []);
 
-  // Scroll-sync refs for sticky table header in slide 0 performance table
-  const perfTableHeaderRef = useRef<HTMLDivElement>(null);
-  const perfTableBodyRef = useRef<HTMLDivElement>(null);
-  const onPerfHeaderScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
-    if (perfTableBodyRef.current) perfTableBodyRef.current.scrollLeft = e.currentTarget.scrollLeft;
-  }, []);
-  const onPerfBodyScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
-    if (perfTableHeaderRef.current) perfTableHeaderRef.current.scrollLeft = e.currentTarget.scrollLeft;
-  }, []);
-
-  // Table header row height — for sticky AM row offset
+  // Thead callback ref — measures sticky thead height so AM row sticks flush below it
   const [perfPresentTableHeaderH, setPerfPresentTableHeaderH] = useState(43);
-  useEffect(() => {
-    const el = perfTableHeaderRef.current;
+  const perfTheadCallbackRef = useCallback((el: HTMLTableSectionElement|null) => {
     if (!el) return;
-    const ro = new ResizeObserver(() => setPerfPresentTableHeaderH(el.offsetHeight));
+    const ro = new ResizeObserver(() => setPerfPresentTableHeaderH(el.getBoundingClientRect().height));
     ro.observe(el);
-    setPerfPresentTableHeaderH(el.offsetHeight);
-    return () => ro.disconnect();
+    setPerfPresentTableHeaderH(el.getBoundingClientRect().height);
   }, []);
   // AM summary row height — callback ref on every expanded row for accurate measurement
   const [perfPresentAmRowH, setPerfPresentAmRowH] = useState(38);
@@ -2767,38 +2755,26 @@ export default function EmbedPerforma() {
                 </div>
               </div>
               <div className="p-3">
-              <div className="border border-border rounded">
-              {/* Sticky table header — synced horizontally with body */}
-              <div ref={perfTableHeaderRef} onScroll={onPerfHeaderScroll}
-                className="overflow-x-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] sticky z-10 bg-card"
-                style={{ top: `${perfToolbarH}px` }}>
-                <table className="border-collapse" style={{ minWidth: "800px", width: "100%", tableLayout: "fixed" }}>
-                  <PerfColGroup/>
-                  <thead>
-                    <tr className="bg-red-700 text-white">
-                      <th className="px-3 py-3 text-left"></th>
-                      <th className="px-4 py-3 text-left text-xs font-black uppercase tracking-wide">Nama AM</th>
-                      <th className={cn("px-4 py-3 text-right text-xs font-black uppercase tracking-wide", filterTipeRank === "Real Revenue" && "underline underline-offset-2")}>Target {filterTipeRevenue}</th>
-                      <th className={cn("px-4 py-3 text-right text-xs font-black uppercase tracking-wide", filterTipeRank === "Real Revenue" && "underline underline-offset-2")}>Real {filterTipeRevenue}</th>
-                      <th className={cn("px-3 py-3 text-right text-xs font-black uppercase tracking-wide", filterTipeRank === "Ach CM" && "underline underline-offset-2")}>CM %</th>
-                      <th className={cn("px-3 py-3 text-right text-xs font-black uppercase tracking-wide", filterTipeRank === "YTD" && "underline underline-offset-2")}>YTD %</th>
-                      <th className="px-3 py-3 text-center text-xs font-black uppercase tracking-wide">Customer</th>
-                      <th className={cn("px-3 py-3 text-center text-xs font-black uppercase tracking-wide", "underline underline-offset-2")}>
-                        {filterTipeRank === "Ach CM" ? "RANK CM" : filterTipeRank === "YTD" ? "RANK YTD" : "RANK REV"}
-                      </th>
-                    </tr>
-                  </thead>
-                </table>
-              </div>
-              {/* Scrollable body */}
-              <div ref={perfTableBodyRef} onScroll={onPerfBodyScroll}>
+              <div className="border border-border rounded overflow-x-auto">
+              {/* Single table — thead is sticky, eliminates any gap between header and body */}
               <table className="w-full text-xs text-left border-collapse" style={{ minWidth: "800px", tableLayout: "fixed" }}>
                 <PerfColGroup/>
-                <thead className="sr-only" aria-hidden>
-                  <tr><th></th><th>Nama AM</th><th>Target</th><th>Real</th><th>CM %</th><th>YTD %</th><th>Customer</th><th>Rank</th></tr>
+                <thead ref={perfTheadCallbackRef} className="sticky z-10" style={{ top: `${perfToolbarH}px` }}>
+                  <tr className="bg-red-700 text-white">
+                    <th className="px-3 py-3 text-left"></th>
+                    <th className="px-4 py-3 text-left text-xs font-black uppercase tracking-wide">Nama AM</th>
+                    <th className={cn("px-4 py-3 text-right text-xs font-black uppercase tracking-wide", filterTipeRank === "Real Revenue" && "underline underline-offset-2")}>Target {filterTipeRevenue}</th>
+                    <th className={cn("px-4 py-3 text-right text-xs font-black uppercase tracking-wide", filterTipeRank === "Real Revenue" && "underline underline-offset-2")}>Real {filterTipeRevenue}</th>
+                    <th className={cn("px-3 py-3 text-right text-xs font-black uppercase tracking-wide", filterTipeRank === "Ach CM" && "underline underline-offset-2")}>CM %</th>
+                    <th className={cn("px-3 py-3 text-right text-xs font-black uppercase tracking-wide", filterTipeRank === "YTD" && "underline underline-offset-2")}>YTD %</th>
+                    <th className="px-3 py-3 text-center text-xs font-black uppercase tracking-wide">Customer</th>
+                    <th className={cn("px-3 py-3 text-center text-xs font-black uppercase tracking-wide", "underline underline-offset-2")}>
+                      {filterTipeRank === "Ach CM" ? "RANK CM" : filterTipeRank === "YTD" ? "RANK YTD" : "RANK REV"}
+                    </th>
+                  </tr>
                 </thead>
                   <tbody className="divide-y divide-border/50">
-                    {filteredAmData.map((row, rowIdx) => {
+                    {filteredAmData.map((row) => {
                       const isExpanded = effectiveExpandedRows.has(row.nik);
                       const hasCustomers = row.customers.length > 0;
                       return (
@@ -2924,7 +2900,6 @@ export default function EmbedPerforma() {
                     </tr>
                   </tfoot>
                 </table>
-              </div>
               </div>
               </div>
             </div>

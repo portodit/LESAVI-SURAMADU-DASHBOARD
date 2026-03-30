@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useCallback, useRef, useEffect as useEffectRef } from "react";
+import { FunnelSectionCard } from "./FunnelSectionCard";
 import { matchesDivisiPerforma, DIVISI_OPTIONS_WITH_ALL, divisiFilterLabel } from "@/shared/lib/divisi";
 import { useListPerformance, useListImportHistory } from "@workspace/api-client-react";
 import { formatRupiah, formatPercent, getStatusColor, getAchPct, cn } from "@/shared/lib/utils";
@@ -68,10 +69,24 @@ function formatSnapshotLabel(createdAt: string): string {
 }
 
 // Parse komponenDetail JSON safely
-// New schema: [{pelanggan, nip, proporsi, Reguler:{target,real}, Sustain:{target,real}, Scaling:{target,real}, NGTMA:{target,real}, targetTotal, realTotal}]
+// Schema DB: [{pelanggan, nip, Reguler:{target,real}, Sustain:{target,real}, Scaling:{target,real}, NGTMA:{target,real}}]
+// realTotal & targetTotal dihitung otomatis jika tidak tersedia
+const KOMPONEN_CATS = ["Reguler", "Sustain", "Scaling", "NGTMA"] as const;
 function parseKomponen(raw: string | null | undefined): any[] {
   if (!raw) return [];
-  try { return JSON.parse(raw); } catch { return []; }
+  try {
+    const items = JSON.parse(raw);
+    if (!Array.isArray(items)) return [];
+    return items.map((c: any) => {
+      if (c.realTotal == null) {
+        c.realTotal = KOMPONEN_CATS.reduce((s, k) => s + ((c[k]?.real) ?? 0), 0);
+      }
+      if (c.targetTotal == null) {
+        c.targetTotal = KOMPONEN_CATS.reduce((s, k) => s + ((c[k]?.target) ?? 0), 0);
+      }
+      return c;
+    });
+  } catch { return []; }
 }
 
 // Sum target/real from komponenDetail for a given tipeRevenue
@@ -596,7 +611,7 @@ export default function PerformaVis() {
     return (
       <div className="space-y-4">
         <div className="h-16 bg-secondary/50 rounded-xl animate-pulse" />
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[...Array(6)].map((_, i) => <div key={i} className="h-28 bg-secondary/50 rounded-xl animate-pulse" />)}
         </div>
       </div>
@@ -938,7 +953,7 @@ export default function PerformaVis() {
                                       {customers.map((c: any, ci: number) => {
                                         const cReal = c.realTotal ?? 0;
                                         const cTarget = c.targetTotal ?? 0;
-                                        const prop = c.proporsi != null ? c.proporsi * 100 : 0;
+                                        const prop = totalReal > 0 ? (cReal / totalReal) * 100 : (c.proporsi != null ? c.proporsi * 100 : 0);
                                         const cAch = cTarget > 0 ? cReal / cTarget * 100 : 0;
                                         return (
                                           <tr key={ci} className={cn("transition-colors", ci % 2 === 0 ? "bg-white dark:bg-card" : "bg-rose-50/60 dark:bg-rose-950/20", "hover:bg-rose-100/60 dark:hover:bg-rose-900/20")}>
@@ -1001,6 +1016,9 @@ export default function PerformaVis() {
             </div>
 
           </div>
+
+          {/* ─── Funnel Section ───────────────────────────── */}
+          <FunnelSectionCard />
 
           {/* ─── Trend Chart ─────────────────────────────── */}
           <div className="bg-card border border-border rounded-xl p-5">

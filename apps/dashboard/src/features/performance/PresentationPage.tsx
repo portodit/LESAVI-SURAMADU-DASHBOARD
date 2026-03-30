@@ -133,6 +133,23 @@ function TrophyCard({ title, subtitle, am, value, realValue, targetValue, colorS
   );
 }
 
+// ─── Performance Table Shared ColGroup (ensures header + body columns align) ───
+// widths sum to 800px; both tables use table-layout:fixed so these are respected exactly
+function PerfColGroup() {
+  return (
+    <colgroup>
+      <col style={{width:"28px"}}/>
+      <col style={{width:"200px"}}/>
+      <col style={{width:"130px"}}/>
+      <col style={{width:"130px"}}/>
+      <col style={{width:"78px"}}/>
+      <col style={{width:"78px"}}/>
+      <col style={{width:"78px"}}/>
+      <col style={{width:"78px"}}/>
+    </colgroup>
+  );
+}
+
 // ─── Custom Tooltip for Trend Chart ────────────────────────────────────────────
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
@@ -2204,16 +2221,13 @@ export default function EmbedPerforma() {
     setPerfPresentTableHeaderH(el.offsetHeight);
     return () => ro.disconnect();
   }, []);
-  // AM summary row height — for sticky customer sub-header offset
-  const perfPresentAmRowRef = useRef<HTMLTableRowElement>(null);
+  // AM summary row height — callback ref on every expanded row for accurate measurement
   const [perfPresentAmRowH, setPerfPresentAmRowH] = useState(38);
-  useEffect(() => {
-    const el = perfPresentAmRowRef.current;
+  const perfPresentAmRowCallbackRef = useCallback((el: HTMLTableRowElement|null) => {
     if (!el) return;
-    const ro = new ResizeObserver(() => setPerfPresentAmRowH(el.offsetHeight));
+    const ro = new ResizeObserver(() => setPerfPresentAmRowH(el.getBoundingClientRect().height));
     ro.observe(el);
-    setPerfPresentAmRowH(el.offsetHeight);
-    return () => ro.disconnect();
+    setPerfPresentAmRowH(el.getBoundingClientRect().height);
   }, []);
 
   useEffect(() => {
@@ -2758,10 +2772,11 @@ export default function EmbedPerforma() {
               <div ref={perfTableHeaderRef} onScroll={onPerfHeaderScroll}
                 className="overflow-x-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] sticky z-10 bg-card"
                 style={{ top: `${perfToolbarH}px` }}>
-                <table className="border-collapse" style={{ minWidth: "600px", width: "100%" }}>
+                <table className="border-collapse" style={{ minWidth: "800px", width: "100%", tableLayout: "fixed" }}>
+                  <PerfColGroup/>
                   <thead>
                     <tr className="bg-red-700 text-white">
-                      <th className="px-3 py-3 w-5 text-left"></th>
+                      <th className="px-3 py-3 text-left"></th>
                       <th className="px-4 py-3 text-left text-xs font-black uppercase tracking-wide">Nama AM</th>
                       <th className={cn("px-4 py-3 text-right text-xs font-black uppercase tracking-wide", filterTipeRank === "Real Revenue" && "underline underline-offset-2")}>Target {filterTipeRevenue}</th>
                       <th className={cn("px-4 py-3 text-right text-xs font-black uppercase tracking-wide", filterTipeRank === "Real Revenue" && "underline underline-offset-2")}>Real {filterTipeRevenue}</th>
@@ -2777,9 +2792,10 @@ export default function EmbedPerforma() {
               </div>
               {/* Scrollable body */}
               <div ref={perfTableBodyRef} onScroll={onPerfBodyScroll}>
-              <table className="w-full text-xs text-left" style={{ minWidth: "600px" }}>
+              <table className="w-full text-xs text-left border-collapse" style={{ minWidth: "800px", tableLayout: "fixed" }}>
+                <PerfColGroup/>
                 <thead className="sr-only" aria-hidden>
-                  <tr><th className="w-5"></th><th>Nama AM</th><th>Target</th><th>Real</th><th>CM %</th><th>YTD %</th><th>Customer</th><th>Rank</th></tr>
+                  <tr><th></th><th>Nama AM</th><th>Target</th><th>Real</th><th>CM %</th><th>YTD %</th><th>Customer</th><th>Rank</th></tr>
                 </thead>
                   <tbody className="divide-y divide-border/50">
                     {filteredAmData.map((row, rowIdx) => {
@@ -2788,7 +2804,7 @@ export default function EmbedPerforma() {
                       return (
                         <React.Fragment key={row.nik}>
                           <tr
-                            ref={rowIdx === 0 ? perfPresentAmRowRef : undefined}
+                            ref={isExpanded ? perfPresentAmRowCallbackRef : undefined}
                             className={cn("transition-colors", isExpanded ? "bg-card" : "hover:bg-secondary/20", hasCustomers && "cursor-pointer")}
                             style={isExpanded ? {position:"sticky" as const, top:perfToolbarH+perfPresentTableHeaderH, zIndex:10, boxShadow:"0 2px 6px rgba(0,0,0,0.08)"} : {}}
                             onClick={() => hasCustomers && toggleRow(row.nik)}>

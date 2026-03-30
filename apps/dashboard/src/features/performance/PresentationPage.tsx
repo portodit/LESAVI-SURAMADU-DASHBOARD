@@ -1153,7 +1153,21 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
         </table>
       );}
 
-      return(<React.Fragment key={amKey}>
+      return(<div key={amKey}>
+        {/* Sticky AM name row — own table so it sticks independently across all phase tables */}
+        <table className="text-left text-sm" style={{...FS_TB_STYLE,position:"sticky",top:fsFunnelTheadH,zIndex:16,boxShadow:"0 2px 8px rgba(0,0,0,0.13)"}}><FSColGroup/>
+          <tbody>
+            <tr ref={amIdx===0?fsFunnelAmRowRef:undefined}
+              className="cursor-pointer select-none hover:brightness-95 transition-colors"
+              style={{borderTop:`2px solid ${ring}`,borderLeft:`2px solid ${ring}`,borderRight:`2px solid ${ring}`,borderBottom:"none"}}
+              onClick={()=>toggleAmRow(amKey)}>
+              <td className="px-4 py-2.5 font-normal text-left" style={{backgroundColor:bgCard}}>
+                <div className="flex items-center gap-2"><ChevronRight className="w-4 h-4 text-muted-foreground shrink-0 rotate-90"/><span className="font-black text-foreground text-sm uppercase tracking-wide">{am.namaAm}</span>{divBadge}<button type="button" onClick={e=>{e.stopPropagation();handleAmExpandIcon(amKey,orderedPhases);}} className="ml-1 p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-secondary/60 shrink-0" title="Collapse semua proyek"><Minimize2 className="w-3 h-3"/></button></div>
+              </td>
+              <td className="px-3 py-2.5 font-normal" colSpan={4} style={{backgroundColor:bgCard}}><span className="text-xs font-black text-foreground tracking-wide">TOTAL {amLopCount} LOP</span></td>
+            </tr>
+          </tbody>
+        </table>
         {orderedPhases.map((phase,phaseIdx)=>{
           const lops=am.phases.get(phase)||[];
           const phaseKey=`${amKey}|${phase}`;
@@ -1163,20 +1177,8 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
           const phaseBg=phaseExpanded?"rgb(253,242,248)":"rgba(253,242,248,0.75)";
           return(
             <table key={phaseKey} className="text-left text-sm" style={FS_TB_STYLE}><FSColGroup/>
-              <thead style={{position:"sticky",top:fsFunnelTheadH,zIndex:15}}>
-                {/* Baris 1: Nama AM — hanya tampil di fase pertama agar tidak redundan */}
-                {phaseIdx===0&&(
-                  <tr ref={amIdx===0?fsFunnelAmRowRef:undefined}
-                    className="cursor-pointer select-none hover:brightness-95 transition-colors"
-                    style={{borderTop:`2px solid ${ring}`,borderLeft:`2px solid ${ring}`,borderRight:`2px solid ${ring}`,borderBottom:"none"}}
-                    onClick={()=>toggleAmRow(amKey)}>
-                    <th className="px-4 py-2.5 font-normal text-left" style={{backgroundColor:bgCard}}>
-                      <div className="flex items-center gap-2"><ChevronRight className="w-4 h-4 text-muted-foreground shrink-0 rotate-90"/><span className="font-black text-foreground text-sm uppercase tracking-wide">{am.namaAm}</span>{divBadge}<button type="button" onClick={e=>{e.stopPropagation();handleAmExpandIcon(amKey,orderedPhases);}} className="ml-1 p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-secondary/60 shrink-0" title="Collapse semua proyek"><Minimize2 className="w-3 h-3"/></button></div>
-                    </th>
-                    <th className="px-3 py-2.5 font-normal" colSpan={4} style={{backgroundColor:bgCard}}><span className="text-xs font-black text-foreground tracking-wide">TOTAL {amLopCount} LOP</span></th>
-                  </tr>
-                )}
-                {/* Baris 2: Nama fase */}
+              <thead style={{position:"sticky",top:fsFunnelTheadH+fsFunnelAmRowH,zIndex:15}}>
+                {/* Phase header row — sticks below the AM name row */}
                 <tr className="cursor-pointer select-none hover:brightness-95 transition-all"
                   style={{borderLeft:`4px solid ${c?.bar||"#94a3b8"}`,borderRight:`2px solid ${ring}`,boxShadow:"0 2px 6px rgba(0,0,0,0.09)",borderTop:phaseIdx>0?`1px solid hsl(var(--border))`:"none"}}
                   onClick={()=>togglePhaseRow(phaseKey)}>
@@ -1217,7 +1219,7 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
             </tr>
           </tbody>
         </table>
-      </React.Fragment>);
+      </div>);
     })}</>;
   }
 

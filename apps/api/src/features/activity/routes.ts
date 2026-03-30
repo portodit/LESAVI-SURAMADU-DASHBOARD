@@ -33,10 +33,13 @@ router.get("/activity/snapshots", requireAuth, async (req, res): Promise<void> =
 router.get("/activity", requireAuth, async (req, res): Promise<void> => {
   const { year, month, divisi, import_id } = req.query;
 
-  const [allActs, ams, settingsArr] = await Promise.all([
+  const [allActs, ams, settingsArr, activityImports] = await Promise.all([
     db.select().from(salesActivityTable),
     db.select().from(accountManagersTable),
     db.select({ kpiActivityDefault: appSettingsTable.kpiActivityDefault }).from(appSettingsTable).limit(1),
+    db.select({ id: dataImportsTable.id, snapshotDate: dataImportsTable.snapshotDate })
+      .from(dataImportsTable)
+      .where(eq(dataImportsTable.type, "activity")),
   ]);
   const kpiDefault = settingsArr[0]?.kpiActivityDefault ?? 30;
 
@@ -46,10 +49,19 @@ router.get("/activity", requireAuth, async (req, res): Promise<void> => {
 
   let acts = allActs;
 
-  // Filter by import_id (snapshot)
+  // Filter by import_id (snapshot) — cumulative: tampilkan semua aktivitas
+  // sampai dengan tanggal snapshot yang dipilih, bukan hanya dari import itu saja
   if (import_id && String(import_id) !== "" && String(import_id) !== "all") {
     const impId = parseInt(String(import_id), 10);
-    if (!isNaN(impId)) acts = acts.filter(a => a.importId === impId);
+    if (!isNaN(impId)) {
+      const selectedImport = activityImports.find(i => i.id === impId);
+      if (selectedImport?.snapshotDate) {
+        // Cumulative view: semua aktivitas dengan snapshotDate <= tanggal snapshot yang dipilih
+        acts = acts.filter(a => a.snapshotDate != null && a.snapshotDate <= selectedImport.snapshotDate!);
+      } else {
+        acts = acts.filter(a => a.importId === impId);
+      }
+    }
   }
 
   if (year && month && String(month) !== "all") {

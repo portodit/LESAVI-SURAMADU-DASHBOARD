@@ -2064,8 +2064,8 @@ function ActivitySlide() {
                       ):(
                         <>
                           {/* Sub-header — sticky below AM row */}
-                          <div className="grid text-[10px] font-bold uppercase tracking-[0.6px] text-foreground/60 bg-secondary border-b border-border"
-                            style={{gridTemplateColumns:"28px 96px 1fr 140px 120px 60px",padding:"7px 14px 7px 52px",position:"sticky" as const,top:actToolbarH+actAmSumRowH,zIndex:11}}>
+                          <div className="grid text-xs font-black uppercase tracking-wide text-foreground/75 bg-secondary border-b border-border"
+                            style={{gridTemplateColumns:"28px 96px 1fr 140px 120px 60px",padding:"10px 14px 10px 52px",position:"sticky" as const,top:actToolbarH+actAmSumRowH,zIndex:11}}>
                             <div>#</div><div>Tanggal</div><div>Pelanggan &amp; Catatan</div>
                             <div>Tipe Aktivitas</div><div>Kategori</div><div>KPI</div>
                           </div>

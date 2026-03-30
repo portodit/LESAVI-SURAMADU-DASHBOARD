@@ -16,25 +16,35 @@ import publicPerformanceRouter from "../features/performance/publicRoutes";
 import publicFunnelRouter from "../features/funnel/publicRoutes";
 import publicActivityRouter from "../features/activity/publicRoutes";
 import publicSettingsRouter from "../features/settings/publicRoutes";
+import { requireAuth, requireManagerOrOfficer } from "../shared/auth";
 
 const router: IRouter = Router();
 
+// Rute publik (tanpa auth)
 router.use(healthRouter);
 router.use(authRouter);
-router.use(amRouter);
-router.use(importRouter);
-router.use(performanceRouter);
-router.use(funnelRouter);
-router.use(activityRouter);
-router.use(telegramRouter);
-router.use(settingsRouter);
-router.use(gSheetsRouter);
-router.use(gDriveRouter);
-router.use(corporateRouter);
 router.use(publicAmRouter);
 router.use(publicPerformanceRouter);
 router.use(publicFunnelRouter);
 router.use(publicActivityRouter);
 router.use(publicSettingsRouter);
+
+// Rute dashboard — hanya MANAGER dan OFFICER
+// Role "AM" dikembalikan 403; frontend akan redirect ke presentasi
+const dashboardRouter: IRouter = Router();
+dashboardRouter.use(requireAuth);
+dashboardRouter.use(requireManagerOrOfficer);
+dashboardRouter.use(amRouter);
+dashboardRouter.use(importRouter);
+dashboardRouter.use(performanceRouter);
+dashboardRouter.use(funnelRouter);
+dashboardRouter.use(activityRouter);
+dashboardRouter.use(telegramRouter);
+dashboardRouter.use(settingsRouter);
+dashboardRouter.use(gSheetsRouter);
+dashboardRouter.use(gDriveRouter);
+dashboardRouter.use(corporateRouter);
+
+router.use(dashboardRouter);
 
 export default router;

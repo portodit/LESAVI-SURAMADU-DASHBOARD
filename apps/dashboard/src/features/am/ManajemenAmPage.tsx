@@ -31,6 +31,7 @@ interface User {
   witel: string;
   telegramChatId: string | null;
   telegramConnected: boolean;
+  registeredAkun: boolean;
   kpiActivity: number;
   crossWitel: boolean;
   createdAt: string;
@@ -440,6 +441,21 @@ function UserRow({ user, onEdit, onDelete }: { user: User; onEdit: () => void; o
         )) : <span className="text-xs text-muted-foreground/40">—</span>}
       </td>
 
+      {/* Status Akun — terdaftar jika passwordHash ada */}
+      <td className="px-4 py-3">
+        {user.registeredAkun ? (
+          <div className="flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-700">
+              ✓ Terdaftar
+            </span>
+          </div>
+        ) : (
+          <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-700">
+            ○ Belum
+          </span>
+        )}
+      </td>
+
       {/* Aksi — always visible */}
       <td className="px-4 py-3">
         <RowActions actions={[
@@ -841,6 +857,7 @@ export default function ManajemenAmPage() {
                 <th className="px-4 py-3 w-20">Divisi</th>
                 <th className="px-4 py-3 w-28">Segmen</th>
                 <th className="px-4 py-3 w-32">Telegram</th>
+                <th className="px-4 py-3 w-32">Status Akun</th>
                 <th className="px-4 py-3 w-32">Aksi</th>
               </tr>
             </thead>

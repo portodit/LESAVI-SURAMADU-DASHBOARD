@@ -1,5 +1,4 @@
-import { db, accountManagersTable, adminUsersTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, accountManagersTable } from "@workspace/db";
 
 const AM_DATA = [
   { nik: "401431", nama: "NYARI KUSUMANINGRUM",                     slug: "nyari-kusumaningrum",                      role: "AM" as const, tipe: "LESA", divisi: "DPS", witel: "SURAMADU", kpiActivity: 30, aktif: true, crossWitel: true },
@@ -25,7 +24,7 @@ const OFFICER_DATA = [
   {
     nik: "160203",
     nama: "Admin Officer",
-    slug: "officer-bliaditdev",
+    slug: "officer-bliadiitdev",
     role: "OFFICER" as const,
     tipe: "LESA",
     divisi: "DPS",
@@ -33,24 +32,15 @@ const OFFICER_DATA = [
     kpiActivity: 30,
     aktif: true,
     crossWitel: false,
-    email: "bliaditdev@gmail.com",
+    email: "bliadiitdev@gmail.com",
     passwordHash: "$2b$10$ucAam8hy6a5YHcMbJ6yUv.ncLN/AUskcX4YpRilQG0Hy9v3HU3zHi",
-  },
-];
-
-const ADMIN_DATA = [
-  {
-    email: "bliaditdev@gmail.com",
-    passwordHash: "$2b$10$9kQ8E7MfHxtvPHpt5DTEpOXGlV8rEDQHwiHsr7.EI903BhSAfAp6m",
-    role: "admin",
   },
 ];
 
 export async function seedAccounts(opts: { truncate?: boolean } = {}) {
   if (opts.truncate) {
-    console.log("  [accounts] Truncating account_managers and admin_users...");
+    console.log("  [accounts] Truncating account_managers...");
     await db.delete(accountManagersTable);
-    await db.delete(adminUsersTable);
   }
 
   console.log(`  [accounts] Seeding ${AM_DATA.length} Account Manager(s)...`);
@@ -75,16 +65,6 @@ export async function seedAccounts(opts: { truncate?: boolean } = {}) {
       target: accountManagersTable.nik,
       set: { nama: o.nama, role: o.role, email: o.email },
     });
-  }
-
-  console.log(`  [accounts] Seeding ${ADMIN_DATA.length} Admin user(s)...`);
-  for (const a of ADMIN_DATA) {
-    const existing = await db.select({ id: adminUsersTable.id }).from(adminUsersTable).where(eq(adminUsersTable.email, a.email));
-    if (existing.length === 0) {
-      await db.insert(adminUsersTable).values(a);
-    } else {
-      console.log(`    [accounts] Admin '${a.email}' already exists, skipping.`);
-    }
   }
 
   console.log("  [accounts] Done.");

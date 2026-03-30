@@ -53,6 +53,30 @@ function ProtectedApp() {
     return null;
   }
 
+  // Account Manager hanya boleh akses halaman presentasi, bukan dashboard penuh
+  if (user.role === "AM") {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-background p-8 text-center">
+        <div className="w-14 h-14 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center">
+          <Loader2 className="w-6 h-6 text-primary" />
+        </div>
+        <div>
+          <h2 className="text-xl font-bold text-foreground">Akses Terbatas</h2>
+          <p className="text-sm text-muted-foreground mt-1 max-w-sm">
+            Akun Account Manager hanya dapat mengakses halaman presentasi.
+            Hubungi Officer atau Manager untuk mendapatkan akses dashboard.
+          </p>
+        </div>
+        <a
+          href="/presentation/login"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors"
+        >
+          Buka Halaman Presentasi
+        </a>
+      </div>
+    );
+  }
+
   return (
     <DashboardLayout>
       <Switch>

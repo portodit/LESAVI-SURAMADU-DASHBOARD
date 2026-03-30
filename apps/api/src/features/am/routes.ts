@@ -13,6 +13,7 @@ router.get("/am", requireAuth, async (req, res): Promise<void> => {
   res.json(ams.map(am => ({
     ...am,
     passwordHash: undefined,
+    registeredAkun: !!am.passwordHash,
     telegramConnected: !!am.telegramChatId,
     createdAt: am.createdAt.toISOString(),
   })));
@@ -53,7 +54,7 @@ router.post("/am", requireAuth, async (req, res): Promise<void> => {
     kpiActivity: resolvedRole === "AM" ? (kpiActivity || 30) : 0,
   }).returning();
 
-  res.status(201).json({ ...am, passwordHash: undefined, telegramConnected: !!am.telegramChatId, createdAt: am.createdAt.toISOString() });
+  res.status(201).json({ ...am, passwordHash: undefined, registeredAkun: !!am.passwordHash, telegramConnected: !!am.telegramChatId, createdAt: am.createdAt.toISOString() });
 });
 
 // ── Pending AM Discoveries (MUST be before /am/:id to avoid param conflict) ──
@@ -125,7 +126,7 @@ router.get("/am/:id", requireAuth, async (req, res): Promise<void> => {
   const id = parseInt(raw, 10);
   const [am] = await db.select().from(accountManagersTable).where(eq(accountManagersTable.id, id));
   if (!am) { res.status(404).json({ error: "Anggota tidak ditemukan" }); return; }
-  res.json({ ...am, passwordHash: undefined, telegramConnected: !!am.telegramChatId, createdAt: am.createdAt.toISOString() });
+  res.json({ ...am, passwordHash: undefined, registeredAkun: !!am.passwordHash, telegramConnected: !!am.telegramChatId, createdAt: am.createdAt.toISOString() });
 });
 
 router.patch("/am/:id", requireAuth, async (req, res): Promise<void> => {
@@ -146,7 +147,7 @@ router.patch("/am/:id", requireAuth, async (req, res): Promise<void> => {
 
   const [am] = await db.update(accountManagersTable).set(updates).where(eq(accountManagersTable.id, id)).returning();
   if (!am) { res.status(404).json({ error: "Anggota tidak ditemukan" }); return; }
-  res.json({ ...am, passwordHash: undefined, telegramConnected: !!am.telegramChatId, createdAt: am.createdAt.toISOString() });
+  res.json({ ...am, passwordHash: undefined, registeredAkun: !!am.passwordHash, telegramConnected: !!am.telegramChatId, createdAt: am.createdAt.toISOString() });
 });
 
 router.delete("/am/:id", requireAuth, async (req, res): Promise<void> => {

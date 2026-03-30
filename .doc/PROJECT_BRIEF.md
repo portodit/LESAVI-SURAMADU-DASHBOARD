@@ -205,4 +205,5 @@ workspace/
 | `WORKFLOW_RULES.md` | Ringkasan rules + kredensial (versi ringkas) |
 | `GITHUB_PUSH_GUIDE.md` | Penjelasan teknis push via REST API |
 | `BUGFIX_BLANK_PAGE_IMPORT.md` | Brief bugfix blank page di halaman Import |
+| `LESSONS_LEARNED.md` | Kumpulan kesalahan agent yang pernah terjadi + pelajarannya |
 | `CHATBOT.md` | Panduan integrasi chatbot |

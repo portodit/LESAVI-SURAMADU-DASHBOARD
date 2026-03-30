@@ -951,16 +951,16 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
     return () => ro.disconnect();
   },[]);
 
-  // AM row ref — digunakan untuk mengukur tinggi aktual baris AM agar phase row menempel rapat
-  const fsFunnelAmRowRef = useRef<HTMLTableRowElement>(null);
-  const [fsFunnelAmRowH, setFsFunnelAmRowH] = useState(49);
-  useEffect(()=>{
-    const el = fsFunnelAmRowRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => setFsFunnelAmRowH(el.offsetHeight));
-    ro.observe(el);
+  // AM name table ref — callback ref attached to ALL expanded AM name tables so height is always measured
+  const [fsFunnelAmRowH, setFsFunnelAmRowH] = useState(44);
+  const fsFunnelAmRowObserver = useRef<ResizeObserver|null>(null);
+  const fsFunnelAmTableCallbackRef = useCallback((el: HTMLTableElement|null)=>{
+    if(fsFunnelAmRowObserver.current){fsFunnelAmRowObserver.current.disconnect();fsFunnelAmRowObserver.current=null;}
+    if(!el) return;
     setFsFunnelAmRowH(el.offsetHeight);
-    return () => ro.disconnect();
+    const ro=new ResizeObserver(()=>setFsFunnelAmRowH(el.offsetHeight));
+    ro.observe(el);
+    fsFunnelAmRowObserver.current=ro;
   },[]);
 
   function handleToggleAll(){
@@ -1155,10 +1155,9 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
 
       return(<div key={amKey}>
         {/* Sticky AM name row — own table so it sticks independently across all phase tables */}
-        <table className="text-left text-sm" style={{...FS_TB_STYLE,position:"sticky",top:fsFunnelTheadH,zIndex:16,boxShadow:"0 2px 8px rgba(0,0,0,0.13)"}}><FSColGroup/>
+        <table ref={fsFunnelAmTableCallbackRef} className="text-left text-sm" style={{...FS_TB_STYLE,position:"sticky",top:fsFunnelTheadH,zIndex:16,boxShadow:"0 2px 8px rgba(0,0,0,0.13)"}}><FSColGroup/>
           <tbody>
-            <tr ref={amIdx===0?fsFunnelAmRowRef:undefined}
-              className="cursor-pointer select-none hover:brightness-95 transition-colors"
+            <tr className="cursor-pointer select-none hover:brightness-95 transition-colors"
               style={{borderTop:`2px solid ${ring}`,borderLeft:`2px solid ${ring}`,borderRight:`2px solid ${ring}`,borderBottom:"none"}}
               onClick={()=>toggleAmRow(amKey)}>
               <td className="px-4 py-2.5 font-normal text-left" style={{backgroundColor:bgCard}}>

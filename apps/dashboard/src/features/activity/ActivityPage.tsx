@@ -779,7 +779,7 @@ export default function ActivityPage() {
             } catch { return false; }
           });
         }
-        return { ...existing, activities: acts, kpiTarget: existing.kpiTarget * effectiveMonths };
+        return { ...existing, activities: acts, kpiTarget: settingsKpi * effectiveMonths };
       }
       return { nik: ma.nik, fullname: ma.nama, divisi: ma.divisi, kpiCount: 0, totalCount: 0, kpiTarget: settingsKpi * effectiveMonths, activities: [] };
     });

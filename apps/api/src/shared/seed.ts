@@ -42,18 +42,14 @@ const DEFAULT_FUNNEL_TARGETS = [
 ];
 
 export async function ensureDefaultSeed(): Promise<void> {
-  const existingAms = await db.select({ nik: accountManagersTable.nik }).from(accountManagersTable).limit(1);
-  if (existingAms.length === 0) {
-    await db.insert(accountManagersTable).values(DEFAULT_AMS as any);
+  // Always upsert all AMs — using onConflictDoNothing so we never overwrite user edits
+  // but also never skip if admin/manager accounts already exist in the table
+  for (const am of DEFAULT_AMS) {
+    await db.insert(accountManagersTable).values(am as any).onConflictDoNothing();
   }
 
-  const existingManager = await db
-    .select({ nik: accountManagersTable.nik })
-    .from(accountManagersTable)
-    .where(eq(accountManagersTable.nik, "850099"));
-  if (existingManager.length === 0) {
-    await db.insert(accountManagersTable).values(DEFAULT_MANAGER as any);
-  }
+  // Upsert default manager
+  await db.insert(accountManagersTable).values(DEFAULT_MANAGER as any).onConflictDoNothing();
 
   const googleApiKey = process.env.GOOGLE_API_KEY || null;
 

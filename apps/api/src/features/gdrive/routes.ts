@@ -99,6 +99,19 @@ router.post("/gdrive/sync", requireAuth, async (req, res): Promise<void> => {
       ? excelFiles.find(f => f.id === explicitFileId) || excelFiles[0]
       : excelFiles[0];
 
+    const MAX_FILE_SIZE_MB = 30;
+    const fileSizeMB = targetFile.size ? Number(targetFile.size) / 1024 / 1024 : 0;
+    if (fileSizeMB > MAX_FILE_SIZE_MB) {
+      res.status(413).json({
+        error: `File terlalu besar (${fileSizeMB.toFixed(1)} MB, max ${MAX_FILE_SIZE_MB} MB). ` +
+          `Konversikan ke format Google Sheets terlebih dahulu: buka file di Google Drive → klik kanan → "Buka dengan Google Sheets" → file baru akan muncul di folder yang sama dalam format Google Sheets yang bisa diproses.`,
+        fileSizeMB: parseFloat(fileSizeMB.toFixed(1)),
+        maxSizeMB: MAX_FILE_SIZE_MB,
+        fileName: targetFile.name,
+      });
+      return;
+    }
+
     const snapshotDate = snapshotDateBodyOverride || extractSnapshotDateFromUrl(targetFile.name) || new Date().toISOString().slice(0, 10);
 
     const result = await runDriveImport(

@@ -551,6 +551,8 @@ function FSGauge({ pct, targetHo, targetFullHo, real, mode, compact, divisi }: {
   };
   const dynamicColor=clamp>=100?"#10b981":clamp>=75?"#3b82f6":clamp>=50?"#f59e0b":"#CC0000";
   const color=divisi==="DPS"?"#3b82f6":divisi==="DSS"?"#10b981":dynamicColor;
+  const surplusTextCls=divisi==="DPS"?"text-blue-600 dark:text-blue-400":divisi==="DSS"?"text-emerald-600 dark:text-emerald-400":"text-emerald-600 dark:text-emerald-400";
+  const deficitTextCls="text-red-600 dark:text-red-400";
   const activeTarget=mode==="ho"?targetHo:targetFullHo;
   const hasTarget=activeTarget>0;
   const startX=cx+r*Math.cos(toRad(startAngle));
@@ -621,10 +623,10 @@ function FSGauge({ pct, targetHo, targetFullHo, real, mode, compact, divisi }: {
               <span className="tabular-nums text-foreground">{fmtRupiahFS(activeTarget)}</span>
             </div>
             <div className="pt-1.5 border-t border-border flex justify-between items-center">
-              <span className={cn("text-xs font-bold",real>=activeTarget?"text-emerald-600":"text-gray-900 dark:text-white")}>
+              <span className={cn("text-xs font-bold",real>=activeTarget?surplusTextCls:deficitTextCls)}>
                 {real>=activeTarget?"Kelebihan":"Kekurangan"}
               </span>
-              <span className={cn("font-bold tabular-nums text-sm",real>=activeTarget?"text-emerald-600":"text-gray-900 dark:text-white")}>
+              <span className={cn("font-bold tabular-nums text-sm",real>=activeTarget?surplusTextCls:deficitTextCls)}>
                 {real>=activeTarget?"+":"-"}{fmtRupiahFS(Math.abs(activeTarget-real))}
               </span>
             </div>

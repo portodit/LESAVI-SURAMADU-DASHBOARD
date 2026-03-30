@@ -2,9 +2,9 @@ import React, { useState, useEffect } from "react";
 import { matchesDivisi } from "@/shared/lib/divisi";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  Plus, Pencil, Trash2, Users, Wifi, WifiOff, Search, X,
-  MessageSquare, ShieldCheck, AlertTriangle, RefreshCw, UserCog, Shield,
-  Bell, CheckCircle, XCircle, ChevronDown, ChevronUp
+  Plus, Trash2, Users, Wifi, WifiOff, Search, X,
+  MessageSquare, AlertTriangle, RefreshCw, UserCog, Shield,
+  ToggleLeft, ToggleRight
 } from "lucide-react";
 import { useAuth } from "@/shared/hooks/use-auth";
 import { cn } from "@/shared/lib/utils";
@@ -35,6 +35,8 @@ interface User {
   crossWitel: boolean;
   createdAt: string;
   registeredAkun: boolean;
+  aktif: boolean;
+  discoveredFrom: string | null;
 }
 
 interface UserFormData {
@@ -351,19 +353,23 @@ function UserFormDialog({ open, onClose, onSubmit, initial, loading, mode }: {
 
 // ─── Table Row ────────────────────────────────────────────────────────────────
 
-function UserRow({ user, onEdit, onDelete }: { user: User; onEdit: () => void; onDelete: () => void }) {
+function UserRow({ user, onEdit, onDelete, isPrivileged, onToggleAktif, togglingAktif }: {
+  user: User; onEdit: () => void; onDelete: () => void;
+  isPrivileged: boolean; onToggleAktif: () => void; togglingAktif: boolean;
+}) {
   const role = user.role || "AM";
   const roleCfg = ROLE_CONFIG[role] ?? ROLE_CONFIG["AM"];
   const tipeCfg = user.tipe ? (TIPE_CONFIG[user.tipe] ?? TIPE_CONFIG["LESA"]) : TIPE_CONFIG["LESA"];
   const divisiCfg = DIVISI_CONFIG[user.divisi] ?? DIVISI_CONFIG["DPS"];
   const isAM = role === "AM";
+  const isNonaktif = !user.aktif;
 
   return (
-    <tr className="border-b border-border/50 hover:bg-secondary/20 transition-colors">
+    <tr className={cn("border-b border-border/50 transition-colors", isNonaktif ? "bg-amber-50/40 hover:bg-amber-50/60 dark:bg-amber-950/10 dark:hover:bg-amber-950/20" : "hover:bg-secondary/20")}>
       {/* NIK */}
       <td className="px-4 py-3 whitespace-nowrap">
         {user.nik
-          ? <span className="font-mono text-base font-black text-foreground tracking-tight">{user.nik}</span>
+          ? <span className={cn("font-mono text-base font-black tracking-tight", isNonaktif ? "text-muted-foreground" : "text-foreground")}>{user.nik}</span>
           : <span className="text-muted-foreground/40 text-sm">—</span>
         }
       </td>
@@ -373,11 +379,13 @@ function UserRow({ user, onEdit, onDelete }: { user: User; onEdit: () => void; o
         <div className="flex items-center gap-3">
           <div className={cn(
             "w-9 h-9 rounded-full border flex items-center justify-center shrink-0",
+            isNonaktif ? "bg-amber-50 border-amber-200 dark:bg-amber-950/40 dark:border-amber-700 opacity-70" :
             role === "OFFICER" ? "bg-purple-50 border-purple-200 dark:bg-purple-950/30" :
             role === "MANAGER" ? "bg-orange-50 border-orange-200 dark:bg-orange-950/30" :
             "bg-primary/10 border-primary/20"
           )}>
             <span className={cn("text-[10px] font-black",
+              isNonaktif ? "text-amber-600/70" :
               role === "OFFICER" ? "text-purple-600" :
               role === "MANAGER" ? "text-orange-600" : "text-primary"
             )}>
@@ -385,11 +393,18 @@ function UserRow({ user, onEdit, onDelete }: { user: User; onEdit: () => void; o
             </span>
           </div>
           <div className="min-w-0">
-            <p className="font-semibold text-sm text-foreground leading-tight truncate max-w-[200px]">{user.nama}</p>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <p className={cn("font-semibold text-sm leading-tight truncate max-w-[200px]", isNonaktif ? "text-muted-foreground" : "text-foreground")}>{user.nama}</p>
+              {isNonaktif && (
+                <span className="inline-flex items-center text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-300 dark:bg-amber-950/60 dark:text-amber-400 dark:border-amber-700 shrink-0">
+                  BARU
+                </span>
+              )}
+            </div>
             {user.email && (
               <p className="text-[10px] text-muted-foreground truncate max-w-[200px]">{user.email}</p>
             )}
-            {user.crossWitel && isAM && (
+            {user.crossWitel && isAM && !isNonaktif && (
               <span className="text-[10px] text-amber-600 font-bold">Cross Witel</span>
             )}
           </div>
@@ -398,7 +413,7 @@ function UserRow({ user, onEdit, onDelete }: { user: User; onEdit: () => void; o
 
       {/* Role Badge */}
       <td className="px-4 py-3">
-        <Badge className={cn("text-[11px] font-bold border", roleCfg.bg, roleCfg.color, roleCfg.border)}>
+        <Badge className={cn("text-[11px] font-bold border", isNonaktif ? "bg-muted text-muted-foreground border-border opacity-70" : cn(roleCfg.bg, roleCfg.color, roleCfg.border))}>
           {roleCfg.label}
         </Badge>
       </td>
@@ -406,7 +421,7 @@ function UserRow({ user, onEdit, onDelete }: { user: User; onEdit: () => void; o
       {/* Tipe Badge */}
       <td className="px-4 py-3">
         {user.tipe ? (
-          <Badge className={cn("text-[11px] font-bold border", tipeCfg.bg, tipeCfg.color, tipeCfg.border)}>
+          <Badge className={cn("text-[11px] font-bold border", isNonaktif ? "bg-muted text-muted-foreground border-border opacity-70" : cn(tipeCfg.bg, tipeCfg.color, tipeCfg.border))}>
             {user.tipe}
           </Badge>
         ) : <span className="text-muted-foreground/40 text-xs">—</span>}
@@ -415,7 +430,7 @@ function UserRow({ user, onEdit, onDelete }: { user: User; onEdit: () => void; o
       {/* Divisi */}
       <td className="px-4 py-3">
         {isAM ? (
-          <Badge className={cn("text-[11px] font-bold border", divisiCfg.bg, divisiCfg.color, divisiCfg.border)}>
+          <Badge className={cn("text-[11px] font-bold border", isNonaktif ? "bg-muted text-muted-foreground border-border opacity-70" : cn(divisiCfg.bg, divisiCfg.color, divisiCfg.border))}>
             {user.divisi}
           </Badge>
         ) : <span className="text-muted-foreground/40 text-xs">—</span>}
@@ -441,18 +456,33 @@ function UserRow({ user, onEdit, onDelete }: { user: User; onEdit: () => void; o
         )) : <span className="text-xs text-muted-foreground/40">—</span>}
       </td>
 
-      {/* Status Akun — terdaftar jika passwordHash ada */}
+      {/* Status Aktif — toggle untuk Officer/Manager */}
       <td className="px-4 py-3">
-        {user.registeredAkun ? (
-          <div className="flex items-center gap-1.5">
-            <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-700">
-              ✓ Terdaftar
-            </span>
-          </div>
+        {isPrivileged ? (
+          <button
+            onClick={onToggleAktif}
+            disabled={togglingAktif}
+            title={user.aktif ? "Nonaktifkan" : "Aktifkan"}
+            className="flex items-center gap-1.5 group"
+          >
+            {togglingAktif ? (
+              <RefreshCw className="w-4 h-4 animate-spin text-muted-foreground" />
+            ) : user.aktif ? (
+              <>
+                <ToggleRight className="w-5 h-5 text-emerald-500 group-hover:text-emerald-600 transition-colors" />
+                <span className="text-xs font-semibold text-emerald-600 group-hover:text-emerald-700">Aktif</span>
+              </>
+            ) : (
+              <>
+                <ToggleLeft className="w-5 h-5 text-amber-400 group-hover:text-amber-600 transition-colors" />
+                <span className="text-xs font-semibold text-amber-600 group-hover:text-amber-700">Nonaktif</span>
+              </>
+            )}
+          </button>
         ) : (
-          <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-700">
-            ○ Belum
-          </span>
+          user.aktif
+            ? <span className="text-xs font-semibold text-emerald-600">Aktif</span>
+            : <span className="text-xs font-semibold text-amber-600">Nonaktif</span>
         )}
       </td>
 
@@ -492,18 +522,6 @@ function StatCard({ icon, label, value, sub, color }: {
 type FilterRole = "all" | "AM" | "MANAGER" | "OFFICER";
 type FilterDivisi = "all" | "LESA" | "GOVT" | "DPS" | "DSS";
 
-interface PendingDiscovery {
-  id: number;
-  nik: string;
-  nama: string;
-  divisi: string | null;
-  witel: string | null;
-  source: string;
-  importId: number | null;
-  status: string;
-  createdAt: string;
-}
-
 export default function ManajemenAmPage() {
   const qc = useQueryClient();
   const { user: currentUser } = useAuth();
@@ -512,7 +530,7 @@ export default function ManajemenAmPage() {
   const [search, setSearch] = useState("");
   const [filterDivisi, setFilterDivisi] = useState<FilterDivisi>("all");
   const [filterRole, setFilterRole] = useState<FilterRole>("all");
-  const [pendingOpen, setPendingOpen] = useState(true);
+  const [togglingAktifId, setTogglingAktifId] = useState<number | null>(null);
 
   const [showAdd, setShowAdd] = useState(false);
   const [editTarget, setEditTarget] = useState<User | null>(null);
@@ -525,24 +543,16 @@ export default function ManajemenAmPage() {
     staleTime: 30_000,
   });
 
-  const { data: pendingDiscoveries = [], refetch: refetchPending } = useQuery<PendingDiscovery[]>({
-    queryKey: ["am-pending-discoveries"],
-    queryFn: () => apiFetch("/api/am/pending-discoveries"),
-    enabled: !!isPrivileged,
-    staleTime: 60_000,
-    refetchInterval: 120_000,
-  });
-
-  const pendingOnly = pendingDiscoveries.filter(d => d.status === "pending");
-
-  const approveMutation = useMutation({
-    mutationFn: (id: number) => apiFetch(`/api/am/pending-discoveries/${id}/approve`, { method: "POST" }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["am-pending-discoveries"] }); qc.invalidateQueries({ queryKey: ["am-list"] }); },
-  });
-
-  const rejectMutation = useMutation({
-    mutationFn: (id: number) => apiFetch(`/api/am/pending-discoveries/${id}/reject`, { method: "POST" }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["am-pending-discoveries"] }); },
+  const aktifMutation = useMutation({
+    mutationFn: ({ id, aktif }: { id: number; aktif: boolean }) =>
+      apiFetch<User>(`/api/am/${id}/aktif`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ aktif }),
+      }),
+    onMutate: ({ id }) => setTogglingAktifId(id),
+    onSettled: () => setTogglingAktifId(null),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["am-list"] }),
   });
 
   const addMutation = useMutation({
@@ -590,9 +600,11 @@ export default function ManajemenAmPage() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["am-list"] }); setDeleteTarget(null); },
   });
 
-  const amOnly    = users.filter(u => u.role === "AM");
-  const managers  = users.filter(u => u.role === "MANAGER");
-  const officers  = users.filter(u => u.role === "OFFICER");
+  const amOnly        = users.filter(u => u.role === "AM");
+  const activeAmOnly  = amOnly.filter(u => u.aktif);
+  const managers      = users.filter(u => u.role === "MANAGER");
+  const officers      = users.filter(u => u.role === "OFFICER");
+  const newAmCount    = amOnly.filter(u => !u.aktif).length;
 
   const filtered = users.filter(u => {
     if (filterRole !== "all" && u.role !== filterRole) return false;
@@ -607,10 +619,10 @@ export default function ManajemenAmPage() {
     return true;
   });
 
-  const telegramCount = amOnly.filter(a => a.telegramConnected).length;
-  const dpsCount = amOnly.filter(a => a.divisi === "DPS").length;
-  const dssCount = amOnly.filter(a => a.divisi === "DSS").length;
-  const dgsCount = amOnly.filter(a => a.divisi === "DGS").length;
+  const telegramCount = activeAmOnly.filter(a => a.telegramConnected).length;
+  const dpsCount = activeAmOnly.filter(a => a.divisi === "DPS").length;
+  const dssCount = activeAmOnly.filter(a => a.divisi === "DSS").length;
+  const dgsCount = activeAmOnly.filter(a => a.divisi === "DGS").length;
 
   function toFormData(u: User): UserFormData {
     return {
@@ -648,7 +660,8 @@ export default function ManajemenAmPage() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard
           icon={<Users className="w-5 h-5 text-primary" />}
-          label="Account Manager" value={amOnly.length}
+          label="AM Aktif"
+          value={<span>{activeAmOnly.length}{newAmCount > 0 && <span className="text-sm font-semibold text-amber-500 ml-1.5">+{newAmCount}</span>}</span>}
           sub={`${dpsCount} DPS · ${dssCount} DSS · ${dgsCount} GOVT`}
           color="bg-primary/10"
         />
@@ -667,111 +680,18 @@ export default function ManajemenAmPage() {
         <StatCard
           icon={<MessageSquare className="w-5 h-5 text-emerald-600" />}
           label="Telegram Aktif" value={telegramCount}
-          sub={`dari ${amOnly.length} AM`}
+          sub={`dari ${activeAmOnly.length} AM aktif`}
           color="bg-emerald-50 dark:bg-emerald-950/30"
         />
       </div>
 
-      {/* ── Pending AM Discovery Notification (Officer/Manager only) ── */}
-      {isPrivileged && pendingOnly.length > 0 && (
-        <div className="rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700 shadow-sm overflow-hidden">
-          {/* Header */}
-          <button
-            className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-amber-100/60 dark:hover:bg-amber-900/20 transition-colors"
-            onClick={() => setPendingOpen(v => !v)}
-          >
-            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-amber-400/20">
-              <Bell className="w-4 h-4 text-amber-700 dark:text-amber-400" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-amber-900 dark:text-amber-200">
-                {pendingOnly.length} AM Baru Terdeteksi dari Data Import
-              </p>
-              <p className="text-xs text-amber-700/80 dark:text-amber-400/80">
-                Perlu konfirmasi officer/manager sebelum ditambahkan ke master data AM
-              </p>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-2 rounded-full bg-amber-500 text-white text-xs font-bold">
-                {pendingOnly.length}
-              </span>
-              <button
-                className="text-amber-700 hover:text-amber-900 dark:text-amber-400"
-                onClick={e => { e.stopPropagation(); refetchPending(); }}
-                title="Refresh"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-              </button>
-              {pendingOpen ? <ChevronUp className="w-4 h-4 text-amber-600" /> : <ChevronDown className="w-4 h-4 text-amber-600" />}
-            </div>
-          </button>
-
-          {/* List of pending discoveries */}
-          {pendingOpen && (
-            <div className="border-t border-amber-200 dark:border-amber-700">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-amber-100/80 dark:bg-amber-900/30 text-xs font-black uppercase tracking-wide text-amber-800 dark:text-amber-300">
-                      <th className="px-4 py-2.5 text-left">NIK</th>
-                      <th className="px-4 py-2.5 text-left">Nama AM</th>
-                      <th className="px-4 py-2.5 text-left">Divisi</th>
-                      <th className="px-4 py-2.5 text-left">Sumber</th>
-                      <th className="px-4 py-2.5 text-left">Ditemukan</th>
-                      <th className="px-4 py-2.5 text-center">Aksi</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-amber-200/60 dark:divide-amber-800/40">
-                    {pendingOnly.map(d => (
-                      <tr key={d.id} className="hover:bg-amber-50 dark:hover:bg-amber-900/10 transition-colors">
-                        <td className="px-4 py-3 font-mono text-sm font-bold text-foreground">{d.nik}</td>
-                        <td className="px-4 py-3 font-semibold text-foreground">{d.nama}</td>
-                        <td className="px-4 py-3">
-                          <span className={cn(
-                            "text-[11px] font-bold px-2 py-0.5 rounded-full border",
-                            d.divisi === "DPS" ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-700" :
-                            d.divisi === "DSS" ? "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-400 dark:border-purple-700" :
-                            "bg-muted text-muted-foreground border-border"
-                          )}>{d.divisi || "—"}</span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="text-xs text-muted-foreground capitalize bg-secondary px-2 py-0.5 rounded">
-                            {d.source}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
-                          {new Date(d.createdAt).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })}
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center justify-center gap-2">
-                            <button
-                              onClick={() => approveMutation.mutate(d.id)}
-                              disabled={approveMutation.isPending || rejectMutation.isPending}
-                              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-700 dark:hover:bg-emerald-900/60 transition-colors disabled:opacity-50"
-                            >
-                              <CheckCircle className="w-3.5 h-3.5" />
-                              Setujui
-                            </button>
-                            <button
-                              onClick={() => rejectMutation.mutate(d.id)}
-                              disabled={approveMutation.isPending || rejectMutation.isPending}
-                              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 dark:bg-red-950/40 dark:text-red-400 dark:border-red-700 dark:hover:bg-red-900/60 transition-colors disabled:opacity-50"
-                            >
-                              <XCircle className="w-3.5 h-3.5" />
-                              Tolak
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <p className="px-4 py-2 text-[11px] text-amber-700/70 dark:text-amber-500/70 border-t border-amber-200 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/10">
-                Menyetujui akan menambahkan AM ke master data. Data performa/funnel/activity AM tersebut akan mulai terhubung setelah disetujui.
-              </p>
-            </div>
-          )}
+      {/* ── Info: AM baru nonaktif (jika ada) ── */}
+      {isPrivileged && newAmCount > 0 && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700">
+          <ToggleLeft className="w-5 h-5 text-amber-600 shrink-0" />
+          <p className="text-sm text-amber-800 dark:text-amber-300">
+            <span className="font-bold">{newAmCount} AM baru</span> terdeteksi dari import data — ditandai <span className="font-bold">BARU</span> dan belum aktif. Aktifkan secara manual lewat tombol toggle di kolom Status.
+          </p>
         </div>
       )}
 
@@ -857,7 +777,7 @@ export default function ManajemenAmPage() {
                 <th className="px-4 py-3 w-20">Divisi</th>
                 <th className="px-4 py-3 w-28">Segmen</th>
                 <th className="px-4 py-3 w-32">Telegram</th>
-                <th className="px-4 py-3 w-32">Status Akun</th>
+                <th className="px-4 py-3 w-32">Status</th>
                 <th className="px-4 py-3 w-32">Aksi</th>
               </tr>
             </thead>
@@ -901,6 +821,9 @@ export default function ManajemenAmPage() {
                   user={u}
                   onEdit={() => { setFormError(null); setEditTarget(u); }}
                   onDelete={() => setDeleteTarget(u)}
+                  isPrivileged={!!isPrivileged}
+                  onToggleAktif={() => aktifMutation.mutate({ id: u.id, aktif: !u.aktif })}
+                  togglingAktif={togglingAktifId === u.id}
                 />
               ))}
             </tbody>

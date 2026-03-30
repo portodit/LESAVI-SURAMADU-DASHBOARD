@@ -246,7 +246,7 @@ router.get("/funnel/data-quality", requireAuth, async (req, res): Promise<void> 
   const stats: any = (statsRows as any)[0] ?? (statsRows as any).rows?.[0] ?? {};
 
   const masterRows = await db.execute(sql`
-    SELECT COUNT(*)::int AS active_am FROM account_managers WHERE aktif = true
+    SELECT COUNT(*)::int AS active_am FROM accounts WHERE aktif = true
   `);
   const masterStats: any = (masterRows as any)[0] ?? (masterRows as any).rows?.[0] ?? {};
 

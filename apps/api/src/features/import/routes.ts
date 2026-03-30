@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, dataImportsTable, performanceDataTable, salesFunnelTable, salesActivityTable, accountManagersTable, appSettingsTable, masterCustomerTable, pendingAmDiscoveriesTable } from "@workspace/db";
+import { db, dataImportsTable, performanceDataTable, salesFunnelTable, salesActivityTable, accountManagersTable, appSettingsTable, masterCustomerTable } from "@workspace/db";
 import { desc, eq, and, sql } from "drizzle-orm";
 import { requireAuth } from "../../shared/auth";
 import {
@@ -8,6 +8,30 @@ import {
   cleanFunnelRows, cleanActivityRows, parseIndonesianNumber
 } from "./excel";
 import { sendReminderToAllAMs } from "../telegram/service";
+
+// ── Helper: auto-register new AM to accounts table with aktif=false ───────────
+async function autoRegisterNewAms(entries: { nik: string; nama: string; divisi: string; witel?: string }[], source: string): Promise<number> {
+  const existing = await db.select({ nik: accountManagersTable.nik }).from(accountManagersTable);
+  const existingNiks = new Set(existing.map(a => a.nik));
+  let newCount = 0;
+  const seen = new Set<string>();
+  for (const e of entries) {
+    if (!e.nik || existingNiks.has(e.nik) || seen.has(e.nik)) continue;
+    seen.add(e.nik);
+    await db.insert(accountManagersTable).values({
+      nik: e.nik,
+      nama: e.nama,
+      slug: slugify(e.nama) + "-" + Date.now().toString(36),
+      divisi: e.divisi || "DPS",
+      witel: e.witel || "SURAMADU",
+      role: "AM",
+      aktif: false,
+      discoveredFrom: source,
+    } as any).onConflictDoNothing();
+    newCount++;
+  }
+  return newCount;
+}
 
 const router: IRouter = Router();
 
@@ -336,27 +360,17 @@ router.post("/import/performance", requireAuth, async (req, res): Promise<void> 
     autoTelegramSent: false,
   }).returning();
 
-  const existingAMs = await db.select().from(accountManagersTable);
-  const existingNiks = new Set(existingAMs.map((a: any) => a.nik));
-  const pendingAms: any[] = [];
   const BATCH_PERF = 200;
   for (let i = 0; i < toInsert.length; i += BATCH_PERF) {
     const batch = toInsert.slice(i, i + BATCH_PERF).map(row => ({ ...row, importId: imp.id }));
     await db.insert(performanceDataTable).values(batch);
   }
-  // ── AM baru: simpan ke pending_am_discoveries, bukan auto-insert ke account_managers
-  const pendingNiks = new Set<string>();
-  for (const row of toInsert) {
-    if (!existingNiks.has(row.nik) && row.nik && !pendingNiks.has(row.nik)) {
-      pendingNiks.add(row.nik);
-      pendingAms.push({ nik: row.nik, nama: row.namaAm, divisi: row.divisi, witel: row.witel || "SURAMADU", source: "performance", importId: imp.id, status: "pending" });
-    }
-  }
-  if (pendingAms.length > 0) {
-    for (let i = 0; i < pendingAms.length; i += 50) {
-      await db.insert(pendingAmDiscoveriesTable).values(pendingAms.slice(i, i + 50)).onConflictDoNothing();
-    }
-  }
+
+  // ── AM baru: langsung masuk accounts dengan aktif=false (tidak perlu konfirmasi)
+  const newAmCount = await autoRegisterNewAms(
+    toInsert.map(r => ({ nik: r.nik, nama: r.namaAm, divisi: r.divisi, witel: "SURAMADU" })),
+    "import_performance"
+  );
 
   const amCount = new Set(toInsert.map(r => r.nik)).size;
 
@@ -368,8 +382,8 @@ router.post("/import/performance", requireAuth, async (req, res): Promise<void> 
   res.json({
     success: true, rowsImported: toInsert.length, amCount,
     rawCount, period: importPeriod, snapshotDate,
-    newAmDiscovered: pendingAms.length,
-    message: `${amCount} AM berhasil diimport — ${toInsert.length} rekord dibuat${pendingAms.length > 0 ? `. ${pendingAms.length} AM baru ditemukan, menunggu konfirmasi officer/manager.` : ""}`,
+    newAmDiscovered: newAmCount,
+    message: `${amCount} AM berhasil diimport — ${toInsert.length} rekord dibuat${newAmCount > 0 ? `. ${newAmCount} AM baru ditambahkan ke Manajemen Akun (nonaktif, perlu diaktifkan manual).` : ""}`,
     importId: imp.id,
   });
 });
@@ -389,18 +403,11 @@ router.post("/import/funnel", requireAuth, async (req, res): Promise<void> => {
 
   // ── Apply cleaning pipeline (sesuai Power Query di Power BI)
   const cleaned = cleanFunnelRows(rows, {
-    preferPembuat: true,      // nik_pembuat_lop first; nik_handling[0] fallback (Excel kadang kosong di nik_pembuat_lop)
-    skipIsReportFilter: true, // Power BI: tidak ada filter is_report
+    preferPembuat: true,
+    skipIsReportFilter: true,
   });
 
-  // ── STEP 8: Filter only LOPs belonging to active account_managers (the authorized AMs)
-  const allAmsFunnel = await db.select().from(accountManagersTable);
-  const activeAms = allAmsFunnel.filter(a => a.aktif);
-  const activeNikSet = new Set(activeAms.map(a => a.nik));
-  const allNikSet = new Set(allAmsFunnel.map(a => a.nik));
-  const activeOnly = cleaned.filter(r => r.nikAm && activeNikSet.has(r.nikAm));
-
-  if (activeOnly.length === 0) {
+  if (cleaned.length === 0) {
     res.status(422).json({
       error: "Tidak ada data valid setelah proses cleaning. Pastikan file mengandung kolom witel=SURAMADU dan divisi=DPS/DSS.",
       rawCount: rows.length,
@@ -410,6 +417,12 @@ router.post("/import/funnel", requireAuth, async (req, res): Promise<void> => {
   }
 
   const importPeriod = req.body.period || detectPeriod(rows, sourceUrl || undefined);
+
+  // ── AM baru: langsung masuk accounts dengan aktif=false
+  const newFunnelAmCount = await autoRegisterNewAms(
+    cleaned.filter(r => r.nikAm).map(r => ({ nik: r.nikAm!, nama: r.namaAm || r.nikAm!, divisi: r.divisi || "DPS" })),
+    "import_funnel"
+  );
 
   // ── Cek duplikat
   const [existingFunnel] = await db.select().from(dataImportsTable)
@@ -434,53 +447,39 @@ router.post("/import/funnel", requireAuth, async (req, res): Promise<void> => {
 
   const [imp] = await db.insert(dataImportsTable).values({
     type: "funnel",
-    rowsImported: activeOnly.length,
+    rowsImported: cleaned.length,
     period: importPeriod,
     snapshotDate: snapshotDate || null,
     sourceUrl,
     autoTelegramSent: false,
   }).returning();
 
+  // ── Simpan SEMUA baris (termasuk AM baru yg belum aktif) — filter aktif dilakukan saat display
   const BATCH_SIZE = 200;
-  for (let i = 0; i < activeOnly.length; i += BATCH_SIZE) {
-    const batch = activeOnly.slice(i, i + BATCH_SIZE).map(row => ({ ...row, snapshotDate: snapshotDate || null, importId: imp.id }));
+  for (let i = 0; i < cleaned.length; i += BATCH_SIZE) {
+    const batch = cleaned.slice(i, i + BATCH_SIZE).map(row => ({ ...row, snapshotDate: snapshotDate || null, importId: imp.id }));
     await db.insert(salesFunnelTable).values(batch);
   }
 
-  // ── Back-fill empty nama_am from account_managers
+  // ── Back-fill empty nama_am from accounts
   const allMasterAms = await db.select().from(accountManagersTable);
   const masterNameByNik = new Map(allMasterAms.map(m => [m.nik, m.nama]));
-  const nullNameRows = activeOnly.filter(r => !r.namaAm && r.nikAm && masterNameByNik.has(r.nikAm));
+  const nullNameRows = cleaned.filter(r => !r.namaAm && r.nikAm && masterNameByNik.has(r.nikAm));
   for (const row of nullNameRows) {
     await db.update(salesFunnelTable)
       .set({ namaAm: masterNameByNik.get(row.nikAm) })
       .where(and(eq(salesFunnelTable.importId, imp.id), eq(salesFunnelTable.nikAm, row.nikAm)));
   }
 
-  // ── Auto-populate master_customer (langsung tanpa konfirmasi)
-  const uniqueCustomers = [...new Set(activeOnly.map(r => r.pelanggan).filter(p => p && p !== "–"))];
+  // ── Auto-populate master_customer
+  const uniqueCustomers = [...new Set(cleaned.map(r => r.pelanggan).filter(p => p && p !== "–"))];
   for (let i = 0; i < uniqueCustomers.length; i += 100) {
     await db.insert(masterCustomerTable).values(
       uniqueCustomers.slice(i, i + 100).map(nama => ({ nama, witel: "SURAMADU" }))
     ).onConflictDoNothing();
   }
 
-  // ── AM baru dari funnel (nikAm ada di cleaned tapi tidak di allNikSet) → pending discovery
-  const funnelPendingNiks = new Set<string>();
-  const funnelPendingAms: any[] = [];
-  for (const row of cleaned) {
-    if (row.nikAm && !allNikSet.has(row.nikAm) && !funnelPendingNiks.has(row.nikAm)) {
-      funnelPendingNiks.add(row.nikAm);
-      funnelPendingAms.push({ nik: row.nikAm, nama: row.namaAm || row.nikAm, divisi: row.divisi || "DPS", witel: "SURAMADU", source: "funnel", importId: imp.id, status: "pending" });
-    }
-  }
-  if (funnelPendingAms.length > 0) {
-    for (let i = 0; i < funnelPendingAms.length; i += 50) {
-      await db.insert(pendingAmDiscoveriesTable).values(funnelPendingAms.slice(i, i + 50)).onConflictDoNothing();
-    }
-  }
-
-  const amCount = new Set(activeOnly.map(r => r.nikAm)).size;
+  const amCount = new Set(cleaned.map(r => r.nikAm)).size;
 
   const [settings] = await db.select().from(appSettingsTable);
   if (settings?.autoSendOnImport && settings.telegramBotToken) {
@@ -491,8 +490,8 @@ router.post("/import/funnel", requireAuth, async (req, res): Promise<void> => {
     success: true, rowsImported: cleaned.length, amCount,
     period: importPeriod, snapshotDate,
     rawCount: rows.length,
-    newAmDiscovered: funnelPendingAms.length,
-    message: `${cleaned.length} dari ${rows.length} baris funnel berhasil diimport${funnelPendingAms.length > 0 ? `. ${funnelPendingAms.length} AM baru ditemukan, menunggu konfirmasi.` : ""}`,
+    newAmDiscovered: newFunnelAmCount,
+    message: `${cleaned.length} dari ${rows.length} baris funnel berhasil diimport${newFunnelAmCount > 0 ? `. ${newFunnelAmCount} AM baru ditambahkan ke Manajemen Akun (nonaktif).` : ""}`,
     importId: imp.id,
   });
 });
@@ -559,24 +558,13 @@ router.post("/import/activity", requireAuth, async (req, res): Promise<void> => 
     await db.insert(salesActivityTable).values(batch);
   }
 
-  // ── AM baru dari activity → pending discovery
-  const allAmsAct = await db.select({ nik: accountManagersTable.nik }).from(accountManagersTable);
-  const allNikSetAct = new Set(allAmsAct.map(a => a.nik));
-  const actPendingNiks = new Set<string>();
-  const actPendingAms: any[] = [];
-  for (const row of cleaned) {
-    if (row.nik && !allNikSetAct.has(row.nik) && !actPendingNiks.has(row.nik)) {
-      actPendingNiks.add(row.nik);
-      actPendingAms.push({ nik: row.nik, nama: row.fullname || row.nik, divisi: row.divisi || "DPS", witel: row.witel || "SURAMADU", source: "activity", importId: imp.id, status: "pending" });
-    }
-  }
-  if (actPendingAms.length > 0) {
-    for (let i = 0; i < actPendingAms.length; i += 50) {
-      await db.insert(pendingAmDiscoveriesTable).values(actPendingAms.slice(i, i + 50)).onConflictDoNothing();
-    }
-  }
+  // ── AM baru: langsung masuk accounts dengan aktif=false
+  const newActAmCount = await autoRegisterNewAms(
+    cleaned.filter((r: any) => r.nik).map((r: any) => ({ nik: r.nik, nama: r.fullname || r.nik, divisi: r.divisi || "DPS", witel: r.witel || "SURAMADU" })),
+    "import_activity"
+  );
 
-  const amCount = new Set(cleaned.map(r => r.nik)).size;
+  const amCount = new Set(cleaned.map((r: any) => r.nik)).size;
 
   const [settings] = await db.select().from(appSettingsTable);
   if (settings?.autoSendOnImport && settings.telegramBotToken) {
@@ -587,8 +575,8 @@ router.post("/import/activity", requireAuth, async (req, res): Promise<void> => 
     success: true, rowsImported: cleaned.length, amCount,
     period: importPeriod, snapshotDate,
     rawCount: rows.length,
-    newAmDiscovered: actPendingAms.length,
-    message: `${cleaned.length} dari ${rows.length} baris activity berhasil diimport${actPendingAms.length > 0 ? `. ${actPendingAms.length} AM baru ditemukan, menunggu konfirmasi.` : ""}`,
+    newAmDiscovered: newActAmCount,
+    message: `${cleaned.length} dari ${rows.length} baris activity berhasil diimport${newActAmCount > 0 ? `. ${newActAmCount} AM baru ditambahkan ke Manajemen Akun (nonaktif).` : ""}`,
     importId: imp.id,
   });
 });

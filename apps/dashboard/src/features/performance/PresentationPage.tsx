@@ -70,8 +70,28 @@ function TrophyCard({ title, subtitle, am, value, realValue, targetValue, colorS
   realValue?: string; targetValue?: string; colorScheme: "gold" | "blue";
 }) {
   const scheme = colorScheme === "gold"
-    ? { icon: "🥇", bg: "from-amber-50 via-yellow-50 to-orange-50 dark:from-amber-950/30 dark:via-yellow-950/20 dark:to-orange-950/30", border: "border-amber-300 dark:border-amber-700", accent: "text-amber-700 dark:text-amber-400", valueClr: "text-amber-600 dark:text-amber-400" }
-    : { icon: "🏅", bg: "from-blue-50 via-indigo-50 to-sky-50 dark:from-blue-950/30 dark:via-indigo-950/20 dark:to-sky-950/30", border: "border-blue-300 dark:border-blue-700", accent: "text-blue-700 dark:text-blue-400", valueClr: "text-blue-600 dark:text-blue-400" };
+    ? {
+        icon: "🥇",
+        bg: "from-amber-50 via-yellow-50 to-orange-50 dark:from-amber-950/40 dark:via-yellow-950/25 dark:to-orange-950/40",
+        border: "border-amber-300 dark:border-amber-700",
+        strip: "bg-gradient-to-b from-amber-400 to-orange-400 dark:from-amber-500 dark:to-orange-500",
+        accent: "text-amber-700 dark:text-amber-400",
+        valueClr: "text-amber-600 dark:text-amber-400",
+        badge: "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/50 dark:text-amber-300 dark:border-amber-700",
+        statBg: "bg-amber-50/70 border-amber-200 dark:bg-amber-900/30 dark:border-amber-800",
+        statLabel: "text-amber-600 dark:text-amber-400",
+      }
+    : {
+        icon: "🏅",
+        bg: "from-blue-50 via-indigo-50 to-sky-50 dark:from-blue-950/40 dark:via-indigo-950/25 dark:to-sky-950/40",
+        border: "border-blue-300 dark:border-blue-700",
+        strip: "bg-gradient-to-b from-blue-400 to-indigo-500 dark:from-blue-500 dark:to-indigo-600",
+        accent: "text-blue-700 dark:text-blue-400",
+        valueClr: "text-blue-600 dark:text-blue-400",
+        badge: "bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700",
+        statBg: "bg-blue-50/70 border-blue-200 dark:bg-blue-900/30 dark:border-blue-800",
+        statLabel: "text-blue-600 dark:text-blue-400",
+      };
   if (!am) return (
     <div className={`rounded-xl bg-gradient-to-br ${scheme.bg} border ${scheme.border} p-4 min-h-[100px] flex flex-col justify-center`}>
       <p className={cn("text-xs font-black uppercase tracking-widest mb-1", scheme.accent)}>{title}</p>
@@ -79,24 +99,34 @@ function TrophyCard({ title, subtitle, am, value, realValue, targetValue, colorS
     </div>
   );
   return (
-    <div className={`rounded-xl bg-gradient-to-br ${scheme.bg} border ${scheme.border} p-4 min-w-0`}>
-      <div className="flex items-start justify-between mb-2">
-        <div>
-          <p className={cn("text-xs font-black uppercase tracking-widest leading-tight", scheme.accent)}>{title}</p>
-          <p className="text-[10px] text-foreground font-medium mt-0.5">{subtitle}</p>
+    <div className={`rounded-xl bg-gradient-to-br ${scheme.bg} border ${scheme.border} min-w-0 flex overflow-hidden`}>
+      {/* colored left accent strip */}
+      <div className={`w-1.5 shrink-0 ${scheme.strip} rounded-l-xl`}/>
+      <div className="flex-1 px-4 py-3.5 min-w-0">
+        {/* header row */}
+        <div className="flex items-start justify-between gap-2 mb-2.5">
+          <div className="min-w-0">
+            <p className={cn("text-[13px] font-black uppercase tracking-wider leading-tight", scheme.accent)}>{title}</p>
+            <span className={cn("inline-flex items-center mt-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold border tracking-wide", scheme.badge)}>
+              {subtitle}
+            </span>
+          </div>
+          <span className="text-3xl leading-none shrink-0 mt-0.5">{scheme.icon}</span>
         </div>
-        <span className="text-2xl leading-none">{scheme.icon}</span>
-      </div>
-      <p className="font-display font-bold text-sm text-foreground truncate mb-2" title={am.namaAm}>{am.namaAm}</p>
-      <p className={cn("text-3xl font-display font-bold tabular-nums leading-none mb-2", scheme.valueClr)}>{value}</p>
-      <div className="grid grid-cols-2 gap-1.5">
-        <div className="border border-current/20 rounded-md px-2 py-1.5 bg-background/40">
-          <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wide">Real</p>
-          <p className="text-[11px] font-bold text-foreground truncate">{realValue ?? "—"}</p>
-        </div>
-        <div className="border border-current/20 rounded-md px-2 py-1.5 bg-background/40">
-          <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wide">Target</p>
-          <p className="text-[11px] font-bold text-foreground truncate">{targetValue ?? "—"}</p>
+        {/* AM name */}
+        <p className="font-black text-[15px] text-foreground uppercase tracking-wide truncate leading-tight mb-2" title={am.namaAm}>{am.namaAm}</p>
+        {/* big percentage */}
+        <p className={cn("text-5xl font-black tabular-nums leading-none mb-3", scheme.valueClr)}>{value}</p>
+        {/* REAL / TARGET */}
+        <div className="grid grid-cols-2 gap-2">
+          <div className={cn("rounded-lg px-3 py-2 border", scheme.statBg)}>
+            <p className={cn("text-[9px] font-black uppercase tracking-widest mb-0.5", scheme.statLabel)}>Real</p>
+            <p className="text-[13px] font-black text-foreground truncate">{realValue ?? "—"}</p>
+          </div>
+          <div className={cn("rounded-lg px-3 py-2 border", scheme.statBg)}>
+            <p className={cn("text-[9px] font-black uppercase tracking-widest mb-0.5", scheme.statLabel)}>Target</p>
+            <p className="text-[13px] font-black text-foreground truncate">{targetValue ?? "—"}</p>
+          </div>
         </div>
       </div>
     </div>

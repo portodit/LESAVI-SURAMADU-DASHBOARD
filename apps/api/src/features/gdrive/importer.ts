@@ -301,9 +301,11 @@ export async function importFunnel(rows: ParsedRow[], sourceUrl: string, period:
       statusProyek: safeStr(row.statusProyek),
       kategoriKontrak: safeStr(row.kategoriKontrak),
       estimateBulan: safeStr(row.estimateBulan),
+      monthSubs: typeof row.monthSubs === "number" && row.monthSubs !== 0 ? row.monthSubs : (row.monthSubs != null && row.monthSubs !== 0 ? (parseInt(String(row.monthSubs), 10) || null) : null),
       namaAm: safeStr(am?.nama) || safeStr(row.namaAm) || "",
-      nikAm: safeStr(am?.nik) || safeStr(row.nik),
+      nikAm: safeStr(am?.nik) || safeStr(row.nikAm) || safeStr(row.nik),
       reportDate: safeStr(row.reportDate),
+      createdDate: safeStr(row.createdDate),
       snapshotDate,
     };
   }).filter((r: any) => r.lopid);

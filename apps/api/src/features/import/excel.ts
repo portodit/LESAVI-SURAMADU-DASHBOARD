@@ -290,7 +290,17 @@ export function cleanFunnelRows(rows: ParsedRow[], opts?: { skipDivisiFilter?: b
       statusProyek: clean(r.status_proyek),
       kategoriKontrak: clean(r.kategori_kontrak) || "–",
       estimateBulan: parseDate(r.estimate_bulan_billcomp) || clean(r.estimate_bulan_billcomp),
-      monthSubs: r.month_subs != null ? (parseInt(String(r.month_subs), 10) || null) : null,
+      monthSubs: r.month_subs != null
+        ? (parseInt(String(r.month_subs), 10) || null)
+        : r["Month Subs"] != null
+          ? (parseInt(String(r["Month Subs"]), 10) || null)
+          : r.rencana_durasi_kontrak != null
+            ? (parseInt(String(r.rencana_durasi_kontrak), 10) || null)
+            : r["Rencana Durasi Kontrak"] != null
+              ? (parseInt(String(r["Rencana Durasi Kontrak"]), 10) || null)
+              : r["rencana durasi kontrak"] != null
+                ? (parseInt(String(r["rencana durasi kontrak"]), 10) || null)
+                : null,
       namaAm,
       nikAm,
       reportDate,

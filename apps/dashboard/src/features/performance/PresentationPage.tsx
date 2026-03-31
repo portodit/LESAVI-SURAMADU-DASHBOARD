@@ -2271,9 +2271,6 @@ export default function EmbedPerforma() {
   }, []);
 
   // ── Global keyboard shortcuts ────────────────────────────────────────────────
-  const filteredAmDataRef = useRef<typeof filteredAmData>([]);
-  useEffect(() => { filteredAmDataRef.current = filteredAmData; }, [filteredAmData]);
-
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
       const tag = (e.target as HTMLElement)?.tagName;
@@ -2502,6 +2499,10 @@ export default function EmbedPerforma() {
       )
     );
   }, [amTableData, searchQuery]);
+
+  // Ref untuk keyboard handler — hindari stale closure
+  const filteredAmDataRef = useRef<typeof filteredAmData>([]);
+  useEffect(() => { filteredAmDataRef.current = filteredAmData; }, [filteredAmData]);
 
   const effectiveExpandedRows = useMemo(() => {
     if (!searchQuery.trim()) return expandedRows;

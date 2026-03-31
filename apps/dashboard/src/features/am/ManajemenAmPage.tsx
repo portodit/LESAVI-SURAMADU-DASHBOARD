@@ -456,9 +456,11 @@ function UserRow({ user, onEdit, onDelete, isPrivileged, onToggleAktif, toggling
         )) : <span className="text-xs text-muted-foreground/40">—</span>}
       </td>
 
-      {/* Status Aktif — toggle untuk Officer/Manager */}
+      {/* Status Aktif — hanya relevan untuk role AM (officer/manager tidak muncul di visualisasi) */}
       <td className="px-4 py-3">
-        {isPrivileged ? (
+        {!isAM ? (
+          <span className="text-xs text-muted-foreground/40">—</span>
+        ) : isPrivileged ? (
           <button
             onClick={onToggleAktif}
             disabled={togglingAktif}

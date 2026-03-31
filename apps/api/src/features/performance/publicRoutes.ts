@@ -30,6 +30,13 @@ router.get("/public/performance", async (req, res): Promise<void> => {
     return;
   }
 
+  // Hanya AM yang aktif dan ber-role AM yang boleh tampil di visualisasi
+  const activeAms = await db
+    .select({ nik: accountManagersTable.nik })
+    .from(accountManagersTable)
+    .where(and(eq(accountManagersTable.aktif, true), eq(accountManagersTable.role, "AM")));
+  const activeNikSet = new Set(activeAms.map(a => a.nik).filter(Boolean) as string[]);
+
   const conditions = [eq(performanceDataTable.importId, snapshotId)];
   if (divisi) conditions.push(eq(performanceDataTable.divisi, String(divisi)));
 
@@ -38,7 +45,10 @@ router.get("/public/performance", async (req, res): Promise<void> => {
     .from(performanceDataTable)
     .where(and(...conditions));
 
-  res.json(data.map(d => ({ ...d, createdAt: d.createdAt.toISOString() })));
+  // Filter hanya AM aktif
+  const filtered = data.filter(d => d.nik && activeNikSet.has(d.nik));
+
+  res.json(filtered.map(d => ({ ...d, createdAt: d.createdAt.toISOString() })));
 });
 
 router.get("/public/import-history", async (req, res): Promise<void> => {
@@ -58,9 +68,11 @@ router.get("/public/import-history", async (req, res): Promise<void> => {
 router.get("/public/am", async (req, res): Promise<void> => {
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("Access-Control-Allow-Origin", "*");
+  // Hanya AM dengan role=AM dan aktif=true yang relevan untuk visualisasi & login presentasi
   const ams = await db
     .select({ nik: accountManagersTable.nik, nama: accountManagersTable.nama, divisi: accountManagersTable.divisi, role: accountManagersTable.role })
     .from(accountManagersTable)
+    .where(and(eq(accountManagersTable.aktif, true), eq(accountManagersTable.role, "AM")))
     .orderBy(accountManagersTable.nama);
   res.json(ams);
 });

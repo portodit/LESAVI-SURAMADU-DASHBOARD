@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useCallback, useRef, useEffect as useEffectRef } from "react";
-import { matchesDivisiPerforma, DIVISI_OPTIONS_WITH_ALL, divisiFilterLabel } from "@/shared/lib/divisi";
+import { matchesDivisiPerforma, DIVISI_OPTIONS, divisiFilterLabel } from "@/shared/lib/divisi";
 import { useListPerformance, useListImportHistory } from "@workspace/api-client-react";
 import { formatRupiah, formatPercent, getStatusColor, getAchPct, cn } from "@/shared/lib/utils";
 import {
@@ -306,7 +306,7 @@ export default function PerformaVis() {
   // Filter state
   const [filterSnapshotId, setFilterSnapshotId] = useState<number | null>(null);
   const [filterPeriodes, setFilterPeriodes] = useState<Set<string>>(new Set()); // "YYYY-MM"
-  const [filterDivisi, setFilterDivisi] = useState("all");
+  const [filterDivisi, setFilterDivisi] = useState("LESA");
   const [filterNamaAms, setFilterNamaAms] = useState<Set<string>>(new Set());
   const [filterTipeRank, setFilterTipeRank] = useState("Ach CM");
   const [filterTipeRevenue, setFilterTipeRevenue] = useState("Reguler");
@@ -661,14 +661,14 @@ export default function PerformaVis() {
   const noDataAtAll = !allPerfs?.length;
 
   const isPeriodeFiltered = filterPeriodes.size > 0 && filterPeriodes.size < availablePeriodes.length;
-  const isDivisiFiltered = filterDivisi !== "all";
+  const isDivisiFiltered = filterDivisi !== "LESA";
   const isAmFiltered = filterNamaAms.size > 0;
   const isRankFiltered = filterTipeRank !== "Ach CM";
   const isRevenueFiltered = filterTipeRevenue !== "Reguler";
   const hasPerformaActiveFilter = isPeriodeFiltered || isDivisiFiltered || isAmFiltered || isRankFiltered || isRevenueFiltered;
 
   const resetPerformaFilters = () => {
-    setFilterDivisi("all");
+    setFilterDivisi("LESA");
     setFilterNamaAms(new Set());
     setFilterTipeRank("Ach CM");
     setFilterTipeRevenue("Reguler");
@@ -708,7 +708,7 @@ export default function PerformaVis() {
             label="Divisi"
             value={filterDivisi}
             onChange={v => { setFilterDivisi(v); setFilterNamaAms(new Set()); }}
-            options={DIVISI_OPTIONS_WITH_ALL}
+            options={DIVISI_OPTIONS}
             className="flex-1 min-w-0"
           />
 
@@ -758,8 +758,8 @@ export default function PerformaVis() {
             {/* Divisi */}
             <span className={cn("inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full border",
               isDivisiFiltered ? "bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400 border-blue-200 dark:border-blue-800" : "bg-secondary text-muted-foreground border-border")}>
-              Divisi: {filterDivisi === "all" ? "Semua" : filterDivisi}
-              {isDivisiFiltered && <button onClick={() => setFilterDivisi("all")} className="hover:opacity-70"><X className="w-3 h-3" /></button>}
+              Divisi: {filterDivisi}
+              {isDivisiFiltered && <button onClick={() => setFilterDivisi("LESA")} className="hover:opacity-70"><X className="w-3 h-3" /></button>}
             </span>
             {/* AM */}
             <span className={cn("inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full border",
@@ -924,8 +924,13 @@ export default function PerformaVis() {
                     {filteredAmData.map((row, rowIdx) => {
                       const isExpanded = effectiveExpandedRows.has(row.nik);
                       const customers = row.customers || [];
-                      const hasCustomers = customers.length > 0;
-                      const totalReal = customers.reduce((s: number, c: any) => s + (c.realTotal ?? 0), 0);
+                      // Ketika filter DPS/DSS aktif → tampilkan hanya pelanggan dari divisi tsb.
+                      // Ketika LESA (atau "all") → tampilkan semua pelanggan.
+                      const visibleCustomers = (filterDivisi === "all" || filterDivisi === "LESA")
+                        ? customers
+                        : customers.filter((c: any) => matchesDivisiPerforma(c._divisi, filterDivisi));
+                      const hasCustomers = visibleCustomers.length > 0;
+                      const totalReal = visibleCustomers.reduce((s: number, c: any) => s + (c.realTotal ?? 0), 0);
                       return (
                         <React.Fragment key={row.nik}>
                           <tr
@@ -956,7 +961,7 @@ export default function PerformaVis() {
                                     <div className="space-y-1.5">
                                       <div className="flex justify-between gap-3">
                                         <span className="text-muted-foreground">Total Pelanggan</span>
-                                        <span className="font-semibold text-foreground">{customers.length}</span>
+                                        <span className="font-semibold text-foreground">{visibleCustomers.length}</span>
                                       </div>
                                       <div className="flex justify-between gap-3">
                                         <span className="text-muted-foreground">Real Revenue</span>
@@ -979,7 +984,7 @@ export default function PerformaVis() {
                             <td className={cn("px-3 py-2.5 text-right font-black tabular-nums", row.ytdAch >= 1 ? "text-green-600" : row.ytdAch >= 0.8 ? "text-blue-600" : "text-red-600")} style={isExpanded?{backgroundColor:"hsl(var(--card))"}:{}}>
                               {(row.ytdAch * 100).toFixed(1).replace(".", ",")}%
                             </td>
-                            <td className="px-3 py-2.5 text-center font-black text-foreground" style={isExpanded?{backgroundColor:"hsl(var(--card))"}:{}}>{customers.length}</td>
+                            <td className="px-3 py-2.5 text-center font-black text-foreground" style={isExpanded?{backgroundColor:"hsl(var(--card))"}:{}}>{visibleCustomers.length}</td>
                             <td className="px-3 py-2.5 text-center font-black text-foreground" style={isExpanded?{backgroundColor:"hsl(var(--card))"}:{}}>{row.displayRank}</td>
                           </tr>
                           {isExpanded && hasCustomers && (
@@ -1001,7 +1006,7 @@ export default function PerformaVis() {
                                       </tr>
                                     </thead>
                                     <tbody className="divide-y divide-border/40">
-                                      {customers.map((c: any, ci: number) => {
+                                      {visibleCustomers.map((c: any, ci: number) => {
                                         const cReal = c.realTotal ?? 0;
                                         const cTarget = c.targetTotal ?? 0;
                                         const prop = totalReal > 0 ? (cReal / totalReal) * 100 : (c.proporsi != null ? c.proporsi * 100 : 0);

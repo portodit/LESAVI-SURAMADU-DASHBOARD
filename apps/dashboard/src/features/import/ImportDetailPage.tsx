@@ -30,6 +30,14 @@ function formatPeriod(period: string) {
   return `${MONTHS[parseInt(m, 10) - 1] || m} ${y}`;
 }
 
+function formatDurasi(m: any): string {
+  if (!m || m <= 0) return "–";
+  const y = Math.floor(m / 12), mo = m % 12;
+  if (y > 0 && mo > 0) return `${y}thn ${mo}bln`;
+  if (y > 0) return `${y} thn`;
+  return `${m} bln`;
+}
+
 // ─── Performance Table ─────────────────────────────────────────────────────────
 function PerformanceTable({ rows, search }: { rows: any[]; search: string }) {
   const [page, setPage] = useState(1);
@@ -222,6 +230,8 @@ function FunnelTable({ rows, search }: { rows: any[]; search: string }) {
               <th className="px-3 py-2.5">Divisi</th>
               <th className="px-3 py-2.5">Status F</th>
               <th className="px-4 py-2.5 text-right">Nilai Proyek</th>
+              <th className="px-3 py-2.5">Kategori Kontrak</th>
+              <th className="px-3 py-2.5">Masa Kontrak</th>
               <th className="px-4 py-2.5">Nama AM</th>
               <th className="px-3 py-2.5">Report Date</th>
             </tr>
@@ -235,6 +245,8 @@ function FunnelTable({ rows, search }: { rows: any[]; search: string }) {
                 <td className="px-3 py-2">{r.divisi}</td>
                 <td className="px-3 py-2"><span className="bg-secondary px-1.5 py-0.5 rounded text-[10px]">{r.statusF}</span></td>
                 <td className="px-4 py-2 text-right tabular-nums">{formatRupiah(r.nilaiProyek)}</td>
+                <td className="px-3 py-2 text-[10px] text-muted-foreground">{r.kategoriKontrak || "–"}</td>
+                <td className="px-3 py-2 font-semibold text-teal-700 whitespace-nowrap">{formatDurasi(r.monthSubs)}</td>
                 <td className="px-4 py-2">{r.namaAm}</td>
                 <td className="px-3 py-2 font-mono text-[10px] text-muted-foreground">{r.reportDate}</td>
               </tr>

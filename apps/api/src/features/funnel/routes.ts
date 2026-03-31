@@ -222,6 +222,7 @@ router.get("/funnel", requireAuth, async (req, res): Promise<void> => {
       statusProyek: l.statusProyek,
       kategoriKontrak: l.kategoriKontrak,
       estimateBulan: l.estimateBulan,
+      monthSubs: l.monthSubs ?? null,
       namaAm: l.namaAm,
       nikAm: l.nikAm,
       reportDate: l.reportDate,

@@ -15,7 +15,7 @@ interface LopRow {
   id: number; lopid: string; judulProyek: string; pelanggan: string; nilaiProyek: number;
   divisi: string; segmen: string | null; statusF: string | null; proses: string | null;
   statusProyek: string | null; kategoriKontrak: string | null; estimateBulan: string | null;
-  namaAm: string | null; nikAm: string | null; reportDate: string | null;
+  monthSubs: number | null; namaAm: string | null; nikAm: string | null; reportDate: string | null;
 }
 
 interface MasterAm { nik: string; nama: string; divisi: string; }
@@ -591,6 +591,14 @@ function KontrakBadge({ k }: { k: string | null }) {
   return <span className={`inline-block px-2 py-0.5 rounded text-[11px] border font-bold whitespace-nowrap ${kategoriColor(k)}`}>{k}</span>;
 }
 
+function formatDurasi(m: number | null | undefined): string {
+  if (!m || m <= 0) return "–";
+  const y = Math.floor(m / 12), mo = m % 12;
+  if (y > 0 && mo > 0) return `${y} thn ${mo} bln`;
+  if (y > 0) return `${y} tahun`;
+  return `${m} bulan`;
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function FunnelPage() {
@@ -599,6 +607,7 @@ export default function FunnelPage() {
   const [filterStatus, setFilterStatus] = useState<Set<string>>(new Set());
   const [filterKontrak, setFilterKontrak] = useState<Set<string>>(new Set());
   const [filterAm, setFilterAm] = useState<Set<string>>(new Set());
+  const [filterDurasi, setFilterDurasi] = useState<"all" | "single_year" | "multi_year">("all");
   const [filterYears, setFilterYears] = useState<Set<string>>(new Set(["2026"]));
   const [filterMonths, setFilterMonths] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
@@ -723,6 +732,8 @@ export default function FunnelPage() {
       if (filterAm.size > 0 && (!l.nikAm || !filterAm.has(l.nikAm))) return false;
       if (filterStatus.size > 0 && (!l.statusF || !filterStatus.has(l.statusF))) return false;
       if (filterKontrak.size > 0 && (!l.kategoriKontrak || !filterKontrak.has(l.kategoriKontrak))) return false;
+      if (filterDurasi === "single_year" && !(l.monthSubs != null && l.monthSubs <= 12)) return false;
+      if (filterDurasi === "multi_year" && !(l.monthSubs != null && l.monthSubs > 12)) return false;
       if (q) {
         const hay = `${l.judulProyek} ${l.pelanggan} ${l.lopid} ${l.namaAm} ${l.kategoriKontrak ?? ""} ${l.divisi ?? ""} ${l.segmen ?? ""} ${l.nikAm ?? ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
@@ -875,8 +886,8 @@ export default function FunnelPage() {
 
   // ── Reusable AM tbody renderer (used in all-mode and split-mode) ─────────────
   function renderAmTbodyContent(ams: typeof groupedByAm, emptyMsg?: string) {
-    if (isLoading) return <tr><td colSpan={5} className="text-center py-12 text-muted-foreground text-sm">Memuat data...</td></tr>;
-    if (ams.length === 0) return <tr><td colSpan={5} className="text-center py-12 text-muted-foreground text-sm">{emptyMsg ?? "Belum ada data"}</td></tr>;
+    if (isLoading) return <tr><td colSpan={6} className="text-center py-12 text-muted-foreground text-sm">Memuat data...</td></tr>;
+    if (ams.length === 0) return <tr><td colSpan={6} className="text-center py-12 text-muted-foreground text-sm">{emptyMsg ?? "Belum ada data"}</td></tr>;
     const bgCard = "hsl(var(--card))";
     // Semua sticky pada z-index yang sama (tidak berlapis-lapis)
     const STICKY_Z = 10;
@@ -927,7 +938,7 @@ export default function FunnelPage() {
                 )}
               </div>
             </td>
-            <td className="px-3 py-3 whitespace-nowrap" colSpan={amExpanded ? 4 : 3} style={amCellSticky}>
+            <td className="px-3 py-3 whitespace-nowrap" colSpan={amExpanded ? 5 : 4} style={amCellSticky}>
               <span className={cn("text-xs font-black tracking-wide", hasData ? "text-foreground" : "text-muted-foreground")}>
                 {hasData ? `TOTAL ${amLopCount} LOP` : "BELUM ADA DATA"}
               </span>
@@ -942,7 +953,7 @@ export default function FunnelPage() {
           </tr>
           {amExpanded && !hasData && (
             <tr style={ringStyle({})}>
-              <td colSpan={5} className="px-4 py-4 pl-10 bg-slate-50">
+              <td colSpan={6} className="px-4 py-4 pl-10 bg-slate-50">
                 <p className="text-sm text-muted-foreground italic">
                   Belum ditemukan data list proyek untuk AM ini. Pastikan data sudah diimport dan nama/NIK AM sesuai dengan data master.
                 </p>
@@ -978,9 +989,9 @@ export default function FunnelPage() {
                     </div>
                   </td>
                   {phaseExpanded
-                    ? <td colSpan={4} className="px-3 py-2.5" style={phaseCellSticky} />
+                    ? <td colSpan={5} className="px-3 py-2.5" style={phaseCellSticky} />
                     : <>
-                        <td colSpan={3} className="px-3 py-2.5" style={phaseCellSticky} />
+                        <td colSpan={4} className="px-3 py-2.5" style={phaseCellSticky} />
                         <td className="px-4 py-2.5 text-right whitespace-nowrap" style={phaseCellSticky}>
                           <span className="text-sm font-black text-foreground tabular-nums whitespace-nowrap">{formatRupiahFull(phaseTotal)}</span>
                         </td>
@@ -995,13 +1006,14 @@ export default function FunnelPage() {
                           <div className="text-sm text-foreground font-bold leading-tight line-clamp-2 max-w-[280px]" title={lop.judulProyek}>{lop.judulProyek}</div>
                         </td>
                         <td className="px-3 py-2"><KontrakBadge k={lop.kategoriKontrak} /></td>
+                        <td className="px-3 py-2 text-xs font-semibold text-teal-700 dark:text-teal-400 whitespace-nowrap">{formatDurasi(lop.monthSubs)}</td>
                         <td className="px-3 py-2 font-mono text-xs text-foreground whitespace-nowrap">{lop.lopid}</td>
                         <td className="px-3 py-2 text-sm text-foreground font-bold max-w-[220px] truncate" title={lop.pelanggan}>{lop.pelanggan}</td>
                         <td className="px-4 py-2 text-right tabular-nums text-base font-black text-foreground whitespace-nowrap">{formatRupiahFull(lop.nilaiProyek)}</td>
                       </tr>
                     ))}
                     <tr className="bg-red-50 border-t border-red-200" style={ringStyle({})}>
-                      <td colSpan={4} className="px-4 py-2 pl-16">
+                      <td colSpan={5} className="px-4 py-2 pl-16">
                         <span className="text-sm font-black text-red-800 uppercase tracking-wide">Total Nilai {phase}</span>
                       </td>
                       <td className="px-4 py-2 text-right tabular-nums font-black text-red-800 whitespace-nowrap text-base">{formatRupiahFull(phaseTotal)}</td>
@@ -1024,7 +1036,7 @@ export default function FunnelPage() {
     })}</>;
   }
 
-  const hasActiveFilter = filterStatus.size > 0 || filterDivisi !== "all" || filterMonths.size > 0 || filterKontrak.size > 0 || filterYears.size > 0;
+  const hasActiveFilter = filterStatus.size > 0 || filterDivisi !== "all" || filterMonths.size > 0 || filterKontrak.size > 0 || filterYears.size > 0 || filterDurasi !== "all";
   const hasDetailFilter = filterAm.size > 0;
 
   const effectiveTargetHo = data?.targetHo || 0;
@@ -1093,6 +1105,9 @@ export default function FunnelPage() {
             placeholder="Semua kontrak" summaryLabel="kontrak" className="w-36 shrink-0" />
           <CheckboxDropdown label="Status Funnel" options={PHASES} selected={filterStatus} onChange={setFilterStatus}
             placeholder="Semua status" labelFn={p => `${p} – ${PHASE_LABELS[p]}`} summaryLabel="status" className="w-32 shrink-0" />
+          <SelectDropdown label="Durasi Kontrak" value={filterDurasi} onChange={v => setFilterDurasi(v as typeof filterDurasi)}
+            options={[{ value: "all", label: "Semua Durasi" }, { value: "single_year", label: "Single Year (≤12 bln)" }, { value: "multi_year", label: "Multi Year (>12 bln)" }]}
+            className="w-44 shrink-0" />
           <SelectDropdown label="Target" value={filterTarget} onChange={v => setFilterTarget(v as "ho" | "fullho")}
             options={[{ value: "fullho", label: "Target Full HO" }, { value: "ho", label: "Target HO" }]}
             className="w-32 shrink-0" />
@@ -1133,8 +1148,14 @@ export default function FunnelPage() {
               <button onClick={() => setFilterStatus(new Set())} className="hover:opacity-70"><X className="w-3 h-3" /></button>
             </span>
           )}
-          {(filterStatus.size > 0 || filterDivisi !== "all" || filterMonths.size > 0 || filterKontrak.size > 0) && (
-            <button onClick={() => { setFilterStatus(new Set()); setFilterDivisi("all"); setFilterMonths(new Set()); setFilterKontrak(new Set()); }}
+          {filterDurasi !== "all" && (
+            <span className="inline-flex items-center gap-1 bg-teal-100 text-teal-700 dark:bg-teal-950/30 dark:text-teal-400 text-xs font-semibold px-2.5 py-1 rounded-full border border-teal-200 dark:border-teal-800">
+              Durasi: {filterDurasi === "single_year" ? "Single Year" : "Multi Year"}
+              <button onClick={() => setFilterDurasi("all")} className="hover:opacity-70"><X className="w-3 h-3" /></button>
+            </span>
+          )}
+          {(filterStatus.size > 0 || filterDivisi !== "all" || filterMonths.size > 0 || filterKontrak.size > 0 || filterDurasi !== "all") && (
+            <button onClick={() => { setFilterStatus(new Set()); setFilterDivisi("all"); setFilterMonths(new Set()); setFilterKontrak(new Set()); setFilterDurasi("all"); }}
               className="ml-auto flex items-center gap-1 px-3 py-1 rounded-full border border-border text-xs font-semibold text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors shrink-0">
               <X className="w-3 h-3"/> Reset filter
             </button>
@@ -1245,6 +1266,7 @@ export default function FunnelPage() {
                 <tr className="bg-red-700 text-white font-black uppercase tracking-wide text-xs">
                   <th className="px-4 py-3 text-left whitespace-nowrap">AM / Fase / Proyek</th>
                   <th className="px-3 py-3 text-left whitespace-nowrap">KATEGORI</th>
+                  <th className="px-3 py-3 text-left whitespace-nowrap">DURASI</th>
                   <th className="px-3 py-3 text-left font-mono whitespace-nowrap">LOP ID</th>
                   <th className="px-3 py-3 text-left whitespace-nowrap">Pelanggan</th>
                   <th className="px-4 py-3 text-right whitespace-nowrap">Nilai Proyek</th>
@@ -1341,6 +1363,7 @@ export default function FunnelPage() {
                       <tr className={`${headerBg} text-white font-black uppercase tracking-wide text-xs`}>
                         <th className="px-4 py-2.5 min-w-[280px] text-left">AM / Fase / Proyek</th>
                         <th className="px-3 py-2.5 whitespace-nowrap w-20 text-left">KATEGORI</th>
+                        <th className="px-3 py-2.5 whitespace-nowrap w-20 text-left">DURASI</th>
                         <th className="px-3 py-2.5 font-mono whitespace-nowrap w-20 text-left">LOP ID</th>
                         <th className="px-3 py-2.5 min-w-[140px] text-left">Pelanggan</th>
                         <th className="px-4 py-2.5 text-right whitespace-nowrap min-w-[140px]">Nilai Proyek</th>

@@ -202,6 +202,7 @@ export interface CleanedFunnelRow {
   statusProyek: string;
   kategoriKontrak: string;
   estimateBulan: string;
+  monthSubs: number | null;
   namaAm: string;
   nikAm: string;
   reportDate: string;
@@ -289,6 +290,7 @@ export function cleanFunnelRows(rows: ParsedRow[], opts?: { skipDivisiFilter?: b
       statusProyek: clean(r.status_proyek),
       kategoriKontrak: clean(r.kategori_kontrak) || "–",
       estimateBulan: parseDate(r.estimate_bulan_billcomp) || clean(r.estimate_bulan_billcomp),
+      monthSubs: r.month_subs != null ? (parseInt(String(r.month_subs), 10) || null) : null,
       namaAm,
       nikAm,
       reportDate,

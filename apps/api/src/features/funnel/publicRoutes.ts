@@ -31,7 +31,7 @@ router.get("/public/funnel/snapshots", async (req, res): Promise<void> => {
 router.get("/public/funnel", async (req, res): Promise<void> => {
   Object.entries(PUBLIC_HEADERS).forEach(([k, v]) => res.setHeader(k, v));
 
-  const { import_id, divisi, status, nama_am, kategori_kontrak, tahun } = req.query;
+  const { import_id, divisi, status, nama_am, kategori_kontrak, tahun, durasi_filter } = req.query;
 
   const masterAms = await db.select().from(accountManagersTable);
   const masterAmByNik = new Map(masterAms.map(m => [m.nik, m.nama]));
@@ -67,6 +67,8 @@ router.get("/public/funnel", async (req, res): Promise<void> => {
   if (status) allLops = allLops.filter(l => l.statusF === String(status));
   if (nama_am) allLops = allLops.filter(l => l.namaAm?.toLowerCase().includes(String(nama_am).toLowerCase()));
   if (kategori_kontrak) allLops = allLops.filter(l => l.kategoriKontrak === String(kategori_kontrak));
+  if (durasi_filter === "single_year") allLops = allLops.filter(l => l.monthSubs != null && l.monthSubs <= 12);
+  else if (durasi_filter === "multi_year") allLops = allLops.filter(l => l.monthSubs != null && l.monthSubs > 12);
 
   // Only include LOPs from registered AMs (role=AM, aktif=true) — same rule as activity/performance visualizations
   allLops = allLops.filter(l => l.nikAm && activeNikSet.has(l.nikAm));
@@ -186,6 +188,7 @@ router.get("/public/funnel", async (req, res): Promise<void> => {
       statusProyek: l.statusProyek,
       kategoriKontrak: l.kategoriKontrak,
       estimateBulan: l.estimateBulan,
+      monthSubs: l.monthSubs ?? null,
       namaAm: l.namaAm,
       nikAm: l.nikAm,
       reportDate: l.reportDate,

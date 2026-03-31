@@ -16,6 +16,7 @@ export const salesFunnelTable = pgTable("sales_funnel", {
   statusProyek: text("status_proyek"),
   kategoriKontrak: text("kategori_kontrak"),
   estimateBulan: text("estimate_bulan"),
+  monthSubs: integer("month_subs"),
   namaAm: text("nama_am"),
   nikAm: text("nik_am"),
   reportDate: text("report_date"),

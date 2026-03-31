@@ -678,6 +678,7 @@ router.post("/import/powerbi-funnel", requireAuth, async (req, res): Promise<voi
       statusF: String(r["Status Funnel"] ?? "").trim(),
       statusProyek: String(r["Status Proyek"] ?? "").trim(),
       kategoriKontrak: String(r["Kontrak"] ?? "").trim(),
+      monthSubs: r["Month Subs"] != null ? (parseInt(String(r["Month Subs"]), 10) || null) : (r["month_subs"] != null ? (parseInt(String(r["month_subs"]), 10) || null) : null),
       namaAm: masterAms.find(m => m.nik === nikAm)?.nama ?? namaAm,
       nikAm,
       reportDate,

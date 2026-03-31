@@ -1009,7 +1009,7 @@ export default function PerformaVis() {
                                       {visibleCustomers.map((c: any, ci: number) => {
                                         const cReal = c.realTotal ?? 0;
                                         const cTarget = c.targetTotal ?? 0;
-                                        const prop = totalReal > 0 ? (cReal / totalReal) * 100 : (c.proporsi != null ? c.proporsi * 100 : 0);
+                                        const prop = totalReal > 0 ? (cReal / totalReal) * 100 : (c.proporsi != null ? c.proporsi : 0);
                                         const cAch = cTarget > 0 ? cReal / cTarget * 100 : 0;
                                         return (
                                           <tr key={ci} className={cn("transition-colors", ci % 2 === 0 ? "bg-white dark:bg-card" : "bg-rose-50/60 dark:bg-rose-950/20", "hover:bg-rose-100/60 dark:hover:bg-rose-900/20")}>

@@ -3122,7 +3122,7 @@ export default function EmbedPerforma() {
                                 const { target: cTarget, real: cReal } = filterTipeRevenue === "Semua"
                                   ? customerTotal(c)
                                   : { target: c[filterTipeRevenue]?.target ?? 0, real: c[filterTipeRevenue]?.real ?? 0 };
-                                const prop = c.proporsi != null ? c.proporsi * 100 : 0;
+                                const prop = c.proporsi != null ? c.proporsi : 0;
                                 const cAch = cTarget > 0 ? cReal / cTarget * 100 : 0;
                                 return (
                                   <tr key={ci} className={cn("transition-colors hover:bg-rose-50", ci % 2 === 0 ? "bg-white dark:bg-card" : "bg-rose-50/40 dark:bg-rose-950/10")}>

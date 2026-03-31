@@ -3136,7 +3136,9 @@ export default function EmbedPerforma() {
                         </div>
                       );
                     })}
-                    {/* ③ Global total row */}
+                    </div>{/* closes perfTableRef scroll container */}
+                    {/* ③ Global total row — di luar scroll container agar selalu terlihat */}
+                    <div className="overflow-x-auto">
                     <table style={PERF_TB}>
                       <PerfColGroup/>
                       <tbody>

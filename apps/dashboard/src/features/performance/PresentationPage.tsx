@@ -658,22 +658,22 @@ function FSGauge({ pct, targetHo, targetFullHo, real, mode, compact, divisi }: {
           <text x={endX} y={endY+13} textAnchor="middle" fontSize="8" fill="#9ca3af">100%</text>
         </svg>
       </div>
-      <div className="flex-1 space-y-2 text-sm w-full">
-        <div className="flex justify-between items-center">
-          <span className="text-muted-foreground text-xs">Real Pipeline</span>
-          <span className="font-bold text-foreground tabular-nums">{fmtRupiahFS(real)}</span>
+      <div className="flex-1 space-y-1.5 text-sm w-full min-w-0">
+        <div className="flex justify-between items-baseline gap-2">
+          <span className="text-muted-foreground text-xs whitespace-nowrap shrink-0">Real Pipeline</span>
+          <span className="font-bold text-foreground tabular-nums whitespace-nowrap text-right">{fmtRupiahFS(real)}</span>
         </div>
         {hasTarget&&(
           <>
-            <div className="flex justify-between items-center">
-              <span className="text-muted-foreground text-xs">{mode==="ho"?"Target HO":"Target Full HO"}</span>
-              <span className="tabular-nums text-foreground">{fmtRupiahFS(activeTarget)}</span>
+            <div className="flex justify-between items-baseline gap-2">
+              <span className="text-muted-foreground text-xs whitespace-nowrap shrink-0">{mode==="ho"?"Target HO":"Target Full HO"}</span>
+              <span className="tabular-nums text-foreground whitespace-nowrap text-right">{fmtRupiahFS(activeTarget)}</span>
             </div>
-            <div className="pt-1.5 border-t border-border flex justify-between items-center">
-              <span className={cn("text-xs font-bold",real>=activeTarget?surplusTextCls:deficitTextCls)}>
+            <div className="pt-1.5 border-t border-border flex justify-between items-baseline gap-2">
+              <span className={cn("text-xs font-bold whitespace-nowrap shrink-0",real>=activeTarget?surplusTextCls:deficitTextCls)}>
                 {real>=activeTarget?"Kelebihan":"Kekurangan"}
               </span>
-              <span className={cn("font-bold tabular-nums text-sm",real>=activeTarget?surplusTextCls:deficitTextCls)}>
+              <span className={cn("font-bold tabular-nums text-sm whitespace-nowrap text-right",real>=activeTarget?surplusTextCls:deficitTextCls)}>
                 {real>=activeTarget?"+":"-"}{fmtRupiahFS(Math.abs(activeTarget-real))}
               </span>
             </div>

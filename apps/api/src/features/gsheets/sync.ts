@@ -345,7 +345,7 @@ async function importPerformanceSheet(
     for (const r of rows) {
       const nik = String(r.NIK || r.nik || "").trim();
       const namaAm = String(r.NAMA_AM || r.nama_am || "").trim();
-      const divisiRaw = String(r.DIVISI_AM || r.divisi || "").trim();
+      const divisiRaw = String(r.DIVISI_CC || r.divisi_cc || r.DIVISI_AM || r.divisi || "").trim();
       if (!nik || !namaAm) continue;
       if (divisiRaw.toUpperCase() === "DGS") continue;
 
@@ -363,7 +363,7 @@ async function importPerformanceSheet(
 
       const pelanggan = String(r.STANDARD_NAME || r.NAMA_PELANGGAN || r.PELANGGAN || "").trim();
       const nip = String(r.NIP_NAS || r.NIP || "").trim();
-      const proporsi = parseFloat(String(r.PROPORSI ?? 0)) || 0;
+      const proporsi = (parseFloat(String(r.PROPORSI ?? 0)) || 0) * 100;
       const targetTotal = tReg + tSustain + tScaling + tNgtma;
       const realTotal = rReg + rSustain + rScaling + rNgtma;
 

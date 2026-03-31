@@ -195,7 +195,7 @@ router.post("/import/performance", requireAuth, async (req, res): Promise<void> 
     for (const r of rows) {
       const nik = String(r.NIK || r.nik || "").trim();
       const namaAm = String(r.NAMA_AM || r.nama_am || "").trim();
-      const divisiRaw = String(r.DIVISI_AM || r.divisi || "").trim();
+      const divisiRaw = String(r.DIVISI_CC || r.divisi_cc || r.DIVISI_AM || r.divisi || "").trim();
       const periodeStr = String(r.PERIODE || "").trim(); // "202601"
       if (!nik || !namaAm || !periodeStr || periodeStr.length < 6) continue;
       if (!divisiRaw) continue; // skip rows dengan divisi kosong
@@ -219,7 +219,7 @@ router.post("/import/performance", requireAuth, async (req, res): Promise<void> 
       // Customer info — semua kolom pelanggan disimpan
       const pelanggan = String(r.STANDARD_NAME || r.NAMA_PELANGGAN || r.PELANGGAN || r.pelanggan || r.nama_account || "").trim();
       const nip = String(r.NIP_NAS || r.nip_nas || r.NIP || "").trim();
-      const proporsi = parseFloat(String(r.PROPORSI ?? r.proporsi ?? 0)) || 0;
+      const proporsi = (parseFloat(String(r.PROPORSI ?? r.proporsi ?? 0)) || 0) * 100;
       const group = String(r.GROUP || r.group || "").trim();
       const industri = String(r.INDUSTRI || r.industri || "").trim();
       const lsegmen = String(r.LSEGMEN || r.lsegmen || "").trim();
@@ -306,7 +306,7 @@ router.post("/import/performance", requireAuth, async (req, res): Promise<void> 
     }).map((r: any) => ({
       nik: String(r.NIK || r.nik || ""),
       namaAm: String(r.NAMA_AM || r.nama_am || r.STANDARD_NAME || "").trim(),
-      divisi: String(r.DIVISI_AM || r.divisi || "").trim(),
+      divisi: String(r.DIVISI_CC || r.divisi_cc || r.DIVISI_AM || r.divisi || "").trim(),
       tahun: y,
       bulan: m,
       targetRevenue: parseIndonesianNumber(r["Target Revenue Dinamis"] || r.target_revenue),

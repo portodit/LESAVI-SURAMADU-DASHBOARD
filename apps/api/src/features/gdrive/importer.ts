@@ -145,7 +145,7 @@ export async function importPerformance(rows: ParsedRow[], sourceUrl: string, pe
     for (const r of rows) {
       const nik = String(r.NIK || r.nik || "").trim();
       const namaAm = String(r.NAMA_AM || r.nama_am || "").trim();
-      const divisiRaw = String(r.DIVISI_AM || r.divisi || "").trim();
+      const divisiRaw = String(r.DIVISI_CC || r.divisi_cc || r.DIVISI_AM || r.divisi || "").trim();
       const periodeStr = String(r.PERIODE || "").trim();
       if (!nik || !namaAm || !periodeStr || periodeStr.length < 6) continue;
       if (divisiRaw.toUpperCase() === "DGS") continue;
@@ -165,7 +165,7 @@ export async function importPerformance(rows: ParsedRow[], sourceUrl: string, pe
       const bulan = parseInt(periodeStr.slice(4, 6), 10);
       const pelanggan = String(r.STANDARD_NAME || r.NAMA_PELANGGAN || r.PELANGGAN || r.pelanggan || r.nama_account || "").trim();
       const nip = String(r.NIP_NAS || r.nip_nas || r.NIP || "").trim();
-      const proporsi = parseFloat(String(r.PROPORSI ?? r.proporsi ?? 0)) || 0;
+      const proporsi = (parseFloat(String(r.PROPORSI ?? r.proporsi ?? 0)) || 0) * 100;
 
       if (!amMap.has(key)) {
         amMap.set(key, {

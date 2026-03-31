@@ -909,17 +909,18 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
 
   const groupedByAm = useMemo(()=>{
     const amMap=new Map<string,{namaAm:string;nikAm:string;divisi:string;phases:Map<string,any[]>}>();
+    const divisiAllMap=new Map<string,Set<string>>();
     for(const l of filteredLops){
       const key=l.nikAm||l.namaAm||"Unknown";
       if(!amMap.has(key)) amMap.set(key,{namaAm:l.namaAm||key,nikAm:l.nikAm||"",divisi:l.divisi||"",phases:new Map()});
       const e=amMap.get(key)!;
-      // Divisi bisa kosong di LOP pertama — update jika sudah ada nilai
       if(!e.divisi && l.divisi) e.divisi = l.divisi;
+      if(l.divisi){if(!divisiAllMap.has(key))divisiAllMap.set(key,new Set());divisiAllMap.get(key)!.add(l.divisi);}
       const phase=l.statusF||"Unknown";
       if(!e.phases.has(phase)) e.phases.set(phase,[]);
       e.phases.get(phase)!.push(l);
     }
-    return Array.from(amMap.values()).sort((a,b)=>{
+    return Array.from(amMap.values()).map(a=>({...a,divisiAll:[...((divisiAllMap.get(a.nikAm||a.namaAm)||new Set()))]})).sort((a,b)=>{
       const totA=Array.from(a.phases.values()).flat().reduce((s:number,l:any)=>s+(l.nilaiProyek||0),0);
       const totB=Array.from(b.phases.values()).flat().reduce((s:number,l:any)=>s+(l.nilaiProyek||0),0);
       return totB-totA;
@@ -946,15 +947,18 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
   // Cross-divisi AMs (e.g. HANDIKA: 27 DPS + 44 DSS) appear correctly in each panel.
   function buildGroupedForDivisiFS(lops: any[]) {
     const amMap = new Map<string,{namaAm:string;nikAm:string;divisi:string;phases:Map<string,any[]>}>();
+    const divisiAllMap = new Map<string,Set<string>>();
     for (const l of lops) {
       const key = l.nikAm || l.namaAm || "Unknown";
       if (!amMap.has(key)) amMap.set(key, {namaAm:l.namaAm||key,nikAm:l.nikAm||"",divisi:l.divisi||"",phases:new Map()});
       const e = amMap.get(key)!;
+      if(!e.divisi && l.divisi) e.divisi = l.divisi;
+      if(l.divisi){if(!divisiAllMap.has(key))divisiAllMap.set(key,new Set());divisiAllMap.get(key)!.add(l.divisi);}
       const phase = l.statusF || "Unknown";
       if (!e.phases.has(phase)) e.phases.set(phase, []);
       e.phases.get(phase)!.push(l);
     }
-    return Array.from(amMap.values()).sort((a,b) => {
+    return Array.from(amMap.values()).map(a=>({...a,divisiAll:[...((divisiAllMap.get(a.nikAm||a.namaAm)||new Set()))]})).sort((a,b) => {
       const totA = Array.from(a.phases.values()).flat().reduce((s:number,l:any)=>s+(l.nilaiProyek||0),0);
       const totB = Array.from(b.phases.values()).flat().reduce((s:number,l:any)=>s+(l.nilaiProyek||0),0);
       return totB - totA;
@@ -1110,7 +1114,7 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
               <div className="flex items-center gap-2">
                 <ChevronRight className={cn("w-4 h-4 text-muted-foreground transition-transform shrink-0",amExpanded&&"rotate-90")}/>
                 <span className="font-black text-foreground text-sm uppercase tracking-wide">{am.namaAm}</span>
-                {(()=>{const d=resolveAmDivisi(am);return d?<span className={cn("text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0",d==="DPS"?"bg-blue-100 text-blue-700":d==="DSS"?"bg-emerald-100 text-emerald-700":"bg-slate-100 text-slate-600")}>{d}</span>:null;})()}
+                {((am as any).divisiAll?.length>0?(am as any).divisiAll:[resolveAmDivisi(am)].filter(Boolean)).map((d:string)=><span key={d} className={cn("text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0",d==="DPS"?"bg-blue-100 text-blue-700":d==="DSS"?"bg-emerald-100 text-emerald-700":"bg-slate-100 text-slate-600")}>{d}</span>)}
                 <button type="button" onClick={e=>{e.stopPropagation();handleAmExpandIcon(amKey,orderedPhases);}}
                   className="ml-1 p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors shrink-0"
                   title={amExpanded?"Collapse semua proyek":"Expand semua proyek"}>
@@ -1207,15 +1211,14 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
       const amLopCount=Array.from(am.phases.values()).flat().length;
       const orderedPhases=[...FS_PHASES.filter(p=>am.phases.has(p)),...Array.from(am.phases.keys()).filter(p=>!FS_PHASES.includes(p))];
       const ring=amExpanded?"#94a3b8":undefined;
-      const divisi=resolveAmDivisi(am);
       const bgCard="hsl(var(--card))";
-      const divBadge=divisi?<span className={cn("text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0",divisi==="DPS"?"bg-blue-100 text-blue-700":divisi==="DSS"?"bg-emerald-100 text-emerald-700":"bg-slate-100 text-slate-600")}>{divisi}</span>:null;
+      const divBadges=((am as any).divisiAll?.length>0?(am as any).divisiAll:[resolveAmDivisi(am)].filter(Boolean)).map((d:string)=><span key={d} className={cn("text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0",d==="DPS"?"bg-blue-100 text-blue-700":d==="DSS"?"bg-emerald-100 text-emerald-700":"bg-slate-100 text-slate-600")}>{d}</span>);
 
       if(!amExpanded){return(
         <table key={amKey} className="text-left text-sm" style={FS_TB_STYLE}><FSColGroup/>
           <tbody>
             <tr className="cursor-pointer select-none bg-card hover:bg-secondary/30 transition-colors" style={{borderTop:"2px solid transparent"}} onClick={()=>toggleAmRow(amKey)}>
-              <td className="px-4 py-3"><div className="flex items-center gap-2"><ChevronRight className="w-4 h-4 text-muted-foreground shrink-0"/><span className="text-foreground text-sm uppercase tracking-wide font-extrabold">{am.namaAm}</span>{divBadge}<button type="button" onClick={e=>{e.stopPropagation();handleAmExpandIcon(amKey,orderedPhases);}} className="ml-1 p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-secondary/60 shrink-0" title="Expand semua proyek"><Expand className="w-3 h-3"/></button></div></td>
+              <td className="px-4 py-3"><div className="flex items-center gap-2"><ChevronRight className="w-4 h-4 text-muted-foreground shrink-0"/><span className="text-foreground text-sm uppercase tracking-wide font-extrabold">{am.namaAm}</span>{divBadges}<button type="button" onClick={e=>{e.stopPropagation();handleAmExpandIcon(amKey,orderedPhases);}} className="ml-1 p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-secondary/60 shrink-0" title="Expand semua proyek"><Expand className="w-3 h-3"/></button></div></td>
               <td className="px-3 py-3" colSpan={4}><span className="text-xs font-black text-foreground tracking-wide">TOTAL {amLopCount} LOP</span></td>
               <td className="px-4 py-3 text-right whitespace-nowrap"><span className="font-black text-foreground tabular-nums text-sm whitespace-nowrap">{formatRupiahFull(amTotal)}</span></td>
             </tr>
@@ -1231,7 +1234,7 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
               style={{borderTop:`2px solid ${ring}`,borderLeft:`2px solid ${ring}`,borderRight:`2px solid ${ring}`,borderBottom:"none"}}
               onClick={()=>toggleAmRow(amKey)}>
               <td className="px-4 py-2.5 font-normal text-left" style={{backgroundColor:bgCard}}>
-                <div className="flex items-center gap-2"><ChevronRight className="w-4 h-4 text-muted-foreground shrink-0 rotate-90"/><span className="text-foreground text-sm uppercase tracking-wide font-bold">{am.namaAm}</span>{divBadge}<button type="button" onClick={e=>{e.stopPropagation();handleAmExpandIcon(amKey,orderedPhases);}} className="ml-1 p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-secondary/60 shrink-0" title="Collapse semua proyek"><Minimize2 className="w-3 h-3"/></button></div>
+                <div className="flex items-center gap-2"><ChevronRight className="w-4 h-4 text-muted-foreground shrink-0 rotate-90"/><span className="text-foreground text-sm uppercase tracking-wide font-bold">{am.namaAm}</span>{divBadges}<button type="button" onClick={e=>{e.stopPropagation();handleAmExpandIcon(amKey,orderedPhases);}} className="ml-1 p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-secondary/60 shrink-0" title="Collapse semua proyek"><Minimize2 className="w-3 h-3"/></button></div>
               </td>
               <td className="px-3 py-2.5 font-normal" colSpan={5} style={{backgroundColor:bgCard}}><span className="text-xs font-black text-foreground tracking-wide">TOTAL {amLopCount} LOP</span></td>
             </tr>

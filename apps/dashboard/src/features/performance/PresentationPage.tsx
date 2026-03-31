@@ -2928,9 +2928,9 @@ export default function EmbedPerforma() {
             {/* Table */}
             <div className="bg-card border border-border rounded-xl">
               <div ref={perfToolbarRef} className="sticky top-0 z-20 bg-card/95 backdrop-blur-sm px-4 py-3 border-b border-border">
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
                   <h3 className="text-sm font-bold text-foreground shrink-0">AM Performance Report</h3>
-                  <div className="relative flex-1 min-w-0 max-w-xs">
+                  <div className="relative w-80 shrink-0">
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
                     <input
                       ref={perfSearchRef}

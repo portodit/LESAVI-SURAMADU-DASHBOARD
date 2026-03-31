@@ -1113,7 +1113,7 @@ export default function FunnelPage() {
             placeholder="Semua kontrak" summaryLabel="kontrak" className="w-36 shrink-0" />
           <CheckboxDropdown label="Status Funnel" options={PHASES} selected={filterStatus} onChange={setFilterStatus}
             placeholder="Semua status" labelFn={p => `${p} – ${PHASE_LABELS[p]}`} summaryLabel="status" className="w-32 shrink-0" />
-          <SelectDropdown label="Durasi Kontrak" value={filterDurasi} onChange={v => setFilterDurasi(v as typeof filterDurasi)}
+          <SelectDropdown label="Masa Kontrak" value={filterDurasi} onChange={v => setFilterDurasi(v as typeof filterDurasi)}
             options={[{ value: "all", label: "Semua Durasi" }, { value: "single_year", label: "Single Year (≤12 bln)" }, { value: "multi_year", label: "Multi Year (>12 bln)" }]}
             className="w-44 shrink-0" />
           <SelectDropdown label="Target" value={filterTarget} onChange={v => setFilterTarget(v as "ho" | "fullho")}
@@ -1274,7 +1274,7 @@ export default function FunnelPage() {
                 <tr className="bg-red-700 text-white font-black uppercase tracking-wide text-xs">
                   <th className="px-4 py-3 text-left whitespace-nowrap">AM / Fase / Proyek</th>
                   <th className="px-3 py-3 text-left whitespace-nowrap">KATEGORI</th>
-                  <th className="px-3 py-3 text-left whitespace-nowrap">DURASI</th>
+                  <th className="px-3 py-3 text-left whitespace-nowrap">MASA KONTRAK</th>
                   <th className="px-3 py-3 text-left font-mono whitespace-nowrap">LOP ID</th>
                   <th className="px-3 py-3 text-left whitespace-nowrap">Pelanggan</th>
                   <th className="px-4 py-3 text-right whitespace-nowrap">Nilai Proyek</th>
@@ -1371,7 +1371,7 @@ export default function FunnelPage() {
                       <tr className={`${headerBg} text-white font-black uppercase tracking-wide text-xs`}>
                         <th className="px-4 py-2.5 min-w-[280px] text-left">AM / Fase / Proyek</th>
                         <th className="px-3 py-2.5 whitespace-nowrap w-20 text-left">KATEGORI</th>
-                        <th className="px-3 py-2.5 whitespace-nowrap w-20 text-left">DURASI</th>
+                        <th className="px-3 py-2.5 whitespace-nowrap w-20 text-left">MASA KONTRAK</th>
                         <th className="px-3 py-2.5 font-mono whitespace-nowrap w-20 text-left">LOP ID</th>
                         <th className="px-3 py-2.5 min-w-[140px] text-left">Pelanggan</th>
                         <th className="px-4 py-2.5 text-right whitespace-nowrap min-w-[140px]">Nilai Proyek</th>

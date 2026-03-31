@@ -1323,7 +1323,7 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
       )}
       <FSCheckboxDropdown label="Status Funnel" options={FS_PHASES} selected={filterStatus} onChange={setFilterStatus}
         placeholder="Semua status" labelFn={p=>`${p} – ${FS_PHASE_LABELS[p]}`} summaryLabel="status" className="w-36 shrink-0"/>
-      <FSSelectDropdown label="Durasi Kontrak" value={filterDurasi} onChange={v=>setFilterDurasi(v as typeof filterDurasi)}
+      <FSSelectDropdown label="Masa Kontrak" value={filterDurasi} onChange={v=>setFilterDurasi(v as typeof filterDurasi)}
         options={[{value:"all",label:"Semua Durasi"},{value:"single_year",label:"Single Year (≤12 bln)"},{value:"multi_year",label:"Multi Year (>12 bln)"}]}
         className="w-44 shrink-0"/>
     </div>
@@ -1459,7 +1459,7 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
                 <tr className="text-white font-black uppercase tracking-wide text-xs">
                   <th className="px-4 py-3 text-left" style={{background:"#B91C1C"}}>AM / Fase / Proyek</th>
                   <th className="px-3 py-3 text-left whitespace-nowrap" style={{background:"#B91C1C"}}>KATEGORI</th>
-                  <th className="px-3 py-3 text-left whitespace-nowrap" style={{background:"#B91C1C"}}>DURASI</th>
+                  <th className="px-3 py-3 text-left whitespace-nowrap" style={{background:"#B91C1C"}}>MASA KONTRAK</th>
                   <th className="px-3 py-3 text-left font-mono whitespace-nowrap" style={{background:"#B91C1C"}}>LOP ID</th>
                   <th className="px-3 py-3 text-left" style={{background:"#B91C1C"}}>Pelanggan</th>
                   <th className="px-4 py-3 text-right whitespace-nowrap" style={{background:"#B91C1C"}}>Nilai Proyek</th>
@@ -1572,7 +1572,7 @@ function FunnelSlide({ onTitleChange }: { onTitleChange?: (t: string) => void })
                       <tr className={`${headerBg} text-white font-black uppercase tracking-wide text-xs`}>
                         <th className="px-4 py-2.5 min-w-[280px] text-left">AM / Fase / Proyek</th>
                         <th className="px-3 py-2.5 whitespace-nowrap w-20 text-left">KATEGORI</th>
-                        <th className="px-3 py-2.5 whitespace-nowrap w-20 text-left">DURASI</th>
+                        <th className="px-3 py-2.5 whitespace-nowrap w-20 text-left">MASA KONTRAK</th>
                         <th className="px-3 py-2.5 font-mono whitespace-nowrap w-20 text-left">LOP ID</th>
                         <th className="px-3 py-2.5 min-w-[120px] text-left">Pelanggan</th>
                         <th className="px-4 py-2.5 text-right whitespace-nowrap min-w-[130px]">Nilai Proyek</th>

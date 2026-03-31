@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect, useLayoutEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { DIVISI_OPTIONS_WITH_ALL } from "@/shared/lib/divisi";
 import { useQuery } from "@tanstack/react-query";
@@ -842,6 +842,13 @@ export default function FunnelPage() {
   // Ref untuk baris AM — dipakai menghitung offset sticky phase row agar menempel rapat
   const funnelAmRowRef = useRef<HTMLTableRowElement>(null);
   const [funnelAmRowH, setFunnelAmRowH] = useState(46);
+  // Ukur ulang setiap kali expandedAm berubah (sync sebelum paint) agar phase row
+  // langsung memakai offset yang tepat tanpa menunggu ResizeObserver callback
+  useLayoutEffect(() => {
+    const el = funnelAmRowRef.current;
+    if (!el) return;
+    setFunnelAmRowH(el.offsetHeight);
+  }, [expandedAm]);
   useEffect(() => {
     const el = funnelAmRowRef.current;
     if (!el) return;
@@ -849,7 +856,8 @@ export default function FunnelPage() {
     ro.observe(el);
     setFunnelAmRowH(el.offsetHeight);
     return () => ro.disconnect();
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expandedAm]);
 
   function toggleAmRow(key: string) {
     setExpandedAm(p => ({ ...p, [key]: !p[key] }));

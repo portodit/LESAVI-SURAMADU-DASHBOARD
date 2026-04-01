@@ -2496,16 +2496,37 @@ export default function EmbedPerforma() {
         return s.target > bS.target ? r : best;
       }, cmRows[0]);
       const divisiAll = [...new Set(cmRows.map((r: any) => r.divisi as string))];
-      const allCustomers = cmRows.flatMap((cr: any) =>
+      // Build customers from ALL selected periods (filteredRows), then merge duplicates
+      const custRaw = entry.filteredRows.flatMap((cr: any) =>
         parseKomponen(cr.komponenDetail).map((c: any) => ({ ...c, _divisi: cr.divisi }))
       );
+      const custMap = new Map<string, any>();
+      for (const c of custRaw) {
+        const key = `${c.nip || c.pelanggan}__${c._divisi || ""}`;
+        if (!custMap.has(key)) {
+          custMap.set(key, { ...c });
+        } else {
+          const e = custMap.get(key)!;
+          for (const tipe of ["Reguler", "Sustain", "Scaling", "NGTMA"] as const) {
+            if (c[tipe] || e[tipe]) {
+              e[tipe] = {
+                target: (e[tipe]?.target ?? 0) + (c[tipe]?.target ?? 0),
+                real:   (e[tipe]?.real   ?? 0) + (c[tipe]?.real   ?? 0),
+              };
+            }
+          }
+          e.targetTotal = (e.targetTotal ?? 0) + (c.targetTotal ?? 0);
+          e.realTotal   = (e.realTotal   ?? 0) + (c.realTotal   ?? 0);
+        }
+      }
+      const mergedCustomers = [...custMap.values()];
       return {
         nik, namaAm: primaryCmRow.namaAm, divisi: primaryCmRow.divisi, divisiAll,
         statusWarna: primaryCmRow.statusWarna,
         cmAch: effectiveCmAch, ytdAch: effectiveYtdAch,
         cmTarget, cmReal,
         ytdTarget, ytdReal,
-        customers: allCustomers,
+        customers: mergedCustomers,
       };
     }).filter(Boolean) as any[];
     // Multi-divisi AMs appear when any of their divisi matches the filter
@@ -3179,17 +3200,27 @@ export default function EmbedPerforma() {
                               <col style={{width:"72px"}}/>
                             </colgroup>
                             <tbody>
-                              <tr className="bg-rose-50 border-t border-rose-200 dark:border-rose-800/50">
-                                <td className="px-2 py-2" />
-                                <td className="px-4 py-2"><span className="text-xs font-black text-rose-800 uppercase tracking-wide">{row.customers.length} Pelanggan — {row.namaAm}</span></td>
-                                <td />
-                                {filterDivisi === "LESA" && <td />}
-                                <td className="px-4 py-2 text-right text-xs font-semibold text-foreground tabular-nums whitespace-nowrap">{formatRupiahFull(row.cmTarget)}</td>
-                                <td className="px-4 py-2 text-right text-xs font-black text-foreground tabular-nums whitespace-nowrap">{formatRupiahFull(row.cmReal)}</td>
-                                <td className={cn("px-3 py-2 text-right text-xs font-black tabular-nums", row.cmAch >= 1 ? "text-green-600" : row.cmAch >= 0.8 ? "text-orange-500" : "text-red-600")}>
-                                  {(row.cmAch * 100).toFixed(1).replace(".", ",")}%
-                                </td>
-                              </tr>
+                              {(() => {
+                                const getCust = (c: any) => filterTipeRevenue === "Semua"
+                                  ? { t: c.targetTotal ?? 0, r: c.realTotal ?? 0 }
+                                  : { t: c[filterTipeRevenue]?.target ?? 0, r: c[filterTipeRevenue]?.real ?? 0 };
+                                const footTarget = row.customers.reduce((s: number, c: any) => s + getCust(c).t, 0);
+                                const footReal   = row.customers.reduce((s: number, c: any) => s + getCust(c).r, 0);
+                                const footAch    = footTarget > 0 ? footReal / footTarget : 0;
+                                return (
+                                  <tr className="bg-rose-50 border-t border-rose-200 dark:border-rose-800/50">
+                                    <td className="px-2 py-2" />
+                                    <td className="px-4 py-2"><span className="text-xs font-black text-rose-800 uppercase tracking-wide">{row.customers.length} Pelanggan — {row.namaAm}</span></td>
+                                    <td />
+                                    {filterDivisi === "LESA" && <td />}
+                                    <td className="px-4 py-2 text-right text-xs font-semibold text-foreground tabular-nums whitespace-nowrap">{formatRupiahFull(footTarget)}</td>
+                                    <td className="px-4 py-2 text-right text-xs font-black text-foreground tabular-nums whitespace-nowrap">{formatRupiahFull(footReal)}</td>
+                                    <td className={cn("px-3 py-2 text-right text-xs font-black tabular-nums", footAch >= 1 ? "text-green-600" : footAch >= 0.8 ? "text-orange-500" : "text-red-600")}>
+                                      {(footAch * 100).toFixed(1).replace(".", ",")}%
+                                    </td>
+                                  </tr>
+                                );
+                              })()}
                             </tbody>
                           </table>
                         </div>

@@ -2480,28 +2480,36 @@ export default function EmbedPerforma() {
     let result = [...amMap.entries()].map(([nik, entry]) => {
       const cmRows = entry.cmRows;
       if (cmRows.length === 0) return null;
-      // Combine CM target/real across all divisi rows for this AM this month
+      // When divisi filter is active, restrict CM rows to matching divisi only
+      const activeCmRows = (filterDivisi === "LESA")
+        ? cmRows
+        : cmRows.filter((cr: any) => matchesDivisiPerforma(cr.divisi, filterDivisi));
+      // Combine CM target/real — only from activeCmRows (respects divisi filter)
       let cmTarget = 0, cmReal = 0;
-      for (const cr of cmRows) {
+      for (const cr of (activeCmRows.length > 0 ? activeCmRows : cmRows)) {
         const s = getTypedRevenue(cr, filterTipeRevenue);
         cmTarget += s.target; cmReal += s.real;
       }
+      // For YTD, filter rows by divisi if active
+      const activeFilteredRows = (filterDivisi === "LESA")
+        ? entry.filteredRows
+        : entry.filteredRows.filter((r: any) => matchesDivisiPerforma(r.divisi, filterDivisi));
       let ytdTarget = 0, ytdReal = 0;
-      for (const r of entry.filteredRows) {
+      for (const r of activeFilteredRows) {
         const s = getTypedRevenue(r, filterTipeRevenue);
         ytdTarget += s.target; ytdReal += s.real;
       }
       const effectiveCmAch = cmTarget > 0 ? cmReal / cmTarget : 0;
       const effectiveYtdAch = ytdTarget > 0 ? ytdReal / ytdTarget : 0;
-      // Primary divisi: AM with largest CM target is dominant
-      const primaryCmRow = cmRows.reduce((best: any, r: any) => {
+      // Primary divisi: use activeCmRows for dominant portfolio
+      const primaryCmRow = (activeCmRows.length > 0 ? activeCmRows : cmRows).reduce((best: any, r: any) => {
         const s = getTypedRevenue(r, filterTipeRevenue);
         const bS = getTypedRevenue(best, filterTipeRevenue);
         return s.target > bS.target ? r : best;
-      }, cmRows[0]);
+      }, (activeCmRows.length > 0 ? activeCmRows : cmRows)[0]);
       const divisiAll = [...new Set(cmRows.map((r: any) => r.divisi as string))];
-      // Build customers from ALL selected periods (filteredRows), then merge duplicates
-      const custRaw = entry.filteredRows.flatMap((cr: any) => {
+      // Build customers — only from rows matching divisi filter
+      const custRaw = activeFilteredRows.flatMap((cr: any) => {
         const periodeStr = `${cr.tahun}-${String(cr.bulan).padStart(2, "0")}`;
         return parseKomponen(cr.komponenDetail).map((c: any) => ({ ...c, _divisi: cr.divisi, _periode: periodeStr }));
       });

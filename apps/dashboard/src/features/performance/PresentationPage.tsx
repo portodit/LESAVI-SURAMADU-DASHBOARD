@@ -3137,10 +3137,10 @@ export default function EmbedPerforma() {
                               : { target: c[filterTipeRevenue]?.target ?? 0, real: c[filterTipeRevenue]?.real ?? 0 };
                             return (
                               <>
-                          <table style={{...PERF_TB, borderLeft:`2px solid ${ring}`, borderRight:`2px solid ${ring}`}}>
+                          <table style={{...PERF_TB, borderLeft:`2px solid ${ring}`, borderRight:`2px solid ${ring}`, tableLayout:"fixed", minWidth:"780px"}}>
                             <colgroup>
                               <col style={{width:"28px"}}/>
-                              <col />
+                              <col style={{width:"220px"}}/>
                               <col style={{width:"82px"}}/>
                               {showPeriodeCol && <col style={{width:"80px"}}/>}
                               {filterDivisi === "LESA" && <col style={{width:"68px"}}/>}
@@ -3182,8 +3182,8 @@ export default function EmbedPerforma() {
                                 return (
                                   <tr key={ci} className={cn("transition-colors hover:bg-rose-50", ci % 2 === 0 ? "bg-white dark:bg-card" : "bg-rose-50/40 dark:bg-rose-950/10")}>
                                     <td className="px-2 py-2 text-center text-[11px] text-muted-foreground font-mono">{ci + 1}</td>
-                                    <td className="px-4 py-2">
-                                      <div className="text-xs font-bold text-foreground leading-snug">{c.pelanggan || "—"}</div>
+                                    <td className="px-4 py-2 overflow-hidden">
+                                      <div className="text-xs font-bold text-foreground leading-snug truncate" title={c.pelanggan || ""}>{c.pelanggan || "—"}</div>
                                       {c.nip && <div className="text-[10px] text-muted-foreground mt-0.5">{c.nip}</div>}
                                     </td>
                                     <td className="px-3 py-2 text-right">
@@ -3222,10 +3222,10 @@ export default function EmbedPerforma() {
                           </table>
 
                           {/* AM total footer row */}
-                          <table style={{...PERF_TB, borderLeft:`2px solid ${ring}`, borderRight:`2px solid ${ring}`, borderBottom:`2px solid ${ring}`}}>
+                          <table style={{...PERF_TB, borderLeft:`2px solid ${ring}`, borderRight:`2px solid ${ring}`, borderBottom:`2px solid ${ring}`, tableLayout:"fixed", minWidth:"780px"}}>
                             <colgroup>
                               <col style={{width:"28px"}}/>
-                              <col />
+                              <col style={{width:"220px"}}/>
                               <col style={{width:"82px"}}/>
                               {showPeriodeCol && <col style={{width:"80px"}}/>}
                               {filterDivisi === "LESA" && <col style={{width:"68px"}}/>}

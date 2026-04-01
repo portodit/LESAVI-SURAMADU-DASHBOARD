@@ -930,7 +930,15 @@ export default function PerformaVis() {
                         ? customers
                         : customers.filter((c: any) => matchesDivisiPerforma(c._divisi, filterDivisi));
                       const hasCustomers = visibleCustomers.length > 0;
-                      const totalReal = visibleCustomers.reduce((s: number, c: any) => s + (c.realTotal ?? 0), 0);
+                      // Helper: ambil target/real sesuai tipe revenue yang dipilih
+                      const getCustRevTyped = (c: any): { target: number; real: number } => {
+                        if (filterTipeRevenue === "Semua") return { target: c.targetTotal ?? 0, real: c.realTotal ?? 0 };
+                        const typed = c[filterTipeRevenue];
+                        return typed ? { target: typed.target ?? 0, real: typed.real ?? 0 } : { target: 0, real: 0 };
+                      };
+                      // Hitung total real & target (hanya tipe yang dipilih) untuk proporsi kontribusi
+                      const totalRealTyped = visibleCustomers.reduce((s: number, c: any) => s + getCustRevTyped(c).real, 0);
+                      const totalTargetTyped = visibleCustomers.reduce((s: number, c: any) => s + getCustRevTyped(c).target, 0);
                       return (
                         <React.Fragment key={row.nik}>
                           <tr
@@ -1007,15 +1015,13 @@ export default function PerformaVis() {
                                     </thead>
                                     <tbody className="divide-y divide-border/40">
                                       {visibleCustomers.map((c: any, ci: number) => {
-                                        // Ikuti filterTipeRevenue: tampilkan target/real sesuai tipe yang dipilih
-                                        const getCustTyped = (): { target: number; real: number } => {
-                                          if (filterTipeRevenue === "Semua") return { target: c.targetTotal ?? 0, real: c.realTotal ?? 0 };
-                                          const typed = c[filterTipeRevenue];
-                                          if (typed) return { target: typed.target ?? 0, real: typed.real ?? 0 };
-                                          return { target: 0, real: 0 };
-                                        };
-                                        const { target: cTarget, real: cReal } = getCustTyped();
-                                        const prop = totalReal > 0 ? (cReal / totalReal) * 100 : (c.proporsi != null ? c.proporsi : 0);
+                                        const { target: cTarget, real: cReal } = getCustRevTyped(c);
+                                        // Proporsi kontribusi: share dari total real tipe ini; fallback ke target jika belum ada real
+                                        const prop = totalRealTyped > 0
+                                          ? (cReal / totalRealTyped) * 100
+                                          : totalTargetTyped > 0
+                                            ? (cTarget / totalTargetTyped) * 100
+                                            : 0;
                                         const cAch = cTarget > 0 ? cReal / cTarget * 100 : 0;
                                         return (
                                           <tr key={ci} className={cn("transition-colors", ci % 2 === 0 ? "bg-white dark:bg-card" : "bg-rose-50/60 dark:bg-rose-950/20", "hover:bg-rose-100/60 dark:hover:bg-rose-900/20")}>

@@ -3103,18 +3103,26 @@ export default function EmbedPerforma() {
 
                           {/* Customer detail table — inline rows, sub-header sticky below AM row */}
                           <table style={{...PERF_TB, borderLeft:`2px solid ${ring}`, borderRight:`2px solid ${ring}`}}>
-                            <PerfColGroup/>
+                            <colgroup>
+                              <col style={{width:"28px"}}/>
+                              <col />
+                              <col style={{width:"82px"}}/>
+                              {filterDivisi === "LESA" && <col style={{width:"68px"}}/>}
+                              <col style={{width:"140px"}}/>
+                              <col style={{width:"140px"}}/>
+                              <col style={{width:"72px"}}/>
+                            </colgroup>
                             <thead style={{position:"sticky", top:perfPresentAmRowH, zIndex:15}}>
-                              <tr style={{background:"rgb(255,241,242)", borderTop:"1px solid #fecdd3", borderBottom:"1px solid #fecdd3"}}>
-                                <th className="px-2 py-2 text-center text-xs font-black text-rose-700 uppercase tracking-wide">#</th>
-                                <th className="px-4 py-2 text-left text-xs font-black text-rose-700 uppercase tracking-wide">Pelanggan / NIP</th>
+                              <tr style={{background:"rgb(255,241,242)", borderTop:"1px solid #fecdd3", borderBottom:"2px solid #fecdd3"}}>
+                                <th className="px-2 py-3 text-center text-sm font-black text-rose-700 uppercase tracking-wide">#</th>
+                                <th className="px-4 py-3 text-left text-sm font-black text-rose-700 uppercase tracking-wide">Pelanggan / NIP</th>
+                                <th className="px-3 py-3 text-right text-sm font-black text-rose-700 uppercase tracking-wide">Proporsi</th>
                                 {filterDivisi === "LESA" && (
-                                  <th className="px-3 py-2 text-center text-xs font-black text-rose-700 uppercase tracking-wide">Divisi</th>
+                                  <th className="px-3 py-3 text-center text-sm font-black text-rose-700 uppercase tracking-wide">Divisi</th>
                                 )}
-                                <th className="px-4 py-2 text-right text-xs font-black text-rose-700 uppercase tracking-wide">Target</th>
-                                <th className="px-4 py-2 text-right text-xs font-black text-rose-700 uppercase tracking-wide">Real</th>
-                                <th className="px-3 py-2 text-right text-xs font-black text-rose-700 uppercase tracking-wide">Ach %</th>
-                                <th className="hidden px-3 py-2 text-right text-xs font-black text-rose-700 uppercase tracking-wide" colSpan={filterDivisi === "LESA" ? 2 : 3}>Proporsi</th>
+                                <th className="px-4 py-3 text-right text-sm font-black text-rose-700 uppercase tracking-wide">Target</th>
+                                <th className="px-4 py-3 text-right text-sm font-black text-rose-700 uppercase tracking-wide">Real</th>
+                                <th className="px-3 py-3 text-right text-sm font-black text-rose-700 uppercase tracking-wide">Ach %</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -3131,6 +3139,14 @@ export default function EmbedPerforma() {
                                       <div className="text-xs font-bold text-foreground leading-snug">{c.pelanggan || "—"}</div>
                                       {c.nip && <div className="text-[10px] text-muted-foreground mt-0.5">{c.nip}</div>}
                                     </td>
+                                    <td className="px-3 py-2 text-right">
+                                      <div className="flex items-center justify-end gap-1.5">
+                                        <div className="w-8 h-1.5 bg-secondary rounded-full overflow-hidden shrink-0">
+                                          <div className="h-full bg-rose-500 rounded-full" style={{width:`${Math.min(prop,100)}%`}} />
+                                        </div>
+                                        <span className="text-xs font-semibold text-foreground tabular-nums whitespace-nowrap">{prop.toFixed(1)}%</span>
+                                      </div>
+                                    </td>
                                     {filterDivisi === "LESA" && (
                                       <td className="px-3 py-2 text-center">
                                         {c._divisi && (
@@ -3140,18 +3156,10 @@ export default function EmbedPerforma() {
                                         )}
                                       </td>
                                     )}
-                                    <td className="px-4 py-2 text-right text-xs font-semibold text-foreground tabular-nums">{formatRupiah(cTarget)}</td>
-                                    <td className="px-4 py-2 text-right text-xs font-black text-foreground tabular-nums">{formatRupiah(cReal)}</td>
+                                    <td className="px-4 py-2 text-right text-xs font-semibold text-foreground tabular-nums">{formatRupiahFull(cTarget)}</td>
+                                    <td className="px-4 py-2 text-right text-xs font-black text-foreground tabular-nums">{formatRupiahFull(cReal)}</td>
                                     <td className={cn("px-3 py-2 text-right text-xs font-black tabular-nums", cAch >= 100 ? "text-green-600" : cAch >= 80 ? "text-orange-500" : "text-red-500")}>
                                       {cAch.toFixed(1)}%
-                                    </td>
-                                    <td className="hidden px-3 py-2 text-right text-xs tabular-nums" colSpan={filterDivisi === "LESA" ? 2 : 3}>
-                                      <div className="flex items-center justify-end gap-1.5">
-                                        <div className="w-10 h-1.5 bg-secondary rounded-full overflow-hidden">
-                                          <div className="h-full bg-primary rounded-full" style={{width:`${Math.min(prop,100)}%`}} />
-                                        </div>
-                                        <span className="font-semibold text-foreground">{prop.toFixed(1)}%</span>
-                                      </div>
                                     </td>
                                   </tr>
                                 );
@@ -3161,17 +3169,26 @@ export default function EmbedPerforma() {
 
                           {/* AM total footer row */}
                           <table style={{...PERF_TB, borderLeft:`2px solid ${ring}`, borderRight:`2px solid ${ring}`, borderBottom:`2px solid ${ring}`}}>
-                            <PerfColGroup/>
+                            <colgroup>
+                              <col style={{width:"28px"}}/>
+                              <col />
+                              <col style={{width:"82px"}}/>
+                              {filterDivisi === "LESA" && <col style={{width:"68px"}}/>}
+                              <col style={{width:"140px"}}/>
+                              <col style={{width:"140px"}}/>
+                              <col style={{width:"72px"}}/>
+                            </colgroup>
                             <tbody>
                               <tr className="bg-rose-50 border-t border-rose-200 dark:border-rose-800/50">
                                 <td className="px-2 py-2" />
                                 <td className="px-4 py-2"><span className="text-xs font-black text-rose-800 uppercase tracking-wide">{row.customers.length} Pelanggan — {row.namaAm}</span></td>
+                                <td />
+                                {filterDivisi === "LESA" && <td />}
                                 <td className="px-4 py-2 text-right text-xs font-semibold text-foreground tabular-nums">{formatRupiahFull(row.cmTarget)}</td>
                                 <td className="px-4 py-2 text-right text-xs font-black text-foreground tabular-nums">{formatRupiahFull(row.cmReal)}</td>
                                 <td className={cn("px-3 py-2 text-right text-xs font-black tabular-nums", row.cmAch >= 1 ? "text-green-600" : row.cmAch >= 0.8 ? "text-orange-500" : "text-red-600")}>
                                   {(row.cmAch * 100).toFixed(1).replace(".", ",")}%
                                 </td>
-                                <td colSpan={3} />
                               </tr>
                             </tbody>
                           </table>

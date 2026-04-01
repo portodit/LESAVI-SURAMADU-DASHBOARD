@@ -151,9 +151,9 @@ function PerfColGroup() {
     <colgroup>
       <col style={{width:"28px"}}/>
       <col style={{width:"200px"}}/>
+      <col style={{width:"68px"}}/>
       <col style={{width:"170px"}}/>
       <col style={{width:"170px"}}/>
-      <col style={{width:"78px"}}/>
       <col style={{width:"78px"}}/>
       <col style={{width:"78px"}}/>
       <col style={{width:"78px"}}/>
@@ -3040,11 +3040,11 @@ export default function EmbedPerforma() {
                         <tr className="bg-red-700 text-white">
                           <th className="px-3 py-3 text-left" style={{backgroundColor:"#B91C1C"}}></th>
                           <th className="px-4 py-3 text-left text-xs font-black uppercase tracking-wide" style={{backgroundColor:"#B91C1C"}}>Nama AM</th>
+                          <th className="px-2 py-3 text-center text-xs font-black uppercase tracking-wide" style={{backgroundColor:"#B91C1C"}}>Cust</th>
                           <th className={cn("px-4 py-3 text-right text-xs font-black uppercase tracking-wide", filterTipeRank === "Real Revenue" && "underline underline-offset-2")} style={{backgroundColor:"#B91C1C"}}>Target {filterTipeRevenue}</th>
                           <th className={cn("px-4 py-3 text-right text-xs font-black uppercase tracking-wide", filterTipeRank === "Real Revenue" && "underline underline-offset-2")} style={{backgroundColor:"#B91C1C"}}>Real {filterTipeRevenue}</th>
                           <th className={cn("px-3 py-3 text-right text-xs font-black uppercase tracking-wide", filterTipeRank === "Ach CM" && "underline underline-offset-2")} style={{backgroundColor:"#B91C1C"}}>CM %</th>
                           <th className={cn("px-3 py-3 text-right text-xs font-black uppercase tracking-wide", filterTipeRank === "YTD" && "underline underline-offset-2")} style={{backgroundColor:"#B91C1C"}}>YTD %</th>
-                          <th className="px-3 py-3 text-center text-xs font-black uppercase tracking-wide" style={{backgroundColor:"#B91C1C"}}>Customer</th>
                           <th className="px-3 py-3 text-center text-xs font-black uppercase tracking-wide underline underline-offset-2" style={{backgroundColor:"#B91C1C"}}>
                             {filterTipeRank === "Ach CM" ? "RANK CM" : filterTipeRank === "YTD" ? "RANK YTD" : "RANK REV"}
                           </th>
@@ -3082,6 +3082,7 @@ export default function EmbedPerforma() {
                               </span>
                             </div>
                           </td>
+                          <td className="px-2 py-2.5 text-center font-black text-foreground text-xs" style={{backgroundColor:bgCard}}>{(row.customers || []).length}</td>
                           <td className="px-4 py-2.5 text-right font-semibold text-foreground tabular-nums text-xs whitespace-nowrap" style={{backgroundColor:bgCard}}>{formatRupiahFull(row.ytdTarget)}</td>
                           <td className="px-4 py-2.5 text-right font-black text-foreground tabular-nums text-xs whitespace-nowrap" style={{backgroundColor:bgCard}}>{formatRupiahFull(row.ytdReal)}</td>
                           <td className={cn("px-3 py-2.5 text-right font-black tabular-nums text-xs", row.cmAch >= 1 ? "text-green-600" : row.cmAch >= 0.8 ? "text-orange-500" : "text-red-600")} style={{backgroundColor:bgCard}}>
@@ -3090,7 +3091,6 @@ export default function EmbedPerforma() {
                           <td className={cn("px-3 py-2.5 text-right font-black tabular-nums text-xs", row.ytdAch >= 1 ? "text-green-600" : row.ytdAch >= 0.8 ? "text-blue-600" : "text-red-600")} style={{backgroundColor:bgCard}}>
                             {(row.ytdAch * 100).toFixed(1).replace(".", ",")}%
                           </td>
-                          <td className="px-3 py-2.5 text-center font-black text-foreground text-xs" style={{backgroundColor:bgCard}}>{(row.customers || []).length}</td>
                           <td className="px-3 py-2.5 text-center font-black text-foreground text-xs" style={{backgroundColor:bgCard}}>{row.displayRank}</td>
                         </>
                       );
@@ -3270,6 +3270,9 @@ export default function EmbedPerforma() {
                         <tr className="bg-secondary/60" style={{borderTop:"2px solid hsl(var(--border))"}}>
                           <td className="px-2 py-3" />
                           <td className="px-4 py-3 font-bold text-sm text-foreground">Total ({amTableData.length} AM)</td>
+                          <td className="px-2 py-2.5 text-center tabular-nums text-foreground font-semibold text-sm">
+                            {filteredAmData.reduce((s, r) => s + (r.customers || []).length, 0)}
+                          </td>
                           <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground font-semibold text-sm whitespace-nowrap">{formatRupiahFull(totals.ytdTarget)}</td>
                           <td className="px-4 py-2.5 text-right tabular-nums text-foreground font-bold text-sm whitespace-nowrap">{formatRupiahFull(totals.ytdReal)}</td>
                           <td className={cn("px-3 py-2.5 text-right tabular-nums", totals.cmAch >= 100 ? "text-green-600" : totals.cmAch >= 80 ? "text-orange-500" : "text-red-600")}>
@@ -3279,9 +3282,6 @@ export default function EmbedPerforma() {
                           <td className={cn("px-3 py-2.5 text-right tabular-nums", totals.ytdAch >= 100 ? "text-green-600" : totals.ytdAch >= 80 ? "text-blue-600" : "text-red-500")}>
                             <div className="font-black text-sm">{totals.ytdAch.toFixed(1).replace(".", ",")}%</div>
                             <div className="text-[10px] font-semibold mt-0.5">{totals.ytdAch >= 100 ? "Melebihi Target" : totals.ytdAch >= 80 ? "Mendekati" : "Di Bawah Target"}</div>
-                          </td>
-                          <td className="px-3 py-2.5 text-center tabular-nums text-foreground font-semibold text-sm">
-                            {filteredAmData.reduce((s, r) => s + (r.customers || []).length, 0)}
                           </td>
                           <td />
                         </tr>

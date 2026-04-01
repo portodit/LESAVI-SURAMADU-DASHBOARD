@@ -1880,7 +1880,10 @@ function ActivitySlide() {
     staleTime:0,
     refetchOnWindowFocus:true,
   });
-  const actSettingsKpi:number = actSettingsData?.kpiActivityDefault ?? 30;
+  // Prioritas: (1) kpiDefault dari activity API response (sama-sama baca DB, satu fetch)
+  //            (2) kpiActivityDefault dari settings API (fallback jika activity belum loaded)
+  //            (3) hardcoded 30 (last resort)
+  const actSettingsKpi:number = (data as any)?.kpiDefault ?? actSettingsData?.kpiActivityDefault ?? 30;
   const actEffectiveMonths = filterMonths.size > 0 ? filterMonths.size : 12;
 
   const amList = useMemo(()=>{

@@ -131,6 +131,7 @@ router.get("/activity", requireAuth, async (req, res): Promise<void> => {
 
   res.json({
     totalKpiActivities,
+    kpiDefault,
     masterAms,
     byAm,
     distinctLabels: [...distinctLabels].sort(),

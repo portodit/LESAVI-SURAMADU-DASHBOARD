@@ -719,7 +719,7 @@ export default function ActivityPage() {
     queryFn: () => apiFetch<{ kpiActivityDefault: number }>("/api/settings"),
     staleTime: 0,
   });
-  const settingsKpi = settingsData?.kpiActivityDefault ?? 30;
+  const settingsKpi = (data as any)?.kpiDefault ?? settingsData?.kpiActivityDefault ?? 30;
 
   const effectiveMonths = filterMonths.size > 0 ? filterMonths.size : 12;
 
